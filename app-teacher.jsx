@@ -584,10 +584,106 @@ import { ATT_STATUS, BxhScoreEditor, EMPTY_LIST, GroupSettingsModal, Icon, THEME
         }
 
 
+
+        // Ngưỡng cảnh báo: câu có hơn 70% học sinh làm sai
+        const HARD_WRONG_PCT = 70;
+
+        // Modal xem chi tiết bài làm của 1 học sinh: trắc nghiệm trước, tự luận sau
+        function SubDetailModal({ hw, row, rateMap, canGrade, onOpenPhotos, onClose }) {
+            const qs = hw.questions || [];
+            const my = row.answers || [];
+            const psgs = Array.isArray(hw.passages) ? hw.passages : [];
+            const mcq = [], essayQs = [];
+            qs.forEach((q, i) => (q.kind === 'essay' ? essayQs : mcq).push({ q, i }));
+            const state = (i, q) => { const a = my[i]; return (a === undefined || a === null || a < 0) ? 'none' : (a === q.c ? 'ok' : 'bad'); };
+            const okN = mcq.filter(({ q, i }) => state(i, q) === 'ok').length;
+            const noneN = mcq.filter(({ q, i }) => state(i, q) === 'none').length;
+            const hasPh = photoCountOf(row) > 0;
+            const shownPsg = new Set();
+            const wrongTag = (i) => {
+                const pc = rateMap[i];
+                if (pc === undefined) return null;
+                const wrong = 100 - pc;
+                return wrong > HARD_WRONG ? <span className="text-[11px] font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">({wrong}% học sinh sai)</span> : null;
+            };
+            const psgBox = (q) => {
+                const k = q.p;
+                if (typeof k !== 'number' || typeof psgs[k] !== 'string' || !psgs[k] || shownPsg.has(k)) return null;
+                shownPsg.add(k);
+                return (<div key={'psg' + k} className="mb-2 bg-amber-50 border border-amber-200 rounded-xl p-3"><p className="text-[11px] font-bold text-amber-700 mb-1">📖 Đoạn văn dùng chung</p><div className="text-xs text-slate-700 whitespace-pre-wrap break-words leading-relaxed">{psgs[k]}</div></div>);
+            };
+            useEffect(() => {
+                const h = (e) => { if (e.key === 'Escape') { e.stopPropagation(); onClose(); } };
+                window.addEventListener('keydown', h, true);
+                return () => window.removeEventListener('keydown', h, true);
+            }, []);
+            return (
+                <div className="fixed inset-0 bg-slate-900/60 z-[55] flex items-center justify-center p-2 sm:p-4" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+                    <div className="bg-white rounded-2xl w-full max-w-3xl h-[92vh] flex flex-col overflow-hidden shadow-2xl">
+                        <div className="shrink-0 px-4 sm:px-6 py-3 border-b border-slate-100 flex justify-between items-start gap-3">
+                            <div className="min-w-0">
+                                <h4 className="font-bold text-slate-900 truncate">{row.name} <span className="text-xs font-normal text-slate-400">• {row.cls}</span></h4>
+                                <p className="text-xs text-slate-500 mt-0.5">Trắc nghiệm: <b className="text-emerald-700">{okN}/{mcq.length}</b> đúng{noneN > 0 && <> • <span className="text-amber-600">{noneN} câu bỏ trống</span></>}{essayQs.length > 0 && <> • {essayQs.length} câu tự luận</>}</p>
+                            </div>
+                            <button type="button" onClick={onClose} className="shrink-0 w-9 h-9 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 text-lg" aria-label="Đóng">✕</button>
+                        </div>
+                        <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar px-4 sm:px-6 py-4 space-y-3">
+                            {mcq.length > 0 && <p className="text-xs font-bold text-slate-700">Phần trắc nghiệm ({mcq.length} câu)</p>}
+                            {mcq.map(({ q, i }) => {
+                                const st = state(i, q);
+                                return (
+                                    <React.Fragment key={i}>
+                                        {psgBox(q)}
+                                        <div className={'rounded-xl border p-3 ' + (st === 'ok' ? 'border-emerald-200 bg-emerald-50/40' : st === 'bad' ? 'border-red-200 bg-red-50/40' : 'border-amber-200 bg-amber-50/40')}>
+                                            <p className="text-sm font-bold text-slate-800 whitespace-pre-wrap break-words">Câu {i + 1}: {q.q} {wrongTag(i)}</p>
+                                            <div className="mt-2 space-y-1">
+                                                {(q.a || []).map((o, j) => {
+                                                    const chosen = my[i] === j, right = j === q.c;
+                                                    return (
+                                                        <div key={j} className={'text-xs px-2.5 py-1.5 rounded-lg border ' + (right ? 'bg-emerald-100 border-emerald-300 text-emerald-800 font-semibold' : chosen ? 'bg-red-100 border-red-300 text-red-700 font-semibold' : 'bg-white border-slate-200 text-slate-600')}>
+                                                            {'ABCD'[j]}. {o}{right && ' ✓'}{chosen && !right && ' ✗ (HS chọn)'}{chosen && right && ' (HS chọn)'}
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                            {st === 'none' && <p className="text-[11px] font-bold text-amber-600 mt-1.5">Học sinh chưa trả lời câu này.</p>}
+                                            {q.e && <p className="text-[11px] text-slate-500 mt-1.5">💡 {q.e}</p>}
+                                        </div>
+                                    </React.Fragment>
+                                );
+                            })}
+                            {essayQs.length > 0 && (
+                                <div className="pt-2 space-y-3">
+                                    <div className="flex items-center justify-between gap-2">
+                                        <p className="text-xs font-bold text-slate-700">Phần tự luận ({essayQs.length} câu)</p>
+                                        {hasPh
+                                            ? <button type="button" onClick={onOpenPhotos} className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-lg">📷 Xem {photoCountOf(row)} ảnh bài làm{canGrade ? ' & chấm' : ''}</button>
+                                            : <span className="text-[11px] text-slate-400">Học sinh không có ảnh bài làm</span>}
+                                    </div>
+                                    {essayQs.map(({ q, i }) => (
+                                        <div key={i}>
+                                            {psgBox(q)}
+                                            <div className="rounded-xl border border-indigo-200 bg-indigo-50/50 p-3">
+                                                <p className="text-sm font-bold text-slate-800 whitespace-pre-wrap break-words">Câu {i + 1} (Tự luận){q.q ? ': ' + q.q : ''} {wrongTag(i)}</p>
+                                                {(q.images || []).map((im, k) => <img key={k} src={im} alt="" className="w-full mt-2 rounded-lg border border-indigo-200" />)}
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {row.graded && <p className="text-xs bg-emerald-50 text-emerald-700 rounded-lg px-3 py-2">Điểm đã chấm: <b>{Number(row.score) || 0}/100</b>{row.feedback ? ' — ' + row.feedback : ''}</p>}
+                                </div>
+                            )}
+                            {qs.length === 0 && <p className="text-center text-xs text-slate-400 py-8">Bài tập không có câu hỏi.</p>}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
         function HwResultsImpl({ hw, subs, students, user, onClose }) {
             const essay = isEssayHw(hw);
             const canGrade = essay && !!user && hw.teacherId === user.id;
             const [viewUid, setViewUid] = useState(null);
+            const [detailUid, setDetailUid] = useState(null);   // học sinh đang xem chi tiết bài làm
             const [filter, setFilter] = useState('all');
             const [q, setQ] = useState('');
             const zeroed = useRef(new Set());
@@ -614,6 +710,8 @@ import { ATT_STATUS, BxhScoreEditor, EMPTY_LIST, GroupSettingsModal, Icon, THEME
             const qRates = (hw.type !== 'essay' && (hw.questions || []).length > 0 && rows.length > 0)
                 ? hw.questions.map((qq, i) => (qq.kind === 'essay' ? null : { i, pc: Math.round(rows.filter((r) => r.answers && r.answers[i] === qq.c).length / rows.length * 100) })).filter(Boolean)
                 : [];
+            const rateMap = {}; qRates.forEach(({ i, pc }) => { rateMap[i] = pc; });
+            const detailRow = detailUid ? rows.find((r) => r.uid === detailUid) : null;
             // Bài 'timeout' => tự động ghi score: 0 vào Firestore (chỉ giáo viên đăng bài thực hiện; hiển thị luôn là 0đ)
             useEffect(() => {
                 if (!canGrade) return;
@@ -628,10 +726,10 @@ import { ATT_STATUS, BxhScoreEditor, EMPTY_LIST, GroupSettingsModal, Icon, THEME
             }, [rows.map((r) => r.uid + ':' + r.status + ':' + r.graded + ':' + r.score).join('|')]);
             // Phím Esc đóng bảng kết quả (khi đang mở ảnh chấm bài thì Esc chỉ đóng ảnh)
             useEffect(() => {
-                const h = (e) => { if (e.key === 'Escape' && !viewUid) onClose(); };
+                const h = (e) => { if (e.key === 'Escape' && !viewUid && !detailUid) onClose(); };
                 window.addEventListener('keydown', h);
                 return () => window.removeEventListener('keydown', h);
-            }, [viewUid]);
+            }, [viewUid, detailUid]);
             const afterSave = (uid) => { const nx = rows.find((r) => r.uid !== uid && needsGrade(r) && photoCountOf(r) > 0); setViewUid(nx ? nx.uid : null); };
             // Quyền riêng: chỉ giáo viên đăng bài tập mới xem được kết quả của bài đó
             if (!user || hw.teacherId !== user.id) return null;
@@ -645,11 +743,12 @@ import { ATT_STATUS, BxhScoreEditor, EMPTY_LIST, GroupSettingsModal, Icon, THEME
                     {!timeout && n > 0 && <span className="text-[10px] font-bold text-indigo-600">📷 {n} ảnh</span>}
                     {!timeout && essay && r.graded && <span className="text-[10px] font-bold text-emerald-600">• Đã chấm</span>}
                     {!timeout && r.auto && <span className="text-[10px] text-slate-400">• tự nộp</span>}
+                    {!timeout && (hw.questions || []).length > 0 && <span role="button" tabIndex={0} onClick={(e) => { e.stopPropagation(); setDetailUid(r.uid); }} onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); setDetailUid(r.uid); } }} className="text-[10px] font-bold bg-orange-500 hover:bg-orange-600 text-white px-2 py-0.5 rounded cursor-pointer">Xem chi tiết</span>}
                 </>);
             };
             const statCard = 'rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 min-w-0';
             return (
-                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4 lg:p-6" onMouseDown={(e) => { if (e.target === e.currentTarget && !sel) onClose(); }}>
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4 lg:p-6" onMouseDown={(e) => { if (e.target === e.currentTarget && !sel && !detailRow) onClose(); }}>
                     <div className="bg-white rounded-2xl w-full max-w-6xl h-[92vh] lg:h-[88vh] flex flex-col overflow-hidden shadow-2xl">
                         {/* Đầu bảng: tiêu đề + số liệu tổng quan */}
                         <div className="shrink-0 px-4 sm:px-6 pt-4 pb-3 border-b border-slate-100 space-y-3">
@@ -702,11 +801,11 @@ import { ATT_STATUS, BxhScoreEditor, EMPTY_LIST, GroupSettingsModal, Icon, THEME
                                     {filter !== 'missing' && shown.map((r) => {
                                         const timeout = isLate(r);
                                         const hasPh = photoCountOf(r) > 0;
-                                        const Row = hasPh ? 'button' : 'div';
+                                        const Row = 'div';
                                         const scoreText = timeout ? '0đ' : r.graded ? (Number(r.score) || 0) + '/100' : essay ? 'Chờ chấm' : r.score + '/' + r.total;
                                         const scoreCls = timeout ? 'text-red-500' : r.graded ? 'text-emerald-700' : 'text-amber-700';
                                         return (
-                                            <Row key={r.uid} type={hasPh ? 'button' : undefined} onClick={hasPh ? () => setViewUid(r.uid) : undefined}
+                                            <Row key={r.uid} role={hasPh ? 'button' : undefined} tabIndex={hasPh ? 0 : undefined} onKeyDown={hasPh ? (e) => { if (e.key === 'Enter' && e.target === e.currentTarget) setViewUid(r.uid); } : undefined} onClick={hasPh ? () => setViewUid(r.uid) : undefined}
                                                 className={gridCls + ' w-full px-4 sm:px-6 py-2.5 border-b border-slate-100 text-sm text-left ' + (hasPh ? 'hover:bg-amber-50 cursor-pointer ' : '') + (needsGrade(r) ? 'bg-amber-50/40' : '')}>
                                                 <span className="min-w-0">
                                                     <span className="block font-medium text-slate-800 truncate">{r.name}<span className="md:hidden text-xs font-normal text-slate-400"> • {r.cls}</span></span>
@@ -733,9 +832,9 @@ import { ATT_STATUS, BxhScoreEditor, EMPTY_LIST, GroupSettingsModal, Icon, THEME
                             {qRates.length > 0 && (
                                 <aside className="lg:w-72 xl:w-80 shrink-0 border-t lg:border-t-0 lg:border-l border-slate-100 bg-slate-50/60 p-4 lg:overflow-y-auto custom-scrollbar">
                                     <p className="text-xs font-bold text-slate-700">Tỉ lệ làm đúng từng câu</p>
-                                    <p className="text-[10px] text-slate-400 mb-2">Câu dưới 50% màu đỏ — cần ôn lại</p>
+                                    <p className="text-[10px] text-slate-400 mb-2">Câu dưới 50% màu đỏ — cần ôn lại. Chữ đỏ đậm: hơn {HARD_WRONG}% học sinh sai</p>
                                     {qRates.map(({ i, pc }) => (
-                                        <div key={i} className="flex items-center gap-2 text-[11px] mb-1.5"><span className="w-10 shrink-0">Câu {i + 1}</span>
+                                        <div key={i} className="flex items-center gap-2 text-[11px] mb-1.5"><span className={'w-10 shrink-0 ' + (100 - pc > HARD_WRONG ? 'text-red-600 font-bold' : '')}>Câu {i + 1}</span>
                                             <div className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden"><div style={{ width: pc + '%' }} className={'h-full ' + (pc < 50 ? 'bg-red-400' : 'bg-emerald-500')}></div></div>
                                             <span className="w-9 text-right font-semibold">{pc}%</span></div>
                                     ))}
@@ -743,6 +842,7 @@ import { ATT_STATUS, BxhScoreEditor, EMPTY_LIST, GroupSettingsModal, Icon, THEME
                             )}
                         </div>
                     </div>
+                    {detailRow && !sel && <SubDetailModal hw={hw} row={detailRow} rateMap={rateMap} canGrade={canGrade} onOpenPhotos={() => setViewUid(detailRow.uid)} onClose={() => setDetailUid(null)} />}
                     {sel && <EssayPhotoViewer key={sel.uid} hw={hw} row={sel} canGrade={canGrade} user={user} onClose={() => setViewUid(null)} onSaved={afterSave} />}
                 </div>
             );
