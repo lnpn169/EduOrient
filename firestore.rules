@@ -1,0 +1,633 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // authed(): có phiên đăng nhập BẤT KỲ (kể cả ẩn danh của Cổng Phụ huynh). Dùng cho dữ liệu dùng chung (assignments, bxh, bxhScores, profiles).
+    function authed() { return request.auth != null; }
+    // Phiên ẩn danh (Cổng Phụ huynh gọi signInAnonymously)
+    function isAnon() { return authed() && request.auth.token.firebase.sign_in_provider == 'anonymous'; }
+    // signedIn(): tài khoản THẬT (Google / email) - phiên ẩn danh KHÔNG được tính, nên phụ huynh không đọc được bảng tin, chat, sổ mã HS...
+    function signedIn() { return authed() && !isAnon(); }
+    // Liên kết Phụ huynh <-> Học sinh: parentLinks/{uid phiên ẩn danh} = { studentUid, studentId, email, createdAt } (xem match /parentLinks bên dưới)
+    function parentLinkPath() { return /databases/$(database)/documents/parentLinks/$(request.auth.uid); }
+    function isParentOf(sid) { return authed() && exists(parentLinkPath()) && get(parentLinkPath()).data.studentUid == sid; }
+    function myUser() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
+    function isAdmin() {
+      return signedIn() && request.auth.token.email.lower() in ['lykhoilinh@gmail.com', 'iemmchyy@gmail.com'] && request.auth.token.email_verified == true;
+    }
+    function isTeacher() { return signedIn() && myUser().role == 'teacher' && myUser().status == 'approved'; }
+    // Môn học giảng dạy hợp lệ (Chương trình GDPT 2018) và mã tỉnh/thành (vd: 'lao-cai')
+    function validSubject(s) { return s is string && s in ['', 'Toán', 'Ngữ văn', 'Tiếng Anh', 'Lịch sử', 'Địa lí', 'Giáo dục kinh tế và pháp luật', 'Vật lí', 'Hóa học', 'Sinh học', 'Công nghệ', 'Tin học', 'Giáo dục thể chất', 'Giáo dục quốc phòng và an ninh', 'Âm nhạc', 'Mỹ thuật', 'Hoạt động trải nghiệm, hướng nghiệp', 'Giáo dục địa phương']; }
+    function validProvince(p) { return p is string && p.size() > 0 && p.size() <= 40; }
+    // Mã học sinh (ID): 3-20 ký tự, chữ HOA / số / . _ -  (client tự chuẩn hóa về chữ HOA)
+    function validStudentId(s) { return s is string && s.matches('^[A-Z0-9._-]{3,20}$'); }
+    // Mã học sinh DUY NHẤT: mỗi mã có 1 document studentIds/{MÃ} = { uid }. Document chỉ tạo được 1 lần (đã tồn tại -> bị từ chối)
+    // nên hai tài khoản không thể cùng giữ một mã. Việc gán studentId vào users/{uid} bắt buộc đi kèm đăng ký mã (ghi cùng 1 batch - getAfter).
+    function sidRegOk(id) { return id is string && getAfter(/databases/$(database)/documents/studentIds/$(id)).data.uid == request.auth.uid; }
+
+    // Tài khoản: chỉ admin duyệt/khóa giáo viên
+    match /users/{uid} {
+      allow read: if isAdmin() || (signedIn() && request.auth.uid == uid);
+      // Bước 9B: tra cứu giáo viên theo email (query BẮT BUỘC kèm role == 'teacher' và status == 'approved').
+      // Tra cứu theo email (thêm thành viên nhóm): người đã đăng nhập được query where('email','==',...) NHƯNG BẮT BUỘC kèm .limit(1)
+      // (không thể liệt kê hàng loạt). Truy vấn giáo viên đã duyệt kiểu cũ (role + status) vẫn hợp lệ.
+      // Cổng Phụ huynh: phiên ẩn danh KHÔNG còn được tra cứu (list) users. Chỉ phụ huynh ĐÃ nhập đúng OTP (có parentLinks) mới get được hồ sơ ĐÚNG con mình.
+      allow get: if isParentOf(uid);
+      allow list: if signedIn() && (
+        request.query.limit <= 1
+        || (resource.data.role == 'teacher' && resource.data.status == 'approved'));
+      // Quản trị viên (email trong isAdmin) tự khởi tạo hồ sơ role 'admin' của chính mình khi đăng nhập lần đầu
+      allow create: if isAdmin() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['email','name','role','status','updatedAt'])
+        && request.resource.data.role == 'admin' && request.resource.data.status == 'approved'
+        && request.resource.data.email == request.auth.token.email;
+      allow create: if signedIn() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['email','name','school','subject','province','role','status','createdAt','studentId'])
+        && (!('studentId' in request.resource.data) || (request.resource.data.role == 'student' && validStudentId(request.resource.data.studentId) && sidRegOk(request.resource.data.studentId)))
+        && (!('subject' in request.resource.data) || (request.resource.data.role == 'teacher' && validSubject(request.resource.data.subject)))
+        && (!('province' in request.resource.data) || (request.resource.data.role == 'teacher' && validProvince(request.resource.data.province)))
+        && request.resource.data.email == request.auth.token.email
+        && ((request.resource.data.role == 'student' && request.resource.data.status == 'approved')
+         || (request.resource.data.role == 'teacher' && request.resource.data.status == 'pending'));
+      allow update: if isAdmin()
+        || (signedIn() && request.auth.uid == uid
+            && resource.data.role == 'teacher' && resource.data.status == 'approved'
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['school','subject','province'])
+            && request.resource.data.school is string
+            && request.resource.data.school.size() >= 3 && request.resource.data.school.size() <= 80
+            && (!('subject' in request.resource.data) || validSubject(request.resource.data.subject))
+            && (!('province' in request.resource.data) || validProvince(request.resource.data.province)));
+      // Học sinh: tự cập nhật Mã học sinh (ID) DUY NHẤT MỘT LẦN khi chưa có (tài khoản cũ) - không đụng trường nào khác, không tự sửa lại về sau
+      allow update: if signedIn() && request.auth.uid == uid
+        && resource.data.role == 'student'
+        && resource.data.get('studentId', '') == ''
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['studentId'])
+        && validStudentId(request.resource.data.studentId)
+        && sidRegOk(request.resource.data.studentId);
+      // Học sinh: chuyển Mã học sinh cũ (có chữ thường) sang IN HOA - chỉ được đổi đúng thành bản viết hoa của chính mã đó, không đổi sang mã khác
+      allow update: if signedIn() && request.auth.uid == uid
+        && resource.data.role == 'student'
+        && resource.data.get('studentId', '') != ''
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['studentId'])
+        && request.resource.data.studentId == resource.data.studentId.upper()
+        && validStudentId(request.resource.data.studentId)
+        && sidRegOk(request.resource.data.studentId);
+      // Học sinh: tự ghi / đổi Nguyện vọng Đại học của MÌNH vào users/{uid}.nguyenVong = { id, name } - không đụng trường nào khác
+      allow update: if signedIn() && request.auth.uid == uid
+        && resource.data.role == 'student'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['nguyenVong'])
+        && request.resource.data.nguyenVong is map
+        && request.resource.data.nguyenVong.keys().hasOnly(['id','name'])
+        && request.resource.data.nguyenVong.id is string && request.resource.data.nguyenVong.id.size() > 0 && request.resource.data.nguyenVong.id.size() <= 12
+        && request.resource.data.nguyenVong.name is string && request.resource.data.nguyenVong.name.size() > 0 && request.resource.data.nguyenVong.name.size() <= 120;
+      // Giáo viên đã duyệt: chỉ được ghi điểm chênh lệch BXH (adjustXp) của HỌC SINH - không đụng trường nào khác. (Admin đã có quyền ở trên)
+      // Tổng điểm BXH = XP từ các bài nộp + adjustXp (adjustXp có thể âm hoặc bằng 0 = không chỉnh tay).
+      allow update: if isTeacher() && resource.data.role == 'student'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['adjustXp','updatedBy','updatedAt'])
+        && request.resource.data.adjustXp is number
+        && request.resource.data.adjustXp >= -1000000 && request.resource.data.adjustXp <= 1000000
+        && request.resource.data.updatedBy == request.auth.uid
+        && request.resource.data.updatedAt == request.time;
+      // Tự xóa tài khoản của mình, hoặc Admin xóa tài khoản bất kỳ
+      allow delete: if isAdmin() || (signedIn() && request.auth.uid == uid);
+    }
+
+    // Sổ đăng ký Mã học sinh (chống trùng): studentIds/{MÃ IN HOA} = { uid }
+    //  - get: người đã đăng nhập kiểm tra 1 mã đã có người dùng chưa (không cho liệt kê hàng loạt)
+    //  - create: chỉ khi mã CHƯA tồn tại, uid là của mình, và hồ sơ users/{uid} (sau thao tác) đang giữ đúng mã này
+    //  - không cho sửa; xóa: chủ mã (khi tự xóa tài khoản) hoặc Admin
+    match /studentIds/{sid} {
+      allow get: if signedIn();
+      allow create: if signedIn() && validStudentId(sid)
+        && request.resource.data.keys().hasOnly(['uid'])
+        && request.resource.data.uid == request.auth.uid
+        && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '') == 'student'
+        && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('studentId', '') == sid;
+      allow update: if false;
+      allow delete: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
+    }
+
+    // Bản sao công khai điểm chênh lệch BXH (adjustXp) do Admin / Giáo viên đặt (để BXH của mọi người đọc được). Nguồn gốc: users/{uid}.adjustXp
+    // Tổng điểm BXH hiển thị = (tổng XP từ các bài nộp) + adjustXp
+    match /bxhScores/{uid} {
+      allow read: if authed();
+      allow create, update: if (isAdmin() || isTeacher())
+        && get(/databases/$(database)/documents/users/$(uid)).data.role == 'student'   // 1 lần get (document không tồn tại => get lỗi => từ chối, giống exists() cũ)
+        && request.resource.data.keys().hasOnly(['adjustXp','updatedBy','updatedAt'])
+        && request.resource.data.adjustXp is number
+        && request.resource.data.adjustXp >= -1000000 && request.resource.data.adjustXp <= 1000000
+        && request.resource.data.updatedBy == request.auth.uid
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if isAdmin() || isTeacher();
+    }
+
+    // ===== BXH tổng hợp: bxh/summary = { users: { uid: {...} } } =====
+    function selfOnlyEntry() {
+      let me = request.auth.uid;
+      let oldE = resource.data.get('users', {}).get(me, {});
+      let newE = request.resource.data.users[me];
+      return request.resource.data.users.diff(resource.data.get('users', {})).affectedKeys().hasOnly([me])
+        && newE.keys().hasOnly(['n','c','s','sn','u','un','xp','d','adj'])
+        && newE.xp is number && newE.xp >= 0 && newE.xp <= 10000000
+        && newE.get('adj', 0) == oldE.get('adj', 0);          // học sinh KHÔNG được tự sửa adj
+    }
+    match /bxh/{doc} {
+      allow read: if authed();   // Phụ huynh dùng phiên ẩn danh nên vẫn tính được hạng
+      allow create: if signedIn() && doc == 'summary'
+        && request.resource.data.keys().hasOnly(['users'])
+        && (request.resource.data.users.keys().hasOnly([request.auth.uid]) || isAdmin() || isTeacher());
+      allow update: if signedIn() && doc == 'summary'
+        && request.resource.data.keys().hasOnly(['users'])
+        && ((request.auth.uid in request.resource.data.users && selfOnlyEntry()) || isAdmin() || isTeacher());   // học sinh: không tốn get(); admin: không tốn get(); chỉ giáo viên mới tốn 1 get
+      allow delete: if false;
+    }
+
+    // ===== Ảnh bài làm tự luận tách riêng khỏi submissions =====
+    match /subPhotos/{id} {
+      allow read: if isAdmin()
+        || (signedIn() && resource.data.uid == request.auth.uid)
+        || (isTeacher() && hwDoc(resource.data.hwId).teacherId == request.auth.uid);
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['uid','hwId','photos','createdAt'])
+        && request.resource.data.uid == request.auth.uid
+        && id == request.resource.data.hwId + '_' + request.auth.uid
+        && request.resource.data.photos is list
+        && request.resource.data.photos.size() >= 1 && request.resource.data.photos.size() <= 6
+        && request.resource.data.createdAt == request.time
+        // phải đi kèm đúng 1 bài nộp (cùng batch) có photoCount khớp
+        && getAfter(/databases/$(database)/documents/submissions/$(id)).data.get('photoCount', 0) == request.resource.data.photos.size();
+      allow update, delete: if false;
+    }
+
+    // Vai trò trong hồ sơ phải khớp users/{uid} (1 lần get duy nhất); giáo viên phải đã được duyệt
+    function profileRoleOk() {
+      let mu = myUser();
+      return request.resource.data.role == mu.role && (mu.role == 'student' || mu.status == 'approved');
+    }
+
+    // Hồ sơ công khai (tên, lớp, ảnh, nguyện vọng) - ai đã đăng nhập cũng xem được
+    match /profiles/{uid} {
+      allow read: if authed();
+      allow create, update: if signedIn() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['name','cls','level','role','avatar','subject','school','province','targetSchoolId','targetSchoolName','uniId','uniName','isPrivate','schoolChangeCharges','lastSchoolChangeTime','majors'])
+        // Ngành học HS đang aim (bản công khai cho Cổng Phụ huynh): tối đa 3 ngành
+        && (!('majors' in request.resource.data) || (request.resource.data.majors is list && request.resource.data.majors.size() <= 3))
+        // Lượt đổi trường / nguyện vọng: số nguyên 0..2, mốc thời gian (ms) không âm
+        && (!('schoolChangeCharges' in request.resource.data) || (request.resource.data.schoolChangeCharges is int && request.resource.data.schoolChangeCharges >= 0 && request.resource.data.schoolChangeCharges <= 2))
+        && (!('lastSchoolChangeTime' in request.resource.data) || (request.resource.data.lastSchoolChangeTime is number && request.resource.data.lastSchoolChangeTime >= 0))
+        && (!('uniId' in request.resource.data) || request.resource.data.uniId == null || (request.resource.data.uniId is string && request.resource.data.uniId.size() <= 12))
+        && (!('uniName' in request.resource.data) || request.resource.data.uniName == null || (request.resource.data.uniName is string && request.resource.data.uniName.size() <= 120))
+        && profileRoleOk()
+        && (!('subject' in request.resource.data) || validSubject(request.resource.data.subject))
+        && (!('province' in request.resource.data) || (request.resource.data.role == 'teacher' && validProvince(request.resource.data.province)))
+        && (!('isPrivate' in request.resource.data) || (request.resource.data.isPrivate is bool && request.resource.data.role == 'teacher'))
+        // Avatar: chuỗi rỗng hoặc ẢNH Base64 hợp lệ (data:image/jpeg|png|webp;base64,...) < 60KB - chặn chuỗi lạ chèn mã độc (XSS) vào thẻ <img> của người xem
+        && (!('avatar' in request.resource.data) || (request.resource.data.avatar is string && request.resource.data.avatar.size() < 60000
+            && (request.resource.data.avatar == '' || request.resource.data.avatar.matches('^data:image/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$'))));
+      // Quản trị viên bật/tắt "ẩn danh" của giáo viên: chỉ được đổi ĐÚNG trường isPrivate (kiểu bool), không đụng trường nào khác
+      // (không ràng buộc role của hồ sơ: hồ sơ cũ thiếu role vẫn bật/tắt được; vẫn chỉ cho đổi đúng 1 trường isPrivate)
+      allow update: if isAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isPrivate'])
+        && request.resource.data.isPrivate is bool;
+      allow delete: if isAdmin() || (signedIn() && request.auth.uid == uid);
+    }
+
+    // Ảnh thẻ giáo viên: chỉ chủ tài khoản và admin xem được
+    match /teacherCards/{uid} {
+      allow read: if isAdmin() || (signedIn() && request.auth.uid == uid);
+      allow write: if isTeacher() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['img']) && request.resource.data.img.size() < 400000;
+      allow delete: if isAdmin() || (signedIn() && request.auth.uid == uid);
+    }
+
+    // Kết quả phân tích điểm: RIÊNG TƯ, chỉ chủ tài khoản đọc/ghi
+    match /privates/{uid} {
+      allow read, write: if signedIn() && request.auth.uid == uid;
+      allow delete: if isAdmin();
+    }
+
+    // Ảnh bìa thẻ hồ sơ (bản sao công khai của privates.cover): chủ tài khoản ghi; chủ tài khoản + phụ huynh ĐÃ liên kết (OTP) chỉ get được đúng 1 học sinh
+    match /covers/{uid} {
+      allow get: if (signedIn() && request.auth.uid == uid) || isParentOf(uid);
+      allow create, update: if signedIn() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['cover', 'coverPos'])
+        && request.resource.data.cover is string && request.resource.data.cover.size() < 700000
+        && request.resource.data.cover.matches('^data:image/(jpeg|png|webp);base64,.*')
+        && (!('coverPos' in request.resource.data) || request.resource.data.coverPos is map);
+      allow delete: if signedIn() && request.auth.uid == uid;
+    }
+
+    // Bài tập: giáo viên đã duyệt đăng, chỉ chủ bài sửa/xóa
+    match /assignments/{id} {
+      allow read: if authed();
+      allow create: if isTeacher() && request.resource.data.teacherId == request.auth.uid
+        && request.resource.data.questions.size() > 0 && request.resource.data.questions.size() <= 100
+        && (!('type' in request.resource.data) || request.resource.data.type in ['quiz', 'essay', 'mixed']);
+      allow update, delete: if isTeacher() && resource.data.teacherId == request.auth.uid;
+    }
+
+    // ===== Hàm hỗ trợ cho bài tập có giờ làm bài / hạn nộp =====
+    function hwDoc(id) { return get(/databases/$(database)/documents/assignments/$(id)).data; }
+    function attPath(id) { return /databases/$(database)/documents/attempts/$(id + '_' + request.auth.uid); }
+    function durMin(h) { return ('durationMin' in h) ? h.durationMin : 0; }
+    function dlMs(h) { return ('deadlineMs' in h) ? h.deadlineMs : 0; }
+    function needsAttempt(h) { return durMin(h) > 0 || dlMs(h) > 0; }
+    // Bài tự luận / hỗn hợp: được gia hạn thêm 180 giây để chụp & tải ảnh bài làm
+    function graceSec(h) { return h.get('type', 'quiz') in ['essay', 'mixed'] ? 180 : 0; }
+    function isEssayType(h) { return h.get('type', 'quiz') in ['essay', 'mixed']; }
+    function notLate(h) { return dlMs(h) == 0 || request.time.toMillis() <= dlMs(h) + 30000 + graceSec(h) * 1000; }
+    function inTime(h, started) { return (durMin(h) == 0 || request.time <= started + duration.value(durMin(h) * 60 + 30 + graceSec(h), 's')) && notLate(h); }
+
+    // Phần kiểm tra bài nộp cần dữ liệu bài tập h (đã get 1 lần ở nơi gọi). Chỉ còn 1 get thêm cho attempts khi bài có giờ / hạn.
+    function subCreateOk(h) {
+      let d = request.resource.data;
+      return (!isEssayType(h) || (
+              d.get('status', '') in ['submitted', 'timeout']
+              && ((d.status == 'timeout' && d.photoCount == 0)
+                  || (d.status == 'submitted' && d.photoCount >= 1))))
+        && d.score <= h.questions.size() * 10   // mỗi câu trắc nghiệm đúng = 10 điểm
+        && (!needsAttempt(h)
+            || (exists(attPath(d.hwId))
+                && (d.answers == get(attPath(d.hwId)).data.answers
+                    || inTime(h, get(attPath(d.hwId)).data.startedAt))))
+        && (needsAttempt(h) || notLate(h));
+    }
+
+    // Bài nộp: mỗi học sinh nộp 1 lần/bài. Bài có giờ/hạn phải có mốc bắt đầu;
+    // nộp muộn chỉ được chấp nhận nếu đúng bằng các câu đã lưu trước khi hết giờ.
+    match /submissions/{id} {
+      // Chỉ: Admin / Giáo viên đã duyệt, hoặc CHÍNH học sinh nộp bài (uid hoặc studentId == auth.uid), hoặc Phụ huynh đã liên kết với học sinh đó.
+      // Query của học sinh BẮT BUỘC kèm .where('uid','==',auth.uid) (hoặc studentId).
+      allow read: if isAdmin() || isTeacher()
+        || (signedIn() && (resource.data.uid == request.auth.uid || resource.data.get('studentId', '') == request.auth.uid))
+        || isParentOf(resource.data.uid);
+      allow create: if signedIn() && request.resource.data.uid == request.auth.uid
+        && request.resource.data.keys().hasOnly(['uid','hwId','name','cls','score','total','answers','auto','createdAt','assignmentId','studentId','photoCount','status','submittedAt','quizXp','essayXp','totalXp'])
+        // --- các kiểm tra rẻ (không cần đọc document khác) chạy trước: nộp sai định dạng bị từ chối mà không tốn lượt đọc ---
+        // XP mới: quizXp = số câu đúng x 5 (score = số câu đúng x 10 => quizXp x 2 == score); essayXp = 0 lúc nộp; totalXp = quizXp + essayXp
+        && (!('quizXp' in request.resource.data) || (request.resource.data.quizXp is int && request.resource.data.quizXp >= 0 && (request.resource.data.get('status', '') == 'timeout' || request.resource.data.quizXp * 2 == request.resource.data.score)))
+        && (!('essayXp' in request.resource.data) || request.resource.data.essayXp == 0)
+        && (!('totalXp' in request.resource.data) || request.resource.data.totalXp == request.resource.data.get('quizXp', 0) + request.resource.data.get('essayXp', 0))
+        // Bài tự luận: tối đa 6 ảnh Base64
+        && (!('photoCount' in request.resource.data) || (request.resource.data.photoCount is int && request.resource.data.photoCount >= 0 && request.resource.data.photoCount <= 6))
+        && (!('assignmentId' in request.resource.data) || request.resource.data.assignmentId == request.resource.data.hwId)
+        && (!('studentId' in request.resource.data) || request.resource.data.studentId == request.auth.uid)
+        && id == request.resource.data.hwId + '_' + request.auth.uid
+        && request.resource.data.score is int && request.resource.data.score >= 0
+        // --- các kiểm tra cần bài tập: assignments/{hwId} chỉ get 1 lần, truyền vào subCreateOk(h) ---
+        && subCreateOk(hwDoc(request.resource.data.hwId));
+      // Giáo viên ĐĂNG bài tập (trắc nghiệm / tự luận / hỗn hợp) được chấm & sửa điểm + nhận xét (chỉ sửa các trường chấm bài).
+      // Bài 'timeout' chỉ được ghi 0 điểm. Điểm sửa tay: số từ 0 đến 100.
+      allow update: if isTeacher()
+        && hwDoc(resource.data.hwId).teacherId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['score','feedback','graded','gradedAt','gradedBy','mcqScore','autoZero','quizXp','essayXp','totalXp'])
+        // XP: essayXp 0..100 (= điểm GV chấm), totalXp = quizXp + essayXp
+        && (!('essayXp' in request.resource.data) || (request.resource.data.essayXp is number && request.resource.data.essayXp >= 0 && request.resource.data.essayXp <= 100))
+        && (!('quizXp' in request.resource.data) || (request.resource.data.quizXp is number && request.resource.data.quizXp >= 0 && request.resource.data.quizXp <= 100000))
+        && (!('totalXp' in request.resource.data) || request.resource.data.totalXp == request.resource.data.get('quizXp', 0) + request.resource.data.get('essayXp', 0))
+        && request.resource.data.score is number
+        && request.resource.data.score >= 0 && request.resource.data.score <= 100
+        && request.resource.data.graded == true
+        && request.resource.data.gradedBy == request.auth.uid
+        && (!('gradedAt' in request.resource.data) || request.resource.data.gradedAt == request.time)
+        && (!('feedback' in request.resource.data) || (request.resource.data.feedback is string && request.resource.data.feedback.size() <= 1000))
+        && (resource.data.get('status', '') != 'timeout' || request.resource.data.score == 0);
+      // Admin: sửa điểm trực tiếp (tab "Quản lý & Chỉnh sửa Điểm") - chỉ các trường chấm bài, điểm 0..100, đánh dấu adminEdited.
+      allow update: if isAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['score','graded','gradedAt','gradedBy','mcqScore','autoZero','adminEdited','quizXp','essayXp','totalXp'])
+        && (!('totalXp' in request.resource.data) || request.resource.data.totalXp == request.resource.data.get('quizXp', 0) + request.resource.data.get('essayXp', 0))
+        && request.resource.data.score is number
+        && request.resource.data.score >= 0 && request.resource.data.score <= 100
+        && request.resource.data.graded == true
+        && request.resource.data.adminEdited == true
+        && request.resource.data.gradedBy == request.auth.uid
+        && (!('gradedAt' in request.resource.data) || request.resource.data.gradedAt == request.time);
+      allow delete: if false;
+    }
+
+    // Mốc bắt đầu làm bài + đáp án đã chọn (để đồng hồ không đặt lại và chấm được khi hết giờ)
+    match /attempts/{id} {
+      allow read: if signedIn() && resource.data.uid == request.auth.uid;
+      allow create: if signedIn() && request.resource.data.uid == request.auth.uid
+        && request.resource.data.keys().hasOnly(['uid','hwId','startedAt','answers'])
+        && id == request.resource.data.hwId + '_' + request.auth.uid
+        && request.resource.data.startedAt == request.time
+        && request.resource.data.answers.size() == 0
+        && notLate(hwDoc(request.resource.data.hwId));
+      allow update: if signedIn() && resource.data.uid == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['answers'])
+        && inTime(hwDoc(resource.data.hwId), resource.data.startedAt);
+      allow delete: if false;
+    }
+
+    // ===== Liên kết Phụ huynh (phiên ẩn danh) <-> 1 học sinh, xác thực bằng MÃ OTP 6 SỐ do HỌC SINH tạo =====
+    // Học sinh tạo parentOtps/{MÃ HS} = { studentUid, code, createdAt } (xem match /parentOtps bên dưới). Mã sống 5 phút, dùng 1 lần.
+    // Luồng của phụ huynh (3 bước, phiên ẩn danh):
+    //   1) update parentOtps/{MÃ HS} { usedBy, tryCode }  -> rules ép: tryCode == code thật, còn hạn 5 phút, chưa ai dùng
+    //   2) get parentOtps/{MÃ HS}                         -> chỉ đọc được SAU khi usedBy == uid của mình; lấy studentUid
+    //   3) set parentLinks/{uid}                          -> parentLinkOk: OTP đã được CHÍNH phiên này dùng và studentUid khớp
+    // Nhờ vậy phụ huynh không cần (và không còn) quyền tra cứu bảng users.
+    function parentLinkOk() {
+      let d = request.resource.data;
+      let o = get(/databases/$(database)/documents/parentOtps/$(d.studentId)).data;
+      return d.keys().hasOnly(['studentUid','studentId','createdAt'])
+        && d.studentUid is string && d.studentId is string
+        && validStudentId(d.studentId)
+        && d.createdAt == request.time
+        && o.studentUid == d.studentUid
+        && o.get('usedBy', '') == request.auth.uid;
+    }
+    match /parentLinks/{pid} {
+      allow get: if authed() && request.auth.uid == pid;
+      allow create, update: if authed() && request.auth.uid == pid && parentLinkOk();
+      allow delete: if authed() && request.auth.uid == pid || isAdmin();
+    }
+
+    // Mã OTP cho Phụ huynh: học sinh tự tạo trong Cài đặt tài khoản. Phụ huynh KHÔNG đọc được (không get/list), chỉ "đánh dấu đã dùng" khi gửi đúng mã.
+    function studentOtpOk(sid) {
+      let d = request.resource.data;
+      return signedIn() && validStudentId(sid)
+        && myUser().role == 'student' && myUser().get('studentId', '') == sid
+        && d.keys().hasOnly(['studentUid','code','createdAt'])
+        && d.studentUid == request.auth.uid
+        && d.code is string && d.code.matches('^[0-9]{6}$')
+        && d.createdAt == request.time;
+    }
+    match /parentOtps/{sid} {
+      allow get: if signedIn() && resource.data.studentUid == request.auth.uid;
+      // Phụ huynh chỉ đọc được SAU khi chính phiên này đã nhập đúng mã (usedBy == uid) -> lấy studentUid để ghi parentLinks
+      allow get: if authed() && resource.data.get('usedBy', '') == request.auth.uid;
+      // Học sinh tạo / tạo lại mã (ghi đè -> mã cũ mất hiệu lực, cờ usedBy bị xóa)
+      allow create, update: if studentOtpOk(sid);
+      // Phụ huynh (phiên ẩn danh): chỉ được thêm {usedBy, tryCode}, và tryCode phải TRÙNG code thật; mã còn hạn 5 phút và chưa ai dùng
+      allow update: if authed()
+        && resource.data.get('usedBy', '') == ''
+        && request.time < resource.data.createdAt + duration.value(5, 'm')
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['usedBy','tryCode'])
+        && request.resource.data.usedBy == request.auth.uid
+        && request.resource.data.tryCode == resource.data.code;
+      allow delete: if (signedIn() && resource.data.studentUid == request.auth.uid) || isAdmin();
+    }
+
+    // Đồng hồ máy chủ (để đồng hồ đếm ngược đúng dù đồng hồ máy học sinh lệch)
+    match /clock/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow write: if signedIn() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['t']) && request.resource.data.t == request.time;
+    }
+
+    // Nhận xét học lực: giáo viên đã duyệt ghi, học sinh chỉ đọc nhận xét của mình
+    match /evaluations/{uid} {
+      // Học sinh đọc nhận xét của mình; Giáo viên / Admin đọc; Phụ huynh (đã liên kết) chỉ get được đúng 1 nhận xét của con
+      allow get: if isParentOf(uid);
+      allow read: if isAdmin() || isTeacher() || (signedIn() && request.auth.uid == uid);
+      allow write: if isTeacher() && request.resource.data.text.size() <= 500;
+    }
+
+    // Chuyên cần & nề nếp: 1 document / học sinh, days = { 'YYYY-MM-DD': 'present' | 'late' | 'excused' | 'unexcused' }, notes = { 'YYYY-MM-DD': 'ghi chú' }
+    // (bản sao theo học sinh, được đồng bộ từ attendances/{classId_date} khi giáo viên lưu điểm danh)
+    // Học sinh chỉ get được ĐÚNG document của mình; Phụ huynh (đã liên kết) chỉ get đúng document của con; Giáo viên đã duyệt / Admin đọc + ghi. Học sinh KHÔNG được ghi.
+    match /attendance/{uid} {
+      allow get: if isAdmin() || isTeacher() || (signedIn() && request.auth.uid == uid) || isParentOf(uid);
+      allow list: if isAdmin() || isTeacher();
+      allow create, update: if (isAdmin() || isTeacher())
+        && get(/databases/$(database)/documents/users/$(uid)).data.role == 'student'   // 1 lần get (document không tồn tại => get lỗi => từ chối, giống exists() cũ)
+        && request.resource.data.keys().hasOnly(['days','notes','updatedBy','updatedAt'])
+        && request.resource.data.days is map
+        && request.resource.data.days.size() <= 2000
+        && request.resource.data.days.values().hasOnly(['present','late','excused','unexcused','dayoff'])
+        && (!('notes' in request.resource.data) || (request.resource.data.notes is map && request.resource.data.notes.size() <= 2000))
+        && request.resource.data.updatedBy == request.auth.uid
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if isAdmin();
+    }
+
+    // ===== PHẦN 4: Điểm danh ngoại lệ theo lớp & ngày: attendances/{classId_date} =====
+    // Mặc định cả lớp "đủ"; chỉ lưu học sinh đi muộn / vắng:
+    //   { classId, date: 'YYYY-MM-DD', statuses: { uid: 'late'|'excused'|'unexcused' }, notes: { uid: 'ghi chú' }, studentUids: [uid], updatedBy, updatedAt }
+    // Giáo viên đã duyệt / Admin: đọc + ghi. Học sinh: chỉ đọc document có uid của MÌNH trong studentUids (query phải kèm array-contains uid của mình).
+    // Phụ huynh xem qua bản sao attendance/{uid} ở trên (cần parentLinks hợp lệ) - chỉ lấy được đúng 1 học sinh.
+    match /attendances/{id} {
+      allow read: if (isAdmin() || isTeacher()) || (signedIn() && request.auth.uid in resource.data.studentUids);
+      allow create, update: if (isAdmin() || isTeacher())
+        && request.resource.data.keys().hasOnly(['classId','date','isDayOff','statuses','notes','studentUids','updatedBy','updatedAt'])
+        && request.resource.data.classId is string && request.resource.data.classId.size() > 0 && request.resource.data.classId.size() <= 120
+        && request.resource.data.date is string && request.resource.data.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && id == request.resource.data.classId + '_' + request.resource.data.date
+        && request.resource.data.statuses is map
+        && request.resource.data.notes is map && request.resource.data.notes.size() <= 100
+        && request.resource.data.studentUids is list
+        && (
+          // Ngày nghỉ của lớp: isDayOff == true, không có học sinh vắng/muộn, studentUids = cả lớp (để đồng bộ sang attendance/{uid})
+          (request.resource.data.get('isDayOff', false) == true
+            && request.resource.data.statuses.size() == 0
+            && request.resource.data.studentUids.size() <= 300)
+          // Ngày học bình thường: chỉ lưu học sinh đi muộn / vắng
+          || (!('isDayOff' in request.resource.data)
+            && request.resource.data.statuses.size() >= 1 && request.resource.data.statuses.size() <= 100
+            && request.resource.data.statuses.values().hasOnly(['late','excused','unexcused'])
+            && request.resource.data.studentUids.size() == request.resource.data.statuses.size())
+        )
+        && request.resource.data.updatedBy == request.auth.uid
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if isAdmin() || isTeacher();
+    }
+
+    // ===== GVCN / GVBM: classes/{gid} (gid trùng groups/{gid} của lớp) =====
+    //   { gvcnUid, cls, schoolId, gvbmUids: [uid giáo viên bộ môn], updatedAt }
+    // Đọc: giáo viên đã duyệt / Admin. Ghi: Admin, hoặc GVCN thật của lớp (groups/{gid}.homeroomTeacherUid) - chỉ thêm / gỡ 1 GVBM mỗi lần.
+    function isClassHomeroom(cid) {
+      return isTeacher()
+        && get(/databases/$(database)/documents/groups/$(cid)).data.get('homeroomTeacherUid', '') == request.auth.uid;
+    }
+    function classShapeOk() {
+      return request.resource.data.keys().hasOnly(['gvcnUid','cls','schoolId','gvbmUids','updatedAt'])
+        && request.resource.data.gvcnUid == request.auth.uid
+        && request.resource.data.cls is string && request.resource.data.cls.size() > 0 && request.resource.data.cls.size() <= 40
+        && request.resource.data.schoolId is string && request.resource.data.schoolId.size() <= 200
+        && request.resource.data.gvbmUids is list && request.resource.data.gvbmUids.size() <= 30
+        && request.resource.data.updatedAt == request.time;
+    }
+    function gvbmChange() {
+      let oldM = resource.data.get('gvbmUids', []);
+      let newM = request.resource.data.gvbmUids;
+      return newM == oldM
+        || (newM.size() == oldM.size() + 1 && newM.hasAll(oldM) && isApprovedTeacherUid(newM[newM.size() - 1]))
+        || (newM.size() == oldM.size() - 1 && oldM.hasAll(newM));
+    }
+    match /classes/{cid} {
+      allow read: if isAdmin() || isTeacher();
+      allow create: if isAdmin() || (isClassHomeroom(cid) && classShapeOk()
+        && request.resource.data.gvbmUids.size() <= 1
+        && (request.resource.data.gvbmUids.size() == 0 || isApprovedTeacherUid(request.resource.data.gvbmUids[0])));
+      allow update: if isAdmin() || (isClassHomeroom(cid) && classShapeOk() && gvbmChange());
+      allow delete: if isAdmin();
+    }
+
+    // Bảng tin
+    match /posts/{id} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.uid == request.auth.uid
+        && request.resource.data.content is string && request.resource.data.content.size() <= 1000;
+      allow update: if isAdmin() || (signedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes','comments']));
+      allow delete: if signedIn() && (resource.data.uid == request.auth.uid || isAdmin());
+    }
+
+    // Nhắn tin: phòng 'class' cho cả lớp; tin riêng có id = uidA_uidB
+    match /chats/{cid}/msgs/{mid} {
+      allow read: if signedIn() && (cid == 'class' || request.auth.uid in cid.split('_'));
+      allow create: if signedIn() && (cid == 'class' || request.auth.uid in cid.split('_'))
+        && request.resource.data.from == request.auth.uid && request.resource.data.text.size() <= 500;
+      // Xóa lịch sử: Admin, hoặc 1 trong 2 người của cuộc trò chuyện riêng (phòng chung 'class' chỉ Admin)
+      allow delete: if isAdmin() || (signedIn() && cid != 'class' && request.auth.uid in cid.split('_'));
+    }
+
+    // ===== Bước 9A: Nhóm chat lớp =====
+    // groups/{gid}: nhóm do học sinh của lớp tự khởi tạo / tự tham gia (chỉ thêm CHÍNH MÌNH, và phải đúng lớp + trường trong hồ sơ)
+    function myProfile() { return get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data; }
+    function isGroupMember(gid) { return signedIn() && request.auth.uid in get(/databases/$(database)/documents/groups/$(gid)).data.members; }
+
+    function isApprovedTeacherUid(u) {
+      let d = get(/databases/$(database)/documents/users/$(u)).data;
+      return d.role == 'teacher' && d.status == 'approved';
+    }
+    function studentSelfJoin() {
+      return !(request.auth.uid in resource.data.members)
+        && request.auth.uid in request.resource.data.members
+        && request.resource.data.members.size() == resource.data.members.size() + 1
+        && request.resource.data.members.hasAll(resource.data.members)
+        && myProfile().cls == resource.data.cls
+        && myProfile().targetSchoolId == resource.data.schoolId;
+    }
+    // Giữ nguyên danh sách cũ, chỉ thêm đúng 1 uid ở cuối (arrayUnion) và uid đó phải là giáo viên đã duyệt
+    function memberAddsTeacher() {
+      let oldM = resource.data.members;
+      let newM = request.resource.data.members;
+      return request.auth.uid in oldM
+        && newM.size() == oldM.size() + 1
+        && newM[0:oldM.size()] == oldM
+        && isApprovedTeacherUid(newM[oldM.size()]);
+    }
+
+    // ===== Phân quyền GVCN & Lớp Trưởng =====
+    // Dùng trong match /msgs (resource là tin nhắn, nên đọc nhóm bằng get())
+    function isGroupStaff(gid) {   // GVCN (giáo viên đã duyệt) hoặc Lớp Trưởng của nhóm - chỉ 1 lần get groups/{gid}
+      let g = get(/databases/$(database)/documents/groups/$(gid)).data;
+      return (g.get('monitorUid', '') == request.auth.uid) || (g.get('homeroomTeacherUid', '') == request.auth.uid && isTeacher());
+    }
+
+    // Dùng trong match /groups/{gid} (resource là chính nhóm)
+    function isHomeroom() { return isTeacher() && resource.data.get('homeroomTeacherUid', '') == request.auth.uid; }
+    function isMonitor() { return resource.data.get('monitorUid', '') == request.auth.uid && request.auth.uid in resource.data.members; }
+    function changes(keys) { return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys); }
+
+    // Admin / GVCN / Lớp Trưởng thêm đúng 1 người vào cuối danh sách members
+    //  - Admin: học sinh hoặc giáo viên;  GVCN: học sinh hoặc giáo viên đã duyệt;  Lớp Trưởng: chỉ học sinh
+    function validStaffAdd() {
+      let oldM = resource.data.members;
+      let newM = request.resource.data.members;
+      let a = newM[oldM.size()];
+      let ad = get(/databases/$(database)/documents/users/$(a)).data;   // 1 lần get (không tồn tại => lỗi => từ chối, giống exists() cũ)
+      return newM.size() == oldM.size() + 1
+        && newM[0:oldM.size()] == oldM
+        && !(a in oldM)
+        && (isAdmin()
+            || (isHomeroom() && (ad.role == 'student' || (ad.role == 'teacher' && ad.status == 'approved')))
+            || (isMonitor() && ad.role == 'student'));
+    }
+    // Kick: client ghi { members: arrayRemove(uid), lastKickUid: uid }. Không kick chính mình / GVCN / Lớp Trưởng đương nhiệm.
+    //  - Admin, GVCN: kick học sinh hoặc giáo viên;  Lớp Trưởng: chỉ kick học sinh
+    function validKick() {
+      let oldM = resource.data.members;
+      let newM = request.resource.data.members;
+      let k = request.resource.data.get('lastKickUid', '');
+      return k is string && k in oldM && !(k in newM)
+        && newM.size() == oldM.size() - 1 && oldM.hasAll(newM)
+        && k != request.auth.uid
+        && k != resource.data.get('homeroomTeacherUid', '')
+        && k != resource.data.get('monitorUid', '')
+        && (isAdmin() || isHomeroom()
+            || (isMonitor() && get(/databases/$(database)/documents/users/$(k)).data.role == 'student'));
+    }
+    // Admin gán / đổi GVCN: chỉ sửa 'homeroomTeacherUid' (+ thêm đúng GVCN mới vào 'members')
+    function adminAssignsHomeroom() {
+      let oldM = resource.data.members;
+      let newM = request.resource.data.members;
+      let t = request.resource.data.homeroomTeacherUid;
+      return changes(['homeroomTeacherUid', 'members'])
+        && t is string && t.size() > 0
+        && isApprovedTeacherUid(t)
+        && t in newM
+        && newM.hasAll(oldM)
+        && newM.size() <= oldM.size() + 1;
+    }
+    // Phong / đổi / bãi nhiệm Lớp Trưởng ('' = bãi nhiệm): người được phong phải là học sinh trong nhóm
+    function validMonitorChange() {
+      let m = request.resource.data.monitorUid;
+      return m is string
+        && (m == '' || (m in resource.data.members
+                        && get(/databases/$(database)/documents/users/$(m)).data.role == 'student'));
+    }
+    // Ẩn bản thân: chỉ thêm / xóa đúng UID CỦA MÌNH trong 'hiddenMembers'
+    function validSelfHideChange() {
+      let me = request.auth.uid;
+      let oldH = resource.data.get('hiddenMembers', []);
+      let newH = request.resource.data.hiddenMembers;
+      return newH is list
+        && ((!(me in oldH) && me in newH && newH.size() == oldH.size() + 1 && newH.hasAll(oldH))
+            || (me in oldH && !(me in newH) && newH.size() == oldH.size() - 1 && oldH.hasAll(newH)));
+    }
+
+    match /groups/{gid} {
+           allow get: if signedIn() && (
+        isAdmin()
+        || resource == null
+        || request.auth.uid in resource.data.members
+        || (myUser().role == 'student'
+            && myProfile().cls == resource.data.cls
+            && myProfile().targetSchoolId == resource.data.schoolId));
+      allow list: if signedIn() && (isAdmin() || request.auth.uid in resource.data.members);
+      allow create: if signedIn() && myUser().role == 'student'
+        && request.resource.data.keys().hasOnly(['type','name','cls','schoolId','members','createdAt'])
+        && request.resource.data.type == 'class'
+        && request.resource.data.cls is string && request.resource.data.cls.size() > 0
+        && request.resource.data.schoolId is string && request.resource.data.schoolId.size() > 0
+        && request.resource.data.name == 'Nhóm Chat Lớp ' + request.resource.data.cls
+        && request.resource.data.members == [request.auth.uid]
+        && request.resource.data.createdAt == request.time
+        && myProfile().cls == request.resource.data.cls
+        && myProfile().targetSchoolId == request.resource.data.schoolId;
+
+      // Admin: toàn quyền cập nhật nhóm (thêm / xóa members, GVCN, Lớp Trưởng...) - không phụ thuộc nhóm đã có GVCN hay chưa
+      allow update: if isAdmin();
+
+      // GVCN / Lớp Trưởng / học sinh: mỗi vai trò chỉ được sửa ĐÚNG các trường của nó (không ai sửa được trường khác)
+      allow update: if signedIn() && resource.data.get('type', 'class') == 'class' && (
+        // Học sinh tự tham gia / thành viên mời giáo viên đã duyệt
+        (myUser().role == 'student' && changes(['members']) && (studentSelfJoin() || memberAddsTeacher()))
+        // Admin / GVCN / Lớp Trưởng: thêm thành viên bằng email
+        || (changes(['members']) && validStaffAdd())
+        // Admin / GVCN / Lớp Trưởng: kick thành viên
+        || (changes(['members', 'lastKickUid']) && validKick())
+        // Admin: gán / đổi GVCN
+        || (isAdmin() && adminAssignsHomeroom())
+        // Admin / GVCN: phong - đổi - bãi nhiệm Lớp Trưởng
+        || ((isAdmin() || isHomeroom()) && changes(['monitorUid']) && validMonitorChange())
+        // Thành viên: tự ẩn / hiện chính mình
+        || (request.auth.uid in resource.data.members && changes(['hiddenMembers']) && validSelfHideChange())
+      );
+      // Chỉ Admin được xóa nhóm lớp (client xóa hết tin nhắn trong /msgs trước, rồi xóa document nhóm)
+      allow delete: if isAdmin();
+
+      match /msgs/{mid} {
+        allow read: if isAdmin() || isGroupMember(gid);
+        allow create: if isGroupMember(gid)
+          && request.resource.data.from == request.auth.uid
+          && request.resource.data.text is string && request.resource.data.text.size() <= 500;
+        // Xóa: Admin, GVCN, Lớp Trưởng của nhóm, hoặc chính người gửi (xóa lịch sử = xóa từng tin)
+        allow delete: if isAdmin()
+          || (signedIn() && (resource.data.from == request.auth.uid || isGroupStaff(gid)));
+      }
+    }
+  }
+}

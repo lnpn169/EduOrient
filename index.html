@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EduOrient - Lnpn169</title>
+    <meta name="description" content="EduOrient - nền tảng học tập và định hướng nghề nghiệp cho học sinh THPT: làm bài tập, theo dõi chuyên cần, phân tích thế mạnh và gợi ý ngành, trường đại học.">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="EduOrient">
+    <meta property="og:title" content="EduOrient - Học tập & định hướng nghề nghiệp">
+    <meta property="og:description" content="EduOrient - nền tảng học tập và định hướng nghề nghiệp cho học sinh THPT: làm bài tập, theo dõi chuyên cần, phân tích thế mạnh và gợi ý ngành, trường đại học.">
+    <meta property="og:image" content="https://eduorient-d06c2.web.app/icon-512.png">
+    <meta name="twitter:card" content="summary">
+
+    <!-- Icon & PWA -->
+    <link rel="icon" type="image/png" href="icon-192.png">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <link rel="manifest" href="manifest.webmanifest">
+    <meta name="theme-color" content="#4361ee">
+    <!-- DARK MODE: áp dụng theme TRƯỚC khi vẽ trang (tránh nháy sáng). Khóa lưu: eduorient_theme = 'dark' | 'light' (dùng chung với trang học sinh) -->
+    <script>
+(function () {
+    // Khóa lưu: eduorient_theme = 'system' | 'dark' | 'light'  (không có giá trị = 'system'; dùng chung giữa trang giáo viên & học sinh)
+    var KEY = 'eduorient_theme', root = document.documentElement, lightMeta = null, mq = null;
+    try { mq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null; } catch (e) {}
+    function stored() { try { return localStorage.getItem(KEY); } catch (e) { return null; } }
+    function mode() { var s = stored(); return (s === 'dark' || s === 'light') ? s : 'system'; }
+    function wantDark() { var m = mode(); return m === 'dark' || (m === 'system' && !!(mq && mq.matches)); }
+    function sync() {
+        var d = root.classList.contains('dark');
+        var m = document.querySelector('meta[name="theme-color"]');
+        if (m) { if (lightMeta === null) lightMeta = m.getAttribute('content'); m.setAttribute('content', d ? '#182238' : lightMeta); }
+
+    }
+    function fire() { try { window.dispatchEvent(new Event('eduorient-theme')); } catch (e) {} }
+    function apply() { root.classList.toggle('dark', wantDark()); sync(); }
+    window.getThemeMode = mode;
+    window.isDarkMode = function () { return root.classList.contains('dark'); };
+    window.setThemeMode = function (m) {
+        m = (m === 'dark' || m === 'light') ? m : 'system';
+        try { localStorage.setItem(KEY, m); } catch (e) {}
+        apply(); fire();
+    };
+    window.setDark = function (d) { window.setThemeMode(d ? 'dark' : 'light'); };
+    window.toggleDark = function () { window.setDark(!root.classList.contains('dark')); };
+    apply();   // áp dụng TRƯỚC khi vẽ trang (tránh nháy sáng)
+    document.addEventListener('DOMContentLoaded', sync);
+    // Chế độ "Mặc định": tự đổi theo hệ thống ngay khi máy chuyển sáng/tối
+    if (mq) {
+        var onSys = function () { if (mode() === 'system') { apply(); fire(); } };
+        if (mq.addEventListener) mq.addEventListener('change', onSys); else if (mq.addListener) mq.addListener(onSys);
+    }
+    // Đồng bộ khi đổi giao diện ở tab/trang khác
+    window.addEventListener('storage', function (e) { if (e.key === KEY) { apply(); fire(); } });
+})();
+</script>
+
+    <!-- Font: tải song song, không chặn render -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+
+    <!-- Tailwind CSS (file tĩnh, build bằng CLI: npm run build:css) -->
+    <link rel="stylesheet" href="tailwind.min.css?v=07e3f846a9">
+
+    <!-- CSS riêng của app -->
+<link rel="stylesheet" href="index.css?v=e58cb98fc0">
+
+    <!-- Thư viện CDN: React (production), SweetAlert2.
+         Lucide: đã bỏ (icon là SVG nội tuyến trong app.jsx). JSZip: chỉ tải khi giáo viên bấm "Nhập đề từ file Word (.docx)". -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <script src="edu-common.js?v=0ec7397c40"></script>
+    <!-- TĂNG TƯƠNG PHẢN DARK MODE: khối riêng, nằm SAU #dark-theme nên không bị mất khi sinh lại khối đó -->
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col antialiased">
+    <div id="root"></div>
+
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+    <!-- type="module": bắt buộc để esbuild --splitting hoạt động; các chunk Giáo viên / Quản trị / Phụ huynh tự tải khi cần -->
+    <script type="module" src="app.min.js?v=0ea37526bc"></script>
+<script>
+  // Có bản mới: nếu người dùng đang ở tab khác thì tải lại âm thầm; nếu đang dùng thì hiện thanh "Cập nhật" (không làm mất dữ liệu đang nhập).
+  if ('serviceWorker' in navigator) {
+    var updateShown = false;
+    var onUpdateReady = function () {
+      if (updateShown) return;
+      updateShown = true;
+      if (document.hidden) { window.location.reload(); return; }
+      var bar = document.createElement('div');
+      bar.setAttribute('role', 'status');
+      bar.style.cssText = 'position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:99999;max-width:420px;margin:0 auto;padding:12px 14px;border-radius:14px;background:#1e293b;color:#fff;font:600 13px/1.4 system-ui,sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.35);display:flex;gap:10px;align-items:center;justify-content:space-between';
+      var msg = document.createElement('span'); msg.textContent = 'Có bản cập nhật mới của EduOrient.';
+      var btn = document.createElement('button'); btn.type = 'button'; btn.textContent = 'Cập nhật';
+      btn.style.cssText = 'border:0;border-radius:10px;padding:8px 14px;background:#6366f1;color:#fff;font:700 13px system-ui,sans-serif;cursor:pointer';
+      btn.onclick = function () { window.location.reload(); };
+      bar.appendChild(msg); bar.appendChild(btn); document.body.appendChild(bar);
+      // Người dùng chuyển sang tab khác -> tải lại lúc đó cho tiện
+      document.addEventListener('visibilitychange', function () { if (document.hidden) window.location.reload(); });
+    };
+    navigator.serviceWorker.register('sw.js').then(function (reg) {
+      reg.onupdatefound = function () {
+        var w = reg.installing;
+        if (!w) return;
+        w.onstatechange = function () {
+          if (w.state === 'installed' && navigator.serviceWorker.controller) onUpdateReady();
+        };
+      };
+    });
+  }
+</script>
+<script>
+// Thanh báo mất mạng (hiện khi trình duyệt báo offline, tự ẩn khi có mạng lại)
+(function () {
+    var bar = null;
+    function render() {
+        var off = navigator.onLine === false;
+        if (off && !bar && document.body) {
+            bar = document.createElement('div');
+            bar.id = 'net-bar'; bar.setAttribute('role', 'status'); bar.setAttribute('aria-live', 'polite');
+            bar.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:99999;padding:8px 12px;padding-top:calc(8px + env(safe-area-inset-top,0px));background:#b91c1c;color:#fff;font:600 13px/1.4 system-ui,sans-serif;text-align:center';
+            bar.textContent = 'Mất kết nối mạng. Dữ liệu chỉ cập nhật khi có mạng trở lại.';
+            document.body.appendChild(bar);
+        } else if (!off && bar) { bar.remove(); bar = null; }
+    }
+    window.addEventListener('offline', render); window.addEventListener('online', render);
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', render); else render();
+})();
+</script>
+</body>
+</html>

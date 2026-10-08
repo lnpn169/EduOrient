@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EduOrient AI - Lnpn169</title>
+    <meta name="description" content="EduOrient - nền tảng học tập và định hướng nghề nghiệp cho học sinh THPT: làm bài tập, theo dõi chuyên cần, phân tích thế mạnh và gợi ý ngành, trường đại học.">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="EduOrient">
+    <meta property="og:title" content="EduOrient - Học tập & định hướng nghề nghiệp">
+    <meta property="og:description" content="EduOrient - nền tảng học tập và định hướng nghề nghiệp cho học sinh THPT: làm bài tập, theo dõi chuyên cần, phân tích thế mạnh và gợi ý ngành, trường đại học.">
+    <meta property="og:image" content="https://eduorient-d06c2.web.app/icon-512.png">
+    <meta name="twitter:card" content="summary">
+    <meta name="robots" content="noindex">
+    <link rel="icon" type="image/png" href="icon-192.png">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <link rel="manifest" href="manifest.webmanifest">
+    <meta name="theme-color" content="#1e293b">
+    <!-- DARK MODE: áp dụng theme TRƯỚC khi vẽ trang (tránh nháy sáng) + hàm điều khiển. Khóa lưu: eduorient_theme = 'dark' | 'light' -->
+    <script>
+(function () {
+    // Khóa lưu: eduorient_theme = 'system' | 'dark' | 'light'  (không có giá trị = 'system'; dùng chung giữa trang giáo viên & học sinh)
+    var KEY = 'eduorient_theme', root = document.documentElement, lightMeta = null, mq = null;
+    try { mq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null; } catch (e) {}
+    function stored() { try { return localStorage.getItem(KEY); } catch (e) { return null; } }
+    function mode() { var s = stored(); return (s === 'dark' || s === 'light') ? s : 'system'; }
+    function wantDark() { var m = mode(); return m === 'dark' || (m === 'system' && !!(mq && mq.matches)); }
+    function sync() {
+        var d = root.classList.contains('dark');
+        var m = document.querySelector('meta[name="theme-color"]');
+        if (m) { if (lightMeta === null) lightMeta = m.getAttribute('content'); m.setAttribute('content', d ? '#182238' : lightMeta); }
+
+        var cm = mode();
+        document.querySelectorAll('.tm-opt').forEach(function (b) { var on = b.getAttribute('data-mode') === cm; b.classList.toggle('on', on); b.setAttribute('aria-checked', on ? 'true' : 'false'); });
+        document.querySelectorAll('.tm-hint').forEach(function (e) { e.textContent = cm === 'system' ? 'Đang theo hệ thống: giao diện ' + (d ? 'tối' : 'sáng') : ''; });
+    }
+    function fire() { try { window.dispatchEvent(new Event('eduorient-theme')); } catch (e) {} }
+    function apply() { root.classList.toggle('dark', wantDark()); sync(); }
+    window.getThemeMode = mode;
+    window.isDarkMode = function () { return root.classList.contains('dark'); };
+    window.setThemeMode = function (m) {
+        m = (m === 'dark' || m === 'light') ? m : 'system';
+        try { localStorage.setItem(KEY, m); } catch (e) {}
+        apply(); fire();
+    };
+    window.setDark = function (d) { window.setThemeMode(d ? 'dark' : 'light'); };
+    window.toggleDark = function () { window.setDark(!root.classList.contains('dark')); };
+    apply();   // áp dụng TRƯỚC khi vẽ trang (tránh nháy sáng)
+    document.addEventListener('DOMContentLoaded', sync);
+    // Chế độ "Mặc định": tự đổi theo hệ thống ngay khi máy chuyển sáng/tối
+    if (mq) {
+        var onSys = function () { if (mode() === 'system') { apply(); fire(); } };
+        if (mq.addEventListener) mq.addEventListener('change', onSys); else if (mq.addListener) mq.addListener(onSys);
+    }
+    // Đồng bộ khi đổi giao diện ở tab/trang khác
+    window.addEventListener('storage', function (e) { if (e.key === KEY) { apply(); fire(); } });
+})();
+</script>
+<link rel="stylesheet" href="hocsinh.min.css?v=d2e2af1d88">
+    <!-- ===== PHÂN TÍCH: SỬA DARK MODE (card câu hỏi, chữ, thanh tiến trình, nút 1-5, popup, view chuyên sâu). Nằm SAU hocsinh.min.css ===== -->
+    <style id="pt-dark-fix">
+        html.dark { color-scheme: dark; }
+
+        /* --- Khung card câu hỏi (.h-card): nền nổi hơn thẻ cha, viền rõ, không chói --- */
+        html.dark #holland-box .h-card, html.dark #mbti-box .h-card, html.dark #pt-basic-view .h-card {
+            background: #2f3f5e; border: 1px solid #6b7fa8; box-shadow: none;
+        }
+        html.dark .h-card:hover { border-color: #8aa0cc; }
+        html.dark .h-q { color: #f8fafc !important; }
+        html.dark .h-n { background: rgba(196,181,253,.30); color: #f5f3ff; border: 1px solid rgba(196,181,253,.45); }
+        html.dark .h-lbl { color: #cbd5e1; }
+
+        /* --- Nút điểm 1-5 (.h-dot): ô thường có viền rõ, ô chọn tím sáng, không chói --- */
+        html.dark .h-dot { background: #3a4c73; border: 1.5px solid #8296c0; color: #f1f5f9; }
+        html.dark .h-dot:hover { background: #46598a; border-color: #c4b5fd; }
+        html.dark .h-dot:focus-visible { outline: 2px solid #c4b5fd; outline-offset: 2px; }
+        html.dark .h-dot.on { background: linear-gradient(135deg, #8b5cf6, #6d28d9); border-color: #ddd6fe; color: #fff; box-shadow: 0 0 0 2px rgba(221,214,254,.45), 0 4px 12px rgba(109,40,217,.55); }
+        html.dark #mbti-box .h-dot.on { background: linear-gradient(135deg, #0ea5e9, #0369a1); border-color: #bae6fd; box-shadow: 0 0 0 2px rgba(186,230,253,.45), 0 4px 12px rgba(3,105,161,.55); }
+
+        /* --- Thanh tiến trình (JS sinh style nội tuyến: nhận diện bằng thuộc tính style) --- */
+        html.dark #holland-box > div[style*="height:6px"], html.dark #mbti-box > div[style*="height:6px"] {
+            background: #3a4c73 !important; box-shadow: inset 0 0 0 1px #566a92;
+        }
+        html.dark #holland-box > div[style*="height:6px"] > div { background: linear-gradient(90deg, #a78bfa, #c4b5fd) !important; }
+        html.dark #mbti-box > div[style*="height:6px"] > div { background: linear-gradient(90deg, #38bdf8, #7dd3fc) !important; }
+        html.dark #holland-box > div[style*="font-size:11px"], html.dark #mbti-box > div[style*="font-size:11px"] { color: #cbd5e1 !important; }
+
+        /* --- Nhãn nhóm câu hỏi --- */
+        html.dark #pt-basic-view .holland-label { color: #c4b5fd !important; }
+        html.dark .card-desc { color: #d5dcea; }
+
+        /* --- Kết quả cơ bản + đếm ngược 30 giây --- */
+        html.dark #ketqua-phantich > div[style*="#f0fdf4"] { background: rgba(34,197,94,.14) !important; border-color: #2f7d4f !important; }
+        html.dark #ketqua-text { color: #bbf7d0 !important; }
+        html.dark #asp-countdown { background: rgba(245,158,11,.16) !important; border-color: #a16207 !important; color: #fde68a !important; }
+        html.dark #asp-countdown > div:nth-child(2) { background: rgba(253,230,138,.25) !important; }
+        html.dark #asp-countdown-bar { background: #fbbf24 !important; }
+
+        /* --- Màn hình Phân tích chuyên sâu cũ (#modal-deep) + các khung nền sáng nội tuyến khác --- */
+        html.dark #deep-card { background: #182238 !important; color: #f1f5f9; }
+        html.dark #deep-bar { background: rgba(31,44,71,.96); color: #ffffff; }
+        html.dark #asp-hint { background: rgba(59,130,246,.16) !important; color: #e0f2fe !important; }
+        html.dark #modal-ai-quiz div[style*="dashed"] { background: #1f2c47 !important; border-color: #6b7fa8 !important; }
+        html.dark #modal-studentid p { color: #e2e8f0 !important; }
+    </style>
+    <!-- ===== PHÂN TÍCH: LAYOUT HÀNG NÚT + BANNER KHÓA. Nằm SAU hocsinh.min.css và pt-dark-fix ===== -->
+    <style id="pt-layout-ui">
+        /* --- Hàng nút Phân tích (chỉ còn nút "Phân Tích Định Hướng"). Mobile: full chiều ngang. Desktop: nút rộng vừa phải, căn trái.
+               Các class Tailwind được khai báo lại ở đây để chạy đúng cả khi trang không nạp Tailwind. --- */
+        #pt-basic-view .pt-actions { display: flex; flex-direction: column; gap: 12px; }
+        @media (min-width: 768px) {
+            #pt-basic-view .pt-actions { flex-direction: row; align-items: center; gap: 12px; margin-top: 18px; }
+            #pt-basic-view .pt-actions > .btn-primary { width: auto; min-width: 280px; margin: 0; padding: 13px 36px; }
+        }
+        /* Banner khóa: bỏ style cũ của .lock-notice, phần hiển thị do thẻ con (Tailwind) đảm nhiệm. Không đụng display để JS vẫn ẩn/hiện được */
+        #lock-banner.lock-notice { background: transparent !important; border: 0 !important; box-shadow: none !important; padding: 0 !important; margin-top: 0; margin-bottom: 16px; }
+    </style>
+    <!-- ===== PHÂN TÍCH CHUYÊN SÂU (4 phần, gồm 16 câu MBTI): #modal-deep = lớp phủ, #deep-card = khung nội dung. JS đặt display:none <-> flex ===== -->
+    <style id="deep-modal-ui">
+        /* Hộp thoại SweetAlert luôn nổi trên popup */
+        .swal2-container { z-index: 20000 !important; }
+
+        /* Lớp phủ: KHÔNG khai báo display (JS đặt display:flex khi mở) */
+        #modal-deep.deep-overlay {
+            position: fixed; inset: 0; z-index: 9999; align-items: center; justify-content: center;
+            padding: 0; box-sizing: border-box; background: rgba(15, 23, 42, .55);
+            -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); overscroll-behavior: contain;
+        }
+        /* Khung nội dung: Mobile = toàn màn hình; cuộn mượt bên trong */
+        #modal-deep .deep-card {
+            width: 100%; height: 100%; max-height: 100dvh; overflow-y: auto; -webkit-overflow-scrolling: touch;
+            overscroll-behavior: contain; background: #f8fafc; box-sizing: border-box;
+        }
+        #deep-bar {
+            position: sticky; top: 0; z-index: 5; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+            padding: 14px 18px; background: #fff; border-bottom: 1px solid rgba(148, 163, 184, .30);
+        }
+        #deep-content { max-width: none; margin: 0 auto; padding: 18px 16px 32px; box-sizing: border-box; }
+        /* Desktop >= 768px: khung rộng tương đương w-full max-w-5xl, cao tối đa 90vh, bo góc */
+        @media (min-width: 768px) {
+            #modal-deep.deep-overlay { padding: 24px; }
+            #modal-deep .deep-card { max-width: 1024px; height: auto; max-height: 90vh; border-radius: 20px; box-shadow: 0 25px 60px rgba(0, 0, 0, .35); }
+            #deep-bar { border-radius: 20px 20px 0 0; padding: 16px 28px; }
+            #deep-content { padding: 22px 28px 34px; }
+            #deep-content .dp-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 16px; align-items: start; }
+            #deep-content #dp-list { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px !important; }
+            #deep-content .deep-sum { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
+        }
+        html.dark #deep-bar { border-bottom-color: rgba(148, 163, 184, .28); }
+        html.dark #modal-deep.deep-overlay { background: rgba(6, 10, 20, .72); }
+            /* Đáy popup Phân tích chuyên sâu (Phần 4/4): dải cảnh báo nhỏ + nút, dính đáy khung cuộn */
+        #deep-content .deep-foot { position: sticky; bottom: 0; z-index: 4; margin: 14px -16px -32px; padding: 8px 16px calc(12px + env(safe-area-inset-bottom, 0px)); background: #f8fafc; border-top: 1px solid rgba(148, 163, 184, .30); }
+        #deep-content .deep-foot-note { margin: 0 0 8px; padding: 6px 10px; border-radius: 8px; font-size: 12px; line-height: 1.4; font-weight: 600; color: #78716c; background: #fefce8; border: 1px solid #fde68a; }
+        @media (min-width: 768px) { #deep-content .deep-foot { margin: 14px -28px -34px; padding-left: 28px; padding-right: 28px; border-radius: 0 0 20px 20px; } }
+        html.dark #deep-content .deep-foot { background: #182238; border-top-color: rgba(148, 163, 184, .28); }
+        html.dark #deep-content .deep-foot-note { color: #fde68a; background: rgba(245, 158, 11, .14); border-color: #a16207; }
+</style>
+    <!-- ===== TAB TÀI KHOẢN: 2 cột cân bằng tuyệt đối trên desktop (>= 1024px = lg). Dưới 1024px giữ nguyên chế độ 3 mục của điện thoại/tablet ===== -->
+    <style id="prof-grid-fix">
+        /* Desktop >= 1024px (lg): 2 cột bằng nhau về RỘNG lẫn CAO. Mục cuối của mỗi cột giãn ra để ĐÁY 2 CỘT THẲNG HÀNG */
+        @media (min-width: 1024px) {
+            #tab-profile .prof-grid { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 24px !important; align-items: stretch !important; width: 100%; box-sizing: border-box; }
+            #tab-profile .prof-grid > .prof-left, #tab-profile .prof-grid > .prof-right { display: flex !important; flex-direction: column; gap: 16px; width: auto !important; max-width: none !important; min-width: 0; flex: none !important; margin: 0 !important; box-sizing: border-box; }
+            /* Cột trái: các thẻ full cột; thẻ cuối (Chuyên cần) giãn lấp chỗ trống */
+            #tab-profile .prof-grid > .prof-left > .card { max-width: none !important; width: 100% !important; margin: 0 !important; box-sizing: border-box; flex: 0 0 auto; }
+            #tab-profile .prof-grid > .prof-left > #att-box { flex: 1 1 auto; }
+            /* Cột phải: mỗi nhóm là lưới 2 cột; hàng thẻ cuối giãn cao để đáy khớp cột trái */
+            #tab-profile .prof-grid > .prof-right > .menu-section { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; width: 100%; margin: 0; box-sizing: border-box; flex: 0 0 auto; align-content: stretch; }
+            #tab-profile .prof-grid > .prof-right > .menu-section > .menu-section-title, #tab-profile .prof-grid > .prof-right > .menu-section > .menu-section-desc { grid-column: 1 / -1; margin-top: 0; margin-bottom: 0; }
+            #tab-profile .prof-grid > .prof-right > .menu-section > .menu-item { margin: 0 !important; min-width: 0; box-sizing: border-box; height: 100%; }
+            #tab-profile .prof-grid > .prof-right > .ms-short { grid-template-rows: auto auto repeat(2, auto); }
+            #tab-profile .prof-grid > .prof-right > .ms-set { flex: 1 1 auto; grid-template-rows: auto repeat(2, minmax(0, 1fr)); }
+        }
+    </style>
+    <!-- ===== Bước 10A: Orient New - Bảng tin & khung đăng bài ===== -->
+    <!-- ===== Bước 10B: Thả tim & Bình luận ===== -->
+    <!-- Thư viện CDN: Firebase (compat) & SweetAlert2 -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="edu-common.js?v=0ec7397c40"></script>
+    <!-- Tailwind: file CSS tĩnh build bằng CLI (thay cho cdn.tailwindcss.com chỉ dùng để thử nghiệm). Tắt preflight để không ảnh hưởng CSS cũ.
+         Build: npx tailwindcss -c tailwind.hocsinh.config.js -i input.css -o hocsinh-tw.min.css --minify -->
+    <link rel="stylesheet" href="hocsinh-tw.min.css?v=1">
+    <!-- ===== DESKTOP DASHBOARD (>= 1024px). Mobile (< 1024px) giữ nguyên ===== -->
+
+<!-- TĂNG TƯƠNG PHẢN DARK MODE: khối riêng, nằm SAU #dark-theme -->
+
+</head>
+<body>
+
+    <!-- 1. MÀN HÌNH ĐĂNG KÝ BAN ĐẦU -->
+    <div id="register-overlay" class="fullscreen-overlay" style="display:none;">
+        <div class="modal-card auth-card" style="justify-content: flex-start; overflow-y: auto;">
+            <h2 style="color:var(--primary); margin-bottom: 8px; text-align: center;">Tạo Tài Khoản Mới</h2>
+            <p style="color:var(--text-sub); font-size: 13px; margin-bottom: 20px; text-align: center;">Vui lòng nhập thông tin để bắt đầu</p>
+            
+            <input name="reg-name" aria-label="Họ và tên của bạn" autocomplete="name" type="text" id="reg-name" placeholder="Họ và tên của bạn" required>
+            <select name="reg-level" id="reg-level" aria-label="Cấp học">
+                <option value="" disabled selected>-- Chọn Cấp Học --</option>
+                <option value="THPT">Học sinh THPT (Cấp 3)</option>
+                <option value="THCS" disabled>Học sinh THCS (Đang bảo trì 🔒)</option>
+            </select>
+            <div class="field-label">Trường THPT của bạn</div>
+            <input name="reg-school-search" aria-label="Bấm để xem tất cả trường, gõ để lọc..." type="text" id="reg-school-search" placeholder="🔍 Bấm để xem tất cả trường, gõ để lọc..." autocomplete="off">
+            <div class="field-label" id="reg-cls-label">Lớp của bạn</div>
+            <div id="reg-cls-normal" class="class-row"><select name="reg-cls-k" id="reg-cls-k" aria-label="Khối"></select><select name="reg-cls-c" id="reg-cls-c" aria-label="Chữ cái lớp"></select><select name="reg-cls-n" id="reg-cls-n" aria-label="Số lớp"></select></div>
+            <div id="reg-cls-special" class="class-row" style="display:none;"><select name="reg-cls-sk" id="reg-cls-sk" aria-label="Khối"></select><select name="reg-cls-sub" id="reg-cls-sub" aria-label="Môn chuyên"></select></div>
+            <button class="btn-primary" onclick="processRegister()">Bắt đầu sử dụng ➔</button>
+        </div>
+    </div>
+
+    <!-- 2. MODAL CHỌN TRƯỜNG (Tỉnh -> Trường) -->
+    <div id="school-select-modal" class="fullscreen-overlay" style="display: none;">
+        <div class="modal-card">
+            <div class="modal-header">
+                <div class="modal-title">Chọn Trường Của Bạn</div>
+                <button class="modal-close" id="btn-close-school" onclick="closeModal('school-select-modal')">✕</button>
+            </div>
+            <div class="field-label">Trường THPT</div>
+            <input name="school-search-input" aria-label="Bấm để xem tất cả trường, gõ để lọc..." type="text" id="school-search-input" placeholder="🔍 Bấm để xem tất cả trường, gõ để lọc..." autocomplete="off">
+            <button class="btn-primary" id="btn-confirm-school" disabled onclick="confirmSchoolSelection()">Lưu trường</button>
+            <div id="school-charge-info" style="font-size:12px;margin-top:8px;text-align:center;color:var(--text-sub);"></div>
+        </div>
+    </div>
+
+    <!-- MODAL XÁC NHẬN THPT + NGUYỆN VỌNG ĐẠI HỌC -->
+    <div id="modal-asp" class="fullscreen-overlay" style="display:none;"><div class="modal-card">
+        <div class="modal-header"><div class="modal-title" id="asp-title">Đổi nguyện vọng Đại học</div><button class="modal-close" id="asp-close" onclick="closeModal('modal-asp')">✕</button></div>
+        <div class="modal-body" style="overflow-y:auto;">
+            <div id="asp-hint" style="display:none;font-size:13px;line-height:1.5;color:var(--text-main);background:#eff6ff;border-radius:10px;padding:10px 12px;margin-bottom:10px;"></div>
+            <div id="asp-school-row"><div class="field-label">Trường THPT đang theo học</div><input name="asp-school" aria-label="Chọn trường THPT..." type="text" id="asp-school" placeholder="🔍 Chọn trường THPT..." autocomplete="off"></div>
+            <div id="asp-uni-row"><div class="field-label">Trường Đại học mục tiêu (Top 30 Hà Nội)</div><input name="asp-uni" aria-label="Bấm để xem tất cả, gõ để lọc..." type="text" id="asp-uni" placeholder="🔍 Bấm để xem tất cả, gõ để lọc..." autocomplete="off"></div>
+            <button class="btn-primary" id="btn-asp-save" onclick="saveAsp()">Xác nhận</button>
+            <div id="asp-charge-info" style="font-size:12px;margin-top:8px;text-align:center;color:var(--text-sub);"></div>
+        </div></div></div>
+
+    <!-- 3. MODAL HỒ SƠ HƯỚNG NGHIỆP (MỚI) -->
+    <div id="modal-deep" class="deep-overlay" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="deep-title">
+        <div id="deep-card" class="deep-card w-full max-w-5xl max-h-[90vh] overflow-y-auto">
+            <div id="deep-bar">
+                <b id="deep-title">🔬 Phân tích chuyên sâu</b>
+                <button type="button" id="deep-exit" onclick="deepExit()" aria-label="Thoát">✕ Thoát</button>
+            </div>
+            <div id="deep-content"></div>
+        </div>
+    </div>
+    <div id="modal-ho-so-huong-nghiep" class="fullscreen-overlay" style="display: none;">
+        <div class="modal-card">
+            <div class="modal-header">
+                <div class="modal-title">✨ Hồ Sơ Hướng Nghiệp</div>
+                <button class="modal-close" onclick="closeModal('modal-ho-so-huong-nghiep')">✕</button>
+            </div>
+            <div class="modal-body" id="career-profile-content">
+                <!-- Nội dung phân tích chi tiết sẽ được JS render -->
+            </div>
+            <button class="btn-outline" onclick="closeModal('modal-ho-so-huong-nghiep')">Đóng</button>
+        </div>
+    </div>
+
+    <!-- 4. MODAL TẠO ĐỀ BẰNG AI (MỚI) -->
+    <div id="modal-ai-quiz" class="fullscreen-overlay" style="display: none;">
+        <div class="modal-card">
+            <div class="modal-header">
+                <div class="modal-title">🤖 Tạo Đề Bài Tập Bằng AI</div>
+                <button class="modal-close" onclick="closeModal('modal-ai-quiz')">✕</button>
+            </div>
+            <div class="modal-body">
+                <p style="font-size: 13px; color: var(--text-sub); margin-bottom: 12px;">Đăng tải file tài liệu hoặc dán đoạn văn bản ôn tập, AI sẽ tự động trích xuất và tạo đề trắc nghiệm cho bạn!</p>
+                
+                <div style="border: 2px dashed #cbd5e1; padding: 15px; border-radius: 12px; text-align: center; margin-bottom: 12px; background: #f8fafc;">
+                    <span style="font-size: 24px;">📁</span>
+                    <p style="font-size: 12px; color: var(--text-sub); margin-top: 4px;">Chọn file Word, PDF hoặc Text</p>
+                    <input name="ai-file-input" type="file" id="ai-file-input" aria-label="Tải tệp nội dung bài học" accept=".txt,.doc,.docx,.pdf" style="margin-top: 8px; font-size: 12px;">
+                </div>
+
+                <div style="text-align: center; font-weight: bold; color: #94a3b8; font-size: 12px; margin: 8px 0;">HOẶC DÁN VĂN BẢN</div>
+                <textarea name="ai-text-input" aria-label="Dán nội dung bài học hoặc đoạn văn cần tạo câu hỏi vào đây..." id="ai-text-input" rows="4" placeholder="Dán nội dung bài học hoặc đoạn văn cần tạo câu hỏi vào đây..."></textarea>
+                
+                <button class="btn-primary" onclick="generateAIQuiz()">⚡ AI Tạo Đề Ngay</button>
+
+                <div id="ai-quiz-result" style="margin-top: 20px; display: none;">
+                    <div style="font-weight: 800; font-size: 15px; color: var(--primary); margin-bottom: 12px;">📝 Đề Trắc Nghiệm Tự Động:</div>
+                    <div id="quiz-questions-container"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 5. MODAL ORIENT NEW (BẢNG TIN & TIN NHẮN) -->
+    <div id="modal-mxh" class="fullscreen-overlay" style="display: none;">
+        <div class="modal-card mxh-card">
+            <div class="modal-header">
+                <div class="modal-title mxh-brand" id="mxh-title">🧭 Orient New</div>
+                <button class="modal-close" onclick="closeMxh()">✕</button>
+            </div>
+            
+            <div class="sub-tab-nav" id="mxh-tabnav">
+                <div class="sub-tab-btn active" id="subtab-feed-btn" onclick="switchMxhTab('feed')">📰 Bảng Tin</div>
+                <div class="sub-tab-btn" id="subtab-chat-btn" onclick="switchMxhTab('chat')">💬 Tin Nhắn</div>
+            </div>
+
+            <div class="modal-body" id="mxh-scroll">
+                <!-- PHẦN 1: BẢNG TIN -->
+                <div id="mxh-feed-section">
+                    <!-- Khung đăng bài (Bước 10A) -->
+                    <div class="feed-composer">
+                        <div class="fc-row">
+                            <img id="composer-avatar" class="fc-av" alt="">
+                            <button type="button" class="fc-input" onclick="openPostModal()">Bạn đang nghĩ gì?</button>
+                        </div>
+                        <div class="fc-divider"></div>
+                        <button type="button" class="fc-new" onclick="openPostModal()">✏️ Tạo bài viết mới</button>
+                    </div>
+                    <div id="posts-container"></div>
+                </div>
+
+                <!-- PHẦN 2: TIN NHẮN (kiểu Messenger) -->
+                <div id="mxh-chat-section" style="display: none;">
+                    <!-- Màn hình danh sách -->
+                    <div id="chat-list-view">
+                        <div class="chat-seg">
+                            <button type="button" id="chat-seg-chats" class="active" onclick="switchChatTab('chats')">💬 Trò chuyện</button>
+                            <button type="button" id="chat-seg-teachers" onclick="switchChatTab('teachers')">🎓 Giáo viên trường tôi<span class="seg-count" id="chat-seg-count" style="display:none;"></span></button>
+                        </div>
+                        <input name="chat-search" aria-label="Tìm theo tên..." type="text" id="chat-search" class="chat-search" placeholder="🔍 Tìm theo tên..." autocomplete="off" oninput="renderChatList()">
+                        <div id="chat-list-note" class="chat-note"></div>
+                        <div id="friends-avatar-list"></div>
+                    </div>
+
+                    <!-- Màn hình cuộc trò chuyện -->
+                    <div id="chat-room-view" style="display: none;">
+                        <div class="chat-window">
+                            <div class="chat-head">
+                                <button type="button" class="chat-back" aria-label="Quay lại" onclick="closeChatRoom()">‹</button>
+                                <img id="chat-head-av" alt="">
+                                <div style="min-width:0;flex:1;"><div id="active-chat-name"></div><div id="active-chat-sub"></div></div>
+                                <button type="button" class="chat-info-btn danger" id="chat-clear-btn" style="display:none;" aria-label="Xóa lịch sử tin nhắn" title="Xóa lịch sử tin nhắn" onclick="clearChatHistory()">🗑️</button>
+                                <button type="button" class="chat-info-btn" id="chat-info-btn" style="display:none;" aria-label="Thông tin nhóm" title="Cài đặt nhóm" onclick="openGroupInfo()">⚙️</button>
+                            </div>
+                            <div class="chat-messages" id="chat-messages-body"></div>
+                            <div class="chat-input-area" id="chat-input-area">
+                                <input name="chat-text-input" aria-label="Nhập tin nhắn..." type="text" id="chat-text-input" placeholder="Nhập tin nhắn..." maxlength="500" autocomplete="off" onkeypress="if(event.key==='Enter') sendChatMessage()">
+                                <button type="button" class="chat-send" aria-label="Gửi" onclick="sendChatMessage()"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M3.4 20.4l17.5-7.5a1 1 0 000-1.8L3.4 3.6a1 1 0 00-1.4 1.2L4 11l9 1-9 1-2 6.2a1 1 0 001.4 1.2z"/></svg></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<!-- Bước 10A: Modal soạn bài viết -->
+    <div id="modal-create-post" class="fullscreen-overlay" style="display:none;">
+        <div class="modal-card post-modal">
+            <div class="pm-head">
+                <div class="pm-title">Tạo bài viết</div>
+                <button type="button" class="modal-close" aria-label="Đóng" onclick="closePostModal()">✕</button>
+            </div>
+            <div class="pm-user">
+                <img id="pm-avatar" alt="">
+                <div style="min-width:0;"><div class="pm-name" id="pm-name"></div><div class="pm-meta" id="pm-meta"></div></div>
+            </div>
+            <textarea name="post-modal-input" aria-label="Bạn đang nghĩ gì?" id="post-modal-input" maxlength="1000" placeholder="Bạn đang nghĩ gì?" oninput="onPostInput()"></textarea>
+            <div class="pm-foot" id="pm-foot"><span id="pm-count">0/1000</span></div>
+            <button type="button" class="btn-primary" id="pm-submit" disabled onclick="createPost()">Đăng bài</button>
+        </div>
+    </div>
+
+<!-- Bước 9B: Modal Cài đặt / Thông tin Nhóm Chat Lớp -->
+    <div id="modal-group-info" class="fullscreen-overlay" style="display:none;">
+        <div class="modal-card" style="max-height:88vh;">
+            <div class="modal-header">
+                <div class="modal-title" id="group-info-title">⚙️ Cài đặt nhóm</div>
+                <button class="modal-close" onclick="closeGroupInfo()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="group-box" id="group-student-box" style="display:none;">
+                    <h4>➕ Thêm học sinh vào nhóm</h4>
+                    <p>Nhập email tài khoản học sinh (đã đăng ký trên EduOrient) để thêm vào nhóm chat lớp. Dành cho Lớp Trưởng.</p>
+                    <input name="group-student-email" aria-label="Nhập Email học sinh..." type="email" id="group-student-email" placeholder="Nhập Email học sinh..." autocomplete="off" onkeypress="if(event.key==='Enter') addStudentToGroup()">
+                    <div id="group-student-msg" class="group-msg"></div>
+                    <button type="button" class="btn-primary" id="btn-add-student" onclick="addStudentToGroup()">Thêm vào nhóm</button>
+                </div>
+                <div class="group-box">
+                    <h4>🎓 Thêm Giáo viên bộ môn</h4>
+                    <p>Nhập email tài khoản Giáo viên (đã đăng ký và được duyệt trên EduOrient) để mời vào nhóm chat lớp.</p>
+                    <input name="group-teacher-email" aria-label="Nhập Email Giáo viên bộ môn..." type="email" id="group-teacher-email" placeholder="Nhập Email Giáo viên bộ môn..." autocomplete="off" onkeypress="if(event.key==='Enter') addTeacherToGroup()">
+                    <div id="group-add-msg" class="group-msg"></div>
+                    <button type="button" class="btn-primary" id="btn-add-teacher" onclick="addTeacherToGroup()">Thêm vào nhóm</button>
+                </div>
+                <div class="group-box" id="self-hide-box">
+                    <div class="privacy-row">
+                        <div class="pr-text">
+                            <b>🔒 Ẩn bản thân trong danh sách nhóm</b>
+                            <small>Khi bật, các bạn học sinh khác sẽ không thấy bạn trong danh sách thành viên nhóm. Bạn vẫn đọc và gửi tin nhắn bình thường; Giáo viên và Quản trị viên vẫn thấy bạn (có nhãn "Đang ẩn").</small>
+                        </div>
+                        <label class="switch" aria-label="Ẩn bản thân trong danh sách nhóm">
+                            <input name="self-hide-toggle" type="checkbox" id="self-hide-toggle" onchange="toggleSelfHide(this.checked)">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div id="self-hide-msg" class="group-msg" style="margin-top:8px;margin-bottom:0;"></div>
+                </div>
+                <div class="member-title" id="group-members-title">Thành viên</div>
+                <div id="group-members-list"></div>
+            </div>
+        </div>
+    </div>
+
+<!-- Popup BẮT BUỘC cập nhật Mã học sinh (tài khoản cũ): không có nút đóng, không đóng khi bấm nền / Esc -->
+<div id="modal-studentid" class="fullscreen-overlay" style="display:none;z-index:10050;" role="dialog" aria-modal="true" aria-labelledby="sid-title">
+    <div class="modal-card">
+        <div class="modal-header"><div class="modal-title" id="sid-title">🪪 Cập nhật Mã Học Sinh</div></div>
+        <div class="modal-body">
+            <p style="font-size:14px;line-height:1.5;color:#334155;margin:0 0 14px;font-weight:600;">Yêu cầu cập nhật Mã Học Sinh (ID) để tiếp tục sử dụng ứng dụng</p>
+            <input name="sid-input" aria-label="VD: HS11A801" type="text" id="sid-input" placeholder="VD: HS11A801" maxlength="20" autocomplete="off" autocapitalize="characters" onkeydown="if(event.key==='Enter'){event.preventDefault();saveStudentId();}" oninput="this.value=this.value.replace(/\s+/g,'').toUpperCase();$('sid-err').textContent=''">
+            <div id="sid-err" style="color:#dc2626;font-size:12px;font-weight:600;min-height:16px;margin:-6px 0 8px;"></div>
+            <button class="btn-primary" id="sid-save" onclick="saveStudentId()">Lưu &amp; Tiếp tục</button>
+            <button class="btn-outline" onclick="logout()">Đăng xuất</button>
+        </div>
+    </div>
+</div>
+
+<div id="modal-pw" class="fullscreen-overlay" style="display:none;"><div class="modal-card">
+        <div class="modal-header"><div class="modal-title">Đổi mật khẩu</div><button class="modal-close" onclick="closeModal('modal-pw')">✕</button></div>
+        <div class="modal-body" id="pw-box"></div></div></div>
+
+<div id="modal-otp" class="fullscreen-overlay" style="display:none;"><div class="modal-card">
+        <div class="modal-header"><div class="modal-title">🔑 Mã OTP cho phụ huynh</div><button class="modal-close" onclick="closeOtp()">✕</button></div>
+        <div class="modal-body" id="otp-box"></div></div></div>
+
+    <div id="modal-hw" class="fullscreen-overlay" style="display:none;"><div class="modal-card" id="hw-card">
+        <div class="modal-header"><div class="modal-title" id="hw-title">Làm bài</div><button class="modal-close" onclick="closeModal('modal-hw')">✕</button></div>
+        <div id="hw-main">
+            <div class="modal-body" id="hw-body"></div>
+            <!-- Bảng quản lý câu: cột bên phải (máy tính) / bảng trượt từ dưới lên (điện thoại) -->
+            <aside id="hw-nav">
+                <div class="hwn-head"><b>📋 Danh sách câu</b><button type="button" id="hw-nav-close" onclick="hwNavToggle(false)" aria-label="Đóng">✕</button></div>
+                <div id="hwn-count"></div>
+                <div id="hwn-grid"></div>
+                <div class="hwn-legend"><span><i class="hwn-dot done"></i>Đã làm</span><span><i class="hwn-dot none"></i>Chưa làm</span></div>
+            </aside>
+        </div>
+        <!-- Điện thoại: chuyển từng câu -->
+        <div id="hw-mbar">
+            <button type="button" id="hwm-prev" onclick="hwStep(-1)">‹ Trước</button>
+            <button type="button" id="hwm-list" onclick="hwNavToggle()">☰ Câu 1/1</button>
+            <button type="button" id="hwm-next" onclick="hwStep(1)">Sau ›</button>
+        </div>
+        <button class="btn-primary" id="hw-submit" onclick="nopBai()">Nộp bài</button></div></div>
+
+<input name="ph-cam" type="file" id="ph-cam" aria-label="Chụp ảnh bài làm" accept="image/*" capture="environment" style="display:none" onchange="addPhotos(this)">
+<input name="ph-lib" type="file" id="ph-lib" aria-label="Chọn ảnh từ thư viện" accept="image/*" multiple style="display:none" onchange="addPhotos(this)">
+<div id="modal-grace" class="fullscreen-overlay" style="display:none;"><div class="modal-card" style="max-height:92vh;display:flex;flex-direction:column;">
+    <div style="background:#fef2f2;border:2px solid #ef4444;border-radius:12px;padding:12px;margin:12px;">
+        <div style="font-weight:800;color:#b91c1c;font-size:15px;">🚨 Đã hết giờ làm bài! Bạn có 3 phút để chụp và tải ảnh bài làm.</div>
+        <div id="grace-timer" style="text-align:center;font-weight:800;font-size:30px;color:#b91c1c;margin-top:8px;">3:00</div>
+    </div>
+    <div class="modal-body" style="overflow-y:auto;"><div class="ph-box"></div></div>
+    <button class="btn-primary" id="grace-submit" onclick="nopBaiTuLuan()">Nộp bài</button></div></div>
+
+<div id="modal-cover" class="fullscreen-overlay" style="display:none;z-index:10001;"><div class="modal-card" style="max-width:760px;width:94%;max-height:92vh;overflow-y:auto;">
+<div class="modal-header"><div class="modal-title">Căn chỉnh ảnh bìa</div><button class="modal-close" onclick="coverCancel()">✕</button></div>
+<p style="font-size:12px;color:var(--text-sub);margin-bottom:10px;">Đây là <b>toàn bộ ảnh gốc</b>. Khung trắng là phần sẽ hiện trên thẻ hồ sơ: kéo khung để dời, kéo thanh trượt để phóng to / thu nhỏ khung.</p>
+<div class="cover-stage" id="cover-stage" onpointerdown="coverDragStart(event)" onpointermove="coverDragMove(event)" onpointerup="coverDragEnd()" onpointercancel="coverDragEnd()"><img id="cover-stage-img" alt="" draggable="false"><div class="cover-frame" id="cover-frame"></div></div>
+<div class="cover-ed-row"><span>🔍 Phóng to</span><input name="cover-zoom" type="range" id="cover-zoom" aria-label="Phóng to ảnh bìa" min="100" max="250" value="100" oninput="coverZoom(this.value)"></div>
+<div class="cover-ed-row" style="justify-content:flex-end;"><button type="button" onclick="coverReset()">Đặt lại</button><button type="button" onclick="coverCancel()">Hủy</button><button type="button" class="primary" onclick="coverSave()">Lưu</button></div>
+</div></div>
+<div id="modal-edit" class="fullscreen-overlay" style="display:none;"><div class="modal-card" style="max-height:90vh;">
+        <div class="modal-header"><div class="modal-title">Chỉnh sửa hồ sơ</div><button class="modal-close" onclick="closeModal('modal-edit')">✕</button></div>
+        <div class="modal-body" style="overflow-y:auto;">
+            <div style="text-align:center;margin-bottom:12px;"><img id="edit-avatar" style="width:84px;height:84px;border-radius:50%;object-fit:cover;border:3px solid var(--primary);"><br>
+            <label style="color:var(--primary);font-size:13px;font-weight:bold;cursor:pointer;">📷 Đổi ảnh đại diện<input id="edit-avatar-file" name="avatarFile" type="file" accept="image/*" style="display:none" onchange="pickAvatar(this)"></label></div>
+            <div style="margin-bottom:14px;">
+                <div class="field-label">Ảnh bìa hồ sơ</div>
+                <div class="cover-thumb" id="cover-thumb"></div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
+                    <button type="button" class="cover-act" onclick="$('cover-file').click()">🖼 Chọn ảnh bìa</button>
+                    <button type="button" class="cover-act" id="cover-adj" onclick="coverOpenEditor()" style="display:none;">✥ Căn chỉnh</button>
+                    <button type="button" class="cover-act danger" id="cover-del" onclick="removeCover()" style="display:none;">🗑 Xóa</button>
+                    <input name="cover-file" type="file" id="cover-file" aria-label="Chọn ảnh bìa" accept="image/*" style="display:none;" onchange="pickCover(this)">
+                </div>
+                <div class="field-note" style="display:block;margin-top:6px;">Ảnh bìa được lưu ngay khi chọn hoặc căn chỉnh, không cần bấm "Lưu hồ sơ".</div>
+            </div>
+            <input name="edit-name" aria-label="Họ và tên" type="text" id="edit-name" placeholder="Họ và tên">
+            <div class="field-label">Trường THPT của bạn</div>
+            <input name="searchSchoolInput" aria-label="Bấm để xem tất cả trường, gõ để lọc..." type="text" id="searchSchoolInput" placeholder="🔍 Bấm để xem tất cả trường, gõ để lọc..." autocomplete="off">
+            <div class="field-label" id="edit-cls-label">Lớp</div>
+            <div id="edit-cls-normal" class="class-row"><select name="edit-cls-k" id="edit-cls-k" aria-label="Khối"></select><select name="edit-cls-c" id="edit-cls-c" aria-label="Chữ cái lớp"></select><select name="edit-cls-n" id="edit-cls-n" aria-label="Số lớp"></select></div>
+            <div id="edit-cls-special" class="class-row" style="display:none;"><select name="edit-cls-sk" id="edit-cls-sk" aria-label="Khối"></select><select name="edit-cls-sub" id="edit-cls-sub" aria-label="Môn chuyên"></select></div>
+            <div id="edit-cls-note" class="field-note" style="display:none;"></div>
+            <div class="privacy-row" style="margin:4px 0 16px;padding:12px 14px;border:1px solid var(--border);border-radius:12px;">
+                <div class="pr-text"><b>🌙 Giao diện tối</b><small>Đổi nền sáng / tối cho toàn bộ ứng dụng. Được lưu trên thiết bị này.</small></div>
+                <label class="switch"><input id="dark-mode-toggle" name="darkMode" type="checkbox" class="dm-check" onchange="setDark(this.checked)" aria-label="Bật giao diện tối"><span class="slider"></span></label>
+            </div>
+                        <button class="btn-primary" onclick="saveEdit()">Lưu hồ sơ</button>
+            </div></div></div>
+
+    <aside class="dash-sidebar" aria-label="Điều hướng chính">
+        <div class="side-logo"><span>🧭</span><span>EduOrient</span></div>
+        <nav class="side-nav">
+            <div class="side-item active" id="side-phantich" data-tab="tab-phantich" onclick="switchTab('tab-phantich', this, false)"><span class="si">📊</span><span>Phân Tích</span></div>
+            <div class="side-item is-locked" id="side-baitap" data-tab="tab-baitap" onclick="switchTab('tab-baitap', this, true)"><span class="si">📝</span><span>Bài tập</span></div>
+            <div class="side-item is-locked" id="side-ai" data-tab="tab-ai" onclick="switchTab('tab-ai', this, true)"><span class="si">🤖</span><span>Chat AI</span></div>
+            <div class="side-item is-locked" id="side-bxh" data-tab="tab-bxh" onclick="switchTab('tab-bxh', this, true)"><span class="si">🏆</span><span>BXH</span></div>
+            <div class="side-item" id="side-profile" data-tab="tab-profile" onclick="switchTab('tab-profile', this, false)"><span class="si">👤</span><span>Tài khoản</span></div>
+        </nav>
+        <div class="side-foot">
+            <div class="side-item" id="side-chat" style="margin-bottom:10px;" role="button" tabindex="0" onclick="openNhanTin()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openNhanTin();}"><span class="si">💬</span><span>Tin nhắn</span></div>
+            <div class="tm-side"><div class="tm-label">Giao diện</div><div class="tm-bar" role="radiogroup" aria-label="Chế độ giao diện"><button type="button" class="tm-opt" data-mode="system" role="radio" aria-checked="false" onclick="setThemeMode('system')"><span class="tm-ic">🖥️</span><span>Mặc định</span></button><button type="button" class="tm-opt" data-mode="dark" role="radio" aria-checked="false" onclick="setThemeMode('dark')"><span class="tm-ic">🌙</span><span>Tối</span></button><button type="button" class="tm-opt" data-mode="light" role="radio" aria-checked="false" onclick="setThemeMode('light')"><span class="tm-ic">☀️</span><span>Sáng</span></button></div><div class="tm-hint"></div></div>
+            <div class="dm-foot-text">EduOrient AI</div>
+        </div>
+    </aside>
+    <div class="app-header"><div class="top-title" id="top-title">Phân Tích</div>
+        <div class="header-dropdown" id="header-level-badge">THPT <span>▼</span></div>
+        <img id="user-avatar" src="https://ui-avatars.com/api/?name=U&background=4361ee&color=fff" alt="Avatar" class="avatar-img" onclick="switchTab('tab-profile', document.getElementById('nav-profile'), false)">
+    </div>
+
+    <!-- TAB 1: PHÂN TÍCH -->
+    <div id="tab-phantich" class="tab-content active">
+        <div id="lock-banner" class="lock-notice" style="flex-wrap:wrap;">
+            <div class="flex w-full flex-wrap items-center gap-4 rounded-2xl border border-amber-500/40 bg-gradient-to-r from-amber-950 via-slate-900 to-orange-950 p-4 md:p-5 shadow-[0_0_30px_rgba(245,158,11,0.3)] backdrop-blur-xl">
+                <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-amber-400/40 bg-amber-500/20 text-3xl shadow-[0_0_24px_rgba(251,146,60,0.45)] backdrop-blur-md">🔒</div>
+                <div class="min-w-[200px] flex-1">
+                    <span class="animate-pulse bg-amber-500/20 text-amber-300 border border-amber-500/40 px-3 py-1 rounded-full text-xs font-bold tracking-wider">BẮT BUỘC</span>
+                    <p class="mt-2 text-sm md:text-[15px] font-semibold leading-snug text-amber-100">Ứng dụng đang khóa! Hãy chọn Trường THPT của bạn để mở khóa toàn bộ tính năng.</p>
+                </div>
+                <button type="button" class="rounded-xl border-0 bg-gradient-to-r from-amber-400 to-orange-500 px-5 py-2.5 text-sm font-extrabold text-slate-950 shadow-[0_0_20px_rgba(251,146,60,0.5)] transition-all duration-300 hover:scale-[1.03] hover:shadow-[0_0_30px_rgba(251,146,60,0.8)] active:scale-95 cursor-pointer" onclick="openSchoolModal()">🏫 Chọn trường ngay</button>
+            </div>
+        </div>
+        <!-- PHÂN TÍCH CƠ BẢN: chỉ điểm 8 môn + 12 câu Holland + nút "Phân Tích Định Hướng" + khung kết quả -->
+        <div id="pt-basic-view">
+        <div class="card">
+            <div class="card-title">Phân Tích Tổ Hợp & Ngành Học</div>
+            <div class="card-desc">Nhập điểm của 8 môn theo thang 0–10. Môn nào bạn KHÔNG học thì nhập 0 (khối có môn đó sẽ được loại ra).</div>
+            
+            <div class="score-wrap"><div class="score-label" style="font-weight: 600; font-size: 13px; color: var(--primary); margin-bottom: 8px;">Môn nền tảng</div>
+            <div class="score-grid">
+                <input name="diem-toan" aria-label="Toán (0-10)" type="number" id="diem-toan" placeholder="Toán (0-10)" min="0" max="10" step="0.1" inputmode="decimal" oninput="gioiHan(this)">
+                <input name="diem-van" aria-label="Ngữ Văn (0-10)" type="number" id="diem-van" placeholder="Ngữ Văn (0-10)" min="0" max="10" step="0.1" inputmode="decimal" oninput="gioiHan(this)">
+                <input name="diem-anh" aria-label="Tiếng Anh (0-10)" type="number" id="diem-anh" placeholder="Tiếng Anh (0-10)" min="0" max="10" step="0.1" inputmode="decimal" oninput="gioiHan(this)">
+            </div>
+
+            <div class="score-label" style="font-weight: 600; font-size: 13px; color: var(--green); margin-bottom: 8px;">Khoa học Tự nhiên & Xã hội</div>
+            <div class="score-grid">
+                <input name="diem-ly" aria-label="Vật lý (0-10)" type="number" id="diem-ly" placeholder="Vật lý (0-10)" min="0" max="10" step="0.1" inputmode="decimal" oninput="gioiHan(this)">
+                <input name="diem-hoa" aria-label="Hóa học (0-10)" type="number" id="diem-hoa" placeholder="Hóa học (0-10)" min="0" max="10" step="0.1" inputmode="decimal" oninput="gioiHan(this)">
+                <input name="diem-sinh" aria-label="Sinh học (0-10)" type="number" id="diem-sinh" placeholder="Sinh học (0-10)" min="0" max="10" step="0.1" inputmode="decimal" oninput="gioiHan(this)">
+                <input name="diem-su" aria-label="Lịch sử (0-10)" type="number" id="diem-su" placeholder="Lịch sử (0-10)" min="0" max="10" step="0.1" inputmode="decimal" oninput="gioiHan(this)">
+                <input name="diem-dia" aria-label="Địa lý (0-10)" type="number" id="diem-dia" placeholder="Địa lý (0-10)" min="0" max="10" step="0.1" inputmode="decimal" oninput="gioiHan(this)">
+            </div>
+
+            </div>
+            <div class="holland-label" style="font-weight:600;font-size:13px;color:#8b5cf6;margin:6px 0 4px;">Trắc nghiệm sở thích (1 = không thích, 5 = rất thích)</div><div id="holland-box"></div>
+            <div class="pt-actions flex flex-col md:flex-row md:items-center gap-3">
+                <button class="btn-primary" id="btn-pt-basic" onclick="phanTichGop()">Phân Tích Định Hướng</button>
+            </div>
+            
+            <div id="ketqua-phantich" style="margin-top: 15px; display: none;">
+                <div id="asp-countdown" style="display:none;position:sticky;top:8px;z-index:20;margin-bottom:12px;background:#fffbeb;border:1px solid #fcd34d;color:#92400e;border-radius:12px;padding:10px 12px;box-shadow:0 4px 12px rgba(0,0,0,.12);">
+                    <div style="font-size:13px;font-weight:700;line-height:1.4;">⏳ Hãy đọc kỹ kết quả phân tích! Màn hình chọn Nguyện vọng sẽ mở sau: <span id="asp-countdown-sec" style="font-size:16px;">30</span> giây</div>
+                    <div style="height:5px;background:#fde68a;border-radius:5px;overflow:hidden;margin-top:6px;"><div id="asp-countdown-bar" style="height:100%;width:100%;background:#f59e0b;transition:width .9s linear;"></div></div>
+                </div>
+                <div style="background: #f0fdf4; padding: 15px; border-radius: 10px; border: 1px solid #bbf7d0; margin-bottom: 15px;">
+                    <div id="ketqua-text" style="font-size: 14px; color: #166534; line-height: 1.5;"></div>
+                </div>
+            </div>
+        </div>
+        </div><!-- /#pt-basic-view -->
+
+    </div>
+
+    <!-- TAB 2: BÀI TẬP -->
+    <div id="tab-baitap" class="tab-content">
+        <div class="card soon-card" id="free-practice-card" role="button" tabindex="0" onclick="soonFeature()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();soonFeature();}" style="background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white;">
+            <span class="soon-badge">Sắp ra mắt</span>
+            <h3>🔒 Phòng Luyện Đề Tự Do</h3>
+            <p style="font-size: 12px; opacity: 0.9; margin-top: 4px;">Tập trung rèn luyện các dạng bài theo khối thi đã chọn.</p>
+        </div>
+        <div class="card">
+            <div class="card-title">Bài Tập Từ Giáo Viên</div>
+            <div id="hw-list" style="display:flex;flex-direction:column;gap:10px;margin-top:10px;"></div>
+        </div>
+    </div>
+
+    <!-- TAB 3: CHAT AI -->
+    <div id="tab-ai" class="tab-content" style="text-align:center;padding-top:40px;">
+        <div class="ai-mobile">
+        <div style="font-size:60px;margin-bottom:15px;">🤖</div>
+        <h2 style="color:var(--primary);margin-bottom:8px;">Trợ Lý Học Tập AI</h2>
+        <p style="color:var(--text-sub);font-size:13px;">Tính năng đang được phát triển và sẽ có trong phiên bản sau (hỏi đáp bài tập, tạo đề trắc nghiệm từ file Word).</p>
+        </div>
+        <div class="ai-dash">
+            <aside class="ai-side">
+                <div class="ai-side-head">
+                    <div class="ai-side-title">🕘 Lịch sử trò chuyện</div>
+                    <button type="button" class="ai-new" onclick="soonFeature()">＋ Cuộc trò chuyện mới</button>
+                </div>
+                <div class="ai-hist"><div class="ai-hist-empty">Chưa có cuộc trò chuyện nào.<br>Lịch sử hỏi đáp với trợ lý AI sẽ hiển thị tại đây.</div></div>
+            </aside>
+            <section class="ai-main">
+                <div class="ai-main-head"><span>🤖</span><div>Trợ Lý Học Tập AI<br><small>Hỏi đáp bài tập, tạo đề trắc nghiệm từ file Word</small></div></div>
+                <div class="ai-msgs">
+                    <div class="chat-bubble other" style="max-width:70%;align-self:flex-start;">Xin chào! Mình là trợ lý học tập EduOrient AI. 👋</div>
+                    <div class="chat-bubble other" style="max-width:70%;align-self:flex-start;">Tính năng đang được phát triển và sẽ có trong phiên bản sau.</div>
+                </div>
+                <div class="ai-in">
+                    <input id="ai-question-input" name="aiQuestion" aria-label="Câu hỏi cho trợ lý AI" type="text" readonly placeholder="Nhập câu hỏi của bạn... (sắp ra mắt)" onclick="soonFeature()">
+                    <button type="button" class="chat-send" aria-label="Gửi" onclick="soonFeature()"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M3.4 20.4l17.5-7.5a1 1 0 000-1.8L3.4 3.6a1 1 0 00-1.4 1.2L4 11l9 1-9 1-2 6.2a1 1 0 001.4 1.2z"/></svg></button>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <!-- TAB 4: BANG XEP HANG -->
+    <div id="tab-bxh" class="tab-content">
+        <!-- Nút chuyển Tab BXH -->
+        <div id="bxh-toggle" style="display:flex;gap:6px;background:#e2e8f0;padding:4px;border-radius:12px;margin-bottom:12px;">
+            <button type="button" id="bxh-btn-thpt" onclick="switchBXH('thpt')" style="flex:1;border:none;padding:9px 6px;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;">🏫 BXH Trường THPT</button>
+            <button type="button" id="bxh-btn-daihoc" onclick="switchBXH('daihoc')" style="flex:1;border:none;padding:9px 6px;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;">🎓 BXH Nguyện vọng ĐH</button>
+        </div>
+
+        <!-- TAB THPT: chỉ banner Trường của bạn + BXH theo trường -->
+        <div id="bxh-pane-thpt">
+            <div class="card" style="background: linear-gradient(135deg, #1e293b, #0f172a); color: white;">
+                <div style="font-size: 12px; color: #cbd5e1;">Trường của bạn:</div>
+                <h2 id="bxh-school-name" style="color: #fde047; margin-bottom: 12px; font-size: 16px;">Đang tải...</h2>
+                <button onclick="openSchoolModal()" style="background: rgba(255,255,255,0.2); border: none; color: white; padding: 8px 12px; border-radius: 8px; font-size: 12px; font-weight: bold; cursor: pointer; width: 100%;">🔄 Đổi trường</button>
+                <div id="bxh-thpt-charges" style="font-size:12px;margin-top:8px;text-align:center;color:#cbd5e1;"></div>
+                <div class="bxh-me" id="bxh-me-thpt"></div>
+            </div>
+            <div class="card">
+                <div class="card-title">🏆 Bảng Xếp Hạng Top Học Sinh</div>
+                <div id="bxh-list" style="margin-top: 10px;"></div>
+            </div>
+            <div class="bxh-podium" id="bxh-podium-thpt"></div>
+        </div>
+
+        <!-- TAB ĐẠI HỌC: chỉ banner Nguyện vọng của bạn + BXH theo nguyện vọng -->
+        <div id="bxh-pane-daihoc" style="display:none;">
+            <div class="card" style="background: linear-gradient(135deg, #1e293b, #0f172a); color: white;">
+                <div style="font-size: 12px; color: #cbd5e1;">Nguyện vọng của bạn:</div>
+                <h2 id="bxh-uni-name" style="color: #fde047; margin-bottom: 12px; font-size: 16px;">Chưa chọn nguyện vọng</h2>
+                <button onclick="openAsp('uni')" style="background: rgba(255,255,255,0.2); border: none; color: white; padding: 8px 12px; border-radius: 8px; font-size: 12px; font-weight: bold; cursor: pointer; width: 100%;">🔄 Đổi nguyện vọng Đại học</button>
+                <div id="bxh-uni-charges" style="font-size:12px;margin-top:8px;text-align:center;color:#cbd5e1;"></div>
+                <div class="bxh-me" id="bxh-me-uni"></div>
+            </div>
+            <div class="card">
+                <div class="card-title">🎓 Bảng Xếp Hạng Nguyện Vọng Đại Học</div>
+                <div style="font-size:12px;color:var(--text-sub);margin-bottom:4px;">Bảng xếp hạng (theo XP) gồm các học sinh cùng chọn nguyện vọng với bạn. Muốn xem BXH của trường Đại học khác, hãy bấm <b>"Đổi nguyện vọng Đại học"</b> ở trên.</div>
+                <div id="bxh-uni-count" style="font-size:12px;font-weight:700;color:var(--primary);"></div>
+                <div id="bxh-uni-list" style="margin-top: 10px;"></div>
+            </div>
+            <div class="bxh-podium" id="bxh-podium-uni"></div>
+        </div>
+    </div>
+
+    <!-- TAB 5: TÀI KHOẢN -->
+    <div id="tab-profile" class="tab-content" data-pane="profile">
+        <!-- Điện thoại / tablet: chia Tài khoản thành 3 mục cho đỡ dài (desktop: ẩn, giữ layout 2 cột) -->
+        <div class="prof-subtabs" role="group" aria-label="Các mục của tài khoản"><button type="button" class="on" data-pane="profile" aria-pressed="true" onclick="setProfPane('profile')">👤 Hồ sơ</button><button type="button" data-pane="study" aria-pressed="false" onclick="setProfPane('study')">📚 Học tập</button><button type="button" data-pane="settings" aria-pressed="false" onclick="setProfPane('settings')">⚙️ Cài đặt</button></div>
+        <div class="profile-card-blue" id="profile-card">
+            <div class="profile-cover" id="profile-cover"><div class="profile-cover-img" id="profile-cover-img"></div></div>
+            <div class="profile-mascot">🎓</div>
+            <div class="profile-top-info">
+                <div class="profile-avatar-wrapper">
+                    <img id="profile-avatar-new" src="https://ui-avatars.com/api/?name=U&background=4361ee&color=fff" alt="Avatar">
+                </div>
+                <div class="profile-basic-info">
+                    <h3>HỒ SƠ CỦA BẠN</h3>
+                    <h2 id="profile-name-new">Tên Học Sinh</h2>
+                    <p id="profile-sid-row" style="display:none;opacity:1;font-weight:700;margin-bottom:4px;">🆔 Mã HS: <span id="profile-sid" style="letter-spacing:.5px;user-select:all;"></span></p>
+                    <p>✉ <span id="profile-email">email@gmail.com</span></p>
+                </div>
+            </div>
+            
+            <div class="profile-badge-list">
+                <div class="profile-badge">
+                    <span>🎓</span> <span id="profile-class-new">THPT • Lớp...</span>
+                </div>
+                <div class="profile-badge">
+                    <span>🏫</span> <span id="profile-target-new" onclick="openEdit()" style="cursor:pointer;">Chưa chọn trường</span>
+                </div>
+                <div class="profile-badge">
+                    <span>🎯</span> <span id="profile-uni" onclick="openAsp('uni')" style="cursor:pointer;">Chưa chọn nguyện vọng</span>
+                </div>
+                <div class="profile-badge" id="profile-majors-wrap" style="display:none;">
+                    <span>🎓</span> <span id="profile-majors" onclick="openDeep()" style="cursor:pointer;"></span>
+                </div>
+            </div>
+            <button class="profile-edit-btn" onclick="openEdit()">✎ Chỉnh sửa hồ sơ</button>
+        </div>
+
+        <div class="prof-grid grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch"><div class="prof-left">
+        <div id="goal-box" class="card" style="display:none;max-width:520px;width:100%;margin-left:auto;margin-right:auto;box-sizing:border-box;"></div>
+        <div id="eval-box" class="card" style="display:none;"><div class="card-title">📝 Nhận xét của giáo viên</div><p id="eval-text" style="font-size:13px;color:var(--text-main);margin-top:6px;"></p></div>
+        <div id="att-box" class="card" style="display:none;max-width:420px;width:100%;margin-left:auto;margin-right:auto;box-sizing:border-box;">
+            <div class="card-title">📅 Chuyên cần &amp; nề nếp của bạn</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin:8px 0;">
+                <button type="button" onclick="attMove(-1)" aria-label="Tháng trước" style="border:none;background:#f1f5f9;border-radius:50%;width:30px;height:30px;font-weight:700;cursor:pointer;">‹</button>
+                <b id="att-month" style="font-size:13px;"></b>
+                <button type="button" onclick="attMove(1)" aria-label="Tháng sau" style="border:none;background:#f1f5f9;border-radius:50%;width:30px;height:30px;font-weight:700;cursor:pointer;">›</button>
+            </div>
+            <div id="att-grid" style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;text-align:center;font-size:12px;font-weight:600;max-width:380px;margin:0 auto;"></div>
+            <div class="att-legend" style="font-size:10px;color:#94a3b8;margin-top:8px;">Ô xanh nhạt: lớp đủ (mặc định). <span style="color:#d97706">■</span> Đi muộn &nbsp;<span style="color:#0284c7">■</span> Vắng có phép &nbsp;<span style="color:#dc2626">■</span> Vắng không phép &nbsp;<span style="color:#9333ea">■</span> Ngày nghỉ</div>
+            <div id="att-list" style="margin-top:8px;font-size:12px;"></div>
+        </div>
+        </div><div class="prof-right"><div class="menu-section ms-short">
+            <div class="menu-section-title">Học tập & cộng đồng</div>
+            <div class="menu-section-desc">Công cụ định hướng và tương tác học tập</div>
+            
+            <!-- PHÂN TÍCH CHUYÊN SÂU (duy nhất): openDeep() -> 4 phần: Ngày sinh/Mệnh, Điểm học lực 8 môn, 18 câu Holland, 16 câu MBTI -> chọn tối đa 3 ngành -->
+            <div class="menu-item" id="deep-card-item" onclick="openDeep()">
+                <div class="menu-item-left">
+                    <div class="menu-item-icon" style="color:#0891b2;background:#cffafe;">🔬</div>
+                    <div class="menu-item-text"><h4>Phân tích chuyên sâu</h4><p>Mệnh, Học lực, Holland &amp; 16 câu MBTI — chọn tối đa 3 ngành mục tiêu</p></div>
+                </div>
+                <div class="menu-item-arrow">›</div>
+            </div>
+
+            <div class="menu-item" onclick="openHoSoHuongNghiep()">
+                <div class="menu-item-left">
+                    <div class="menu-item-icon" style="color: #8b5cf6; background: #f3e8ff;">✨</div>
+                    <div class="menu-item-text">
+                        <h4>Hồ sơ hướng nghiệp</h4>
+                        <p>Xem phân tích thế mạnh, ngành & trường khuyên học</p>
+                    </div>
+                </div>
+                <div class="menu-item-arrow">❯</div>
+            </div>
+
+            <div class="menu-item" onclick="openAsp('uni')">
+                <div class="menu-item-left"><div class="menu-item-icon" style="color:#f59e0b;background:#fef3c7;">🎯</div>
+                <div class="menu-item-text"><h4>Đổi nguyện vọng Đại học</h4><p>Cập nhật trường Đại học mục tiêu bất cứ lúc nào</p></div></div>
+                <div class="menu-item-arrow">❯</div>
+            </div>
+
+            <!-- 3. Orient New (Thay cho Chiêu mộ đồng đội) -->
+            <div class="menu-item" onclick="openMXHHocTap()">
+                <div class="menu-item-left">
+                    <div class="menu-item-icon" style="color: #3b82f6; background: #eff6ff;">🌐</div>
+                    <div class="menu-item-text">
+                        <h4>Orient New</h4>
+                        <p>Bảng tin bài viết & bình luận của cộng đồng</p>
+                    </div>
+                </div>
+                <div class="menu-item-arrow">❯</div>
+            </div>
+
+            <!-- 4. Nhắn tin (Yêu cầu 6): mở thẳng mục Tin Nhắn của Orient New -->
+            <div class="menu-item" id="menu-nhantin" onclick="openNhanTin()">
+                <div class="menu-item-left">
+                    <div class="menu-item-icon" style="color: #0ea5e9; background: #e0f2fe;">💬</div>
+                    <div class="menu-item-text">
+                        <h4>Nhắn tin</h4>
+                        <p>Trò chuyện với cả lớp, bạn bè & giáo viên</p>
+                    </div>
+                </div>
+                <div class="menu-item-arrow">❯</div>
+            </div>
+        </div>
+
+        <div class="menu-section ms-set">
+            <div class="menu-section-title">Tài khoản & bảo mật</div>
+            <!-- Giao diện tối: chỉ hiện trên điện thoại / máy tính bảng (laptop đã có nút ở Sidebar) -->
+            <div class="menu-item dm-profile-item tm-menu">
+                <div class="menu-item-left"><div class="menu-item-icon" style="color:#6366f1;background:#e0e7ff;">🎨</div><div class="menu-item-text"><h4>Giao diện</h4><p>Mặc định theo hệ thống, hoặc chọn Tối / Sáng</p></div></div>
+                <div class="tm-bar" role="radiogroup" aria-label="Chế độ giao diện"><button type="button" class="tm-opt" data-mode="system" role="radio" aria-checked="false" onclick="setThemeMode('system')"><span class="tm-ic">🖥️</span><span>Mặc định</span></button><button type="button" class="tm-opt" data-mode="dark" role="radio" aria-checked="false" onclick="setThemeMode('dark')"><span class="tm-ic">🌙</span><span>Tối</span></button><button type="button" class="tm-opt" data-mode="light" role="radio" aria-checked="false" onclick="setThemeMode('light')"><span class="tm-ic">☀️</span><span>Sáng</span></button></div><div class="tm-hint"></div>
+            </div>
+            <div class="menu-item" onclick="openPw()">
+                <div class="menu-item-left">
+                    <div class="menu-item-icon" style="color: #10b981; background: #d1fae5;">🛡️</div>
+                    <div class="menu-item-text">
+                        <h4>Đổi mật khẩu</h4>
+                        <p>Bảo vệ tài khoản cá nhân</p>
+                    </div>
+                </div>
+                <div class="menu-item-arrow">❯</div>
+            </div>
+            <div class="menu-item danger-solid" style="border-color: #fee2e2;" onclick="selfDeleteAccount()">
+                <div class="menu-item-left">
+                    <div class="menu-item-icon" style="color: #ef4444; background: #fef2f2;">🗑️</div>
+                    <div class="menu-item-text"><h4 style="color: #ef4444; margin-bottom: 0;">Xóa tài khoản</h4><p>Xóa vĩnh viễn dữ liệu tài khoản</p></div>
+                </div>
+            </div>
+            <div class="menu-item otp-item" onclick="openParentOtp()">
+                <div class="menu-item-left">
+                    <div class="menu-item-icon" style="color: #6366f1; background: #e0e7ff;">🔑</div>
+                    <div class="menu-item-text">
+                        <h4>Tạo mã OTP</h4>
+                        <p>Cho phụ huynh đăng nhập • hiệu lực 5 phút</p>
+                    </div>
+                </div>
+            </div>
+            <div class="menu-item danger-outline" style="border-color: #fee2e2;" onclick="logout()">
+                <div class="menu-item-left">
+                    <div class="menu-item-icon" style="color: #ef4444; background: #fef2f2;">🚪</div>
+                    <div class="menu-item-text"><h4 style="color: #ef4444; margin-bottom: 0;">Đăng xuất</h4></div>
+                </div>
+            </div>
+        </div>
+        </div></div>
+    </div>
+
+    <!-- NÚT NỔI NHẮN TIN (Yêu cầu 7) -->
+    <button type="button" id="fab-chat" class="fab-chat" aria-label="Nhắn tin" title="Nhắn tin" onclick="openNhanTin()">💬</button>
+
+    <!-- BOTTOM NAV -->
+    <nav class="bottom-nav">
+        <div class="nav-item active" data-tab="tab-phantich" onclick="switchTab('tab-phantich', this, false)">
+            <div class="nav-icon">📊</div><span>Phân Tích</span>
+        </div>
+        <div class="nav-item is-locked" id="nav-baitap" data-tab="tab-baitap" onclick="switchTab('tab-baitap', this, true)">
+            <div class="nav-icon">📝</div><span>Bài tập</span>
+        </div>
+        <div class="nav-item nav-item-center is-locked" id="nav-ai" data-tab="tab-ai" onclick="switchTab('tab-ai', this, true)">
+            <div class="center-btn">🤖</div><span style="color: var(--primary);">Chat AI</span>
+        </div>
+        <div class="nav-item is-locked" id="nav-bxh" data-tab="tab-bxh" onclick="switchTab('tab-bxh', this, true)">
+            <div class="nav-icon">🏆</div><span>BXH</span>
+        </div>
+        <div class="nav-item" id="nav-profile" data-tab="tab-profile" onclick="switchTab('tab-profile', this, false)">
+            <div class="nav-icon">👤</div><span>Tài khoản</span>
+        </div>
+    </nav>
+
+    <script src="hocsinh.min.js?v=2e492a1959"></script>
+<script>
+// Thanh báo mất mạng (hiện khi trình duyệt báo offline, tự ẩn khi có mạng lại)
+(function () {
+    var bar = null;
+    function render() {
+        var off = navigator.onLine === false;
+        if (off && !bar && document.body) {
+            bar = document.createElement('div');
+            bar.id = 'net-bar'; bar.setAttribute('role', 'status'); bar.setAttribute('aria-live', 'polite');
+            bar.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:99999;padding:8px 12px;padding-top:calc(8px + env(safe-area-inset-top,0px));background:#b91c1c;color:#fff;font:600 13px/1.4 system-ui,sans-serif;text-align:center';
+            bar.textContent = 'Mất kết nối mạng. Dữ liệu chỉ cập nhật khi có mạng trở lại.';
+            document.body.appendChild(bar);
+        } else if (!off && bar) { bar.remove(); bar = null; }
+    }
+    window.addEventListener('offline', render); window.addEventListener('online', render);
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', render); else render();
+})();
+</script>
+</body>
+</html>
