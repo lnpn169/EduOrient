@@ -61,16 +61,16 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
 
     <!-- Tailwind CSS (file tĩnh, build bằng CLI: npm run build:css) -->
-    <link rel="stylesheet" href="tailwind.min.css?v=07e3f846a9">
+    <link rel="stylesheet" href="tailwind.min.css?v=23b4fc27b6">
 
     <!-- CSS riêng của app -->
 <link rel="stylesheet" href="index.css?v=e58cb98fc0">
 
     <!-- Thư viện CDN: React (production), SweetAlert2.
          Lucide: đã bỏ (icon là SVG nội tuyến trong app.jsx). JSZip: chỉ tải khi giáo viên bấm "Nhập đề từ file Word (.docx)". -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/sweetalert2@11.14.5"></script>
 
     <script src="edu-common.js?v=0ec7397c40"></script>
     <!-- TĂNG TƯƠNG PHẢN DARK MODE: khối riêng, nằm SAU #dark-theme nên không bị mất khi sinh lại khối đó -->
@@ -82,7 +82,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
     <!-- type="module": bắt buộc để esbuild --splitting hoạt động; các chunk Giáo viên / Quản trị / Phụ huynh tự tải khi cần -->
-    <script type="module" src="app.min.js?v=e6603b6eb3"></script>
+    <script type="module" src="app.min.js?v=652ec64e97"></script>
 <script>
   // Có bản mới: nếu người dùng đang ở tab khác thì tải lại âm thầm; nếu đang dùng thì hiện thanh "Cập nhật" (không làm mất dữ liệu đang nhập).
   if ('serviceWorker' in navigator) {

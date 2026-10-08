@@ -2,7 +2,7 @@
   "name": "eduorient",
   "version": "1.0.0",
   "scripts": {
-    "build": "node build-app.mjs && node build-hocsinh.mjs",
+    "build": "npm run build:css && node build-app.mjs && node build-hocsinh.mjs",
     "build:css": "tailwindcss -i input.css -o tailwind.min.css --minify"
   },
   "devDependencies": {

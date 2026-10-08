@@ -600,11 +600,13 @@ import { ATT_STATUS, BxhScoreEditor, EMPTY_LIST, GroupSettingsModal, Icon, THEME
             const noneN = mcq.filter(({ q, i }) => state(i, q) === 'none').length;
             const hasPh = photoCountOf(row) > 0;
             const shownPsg = new Set();
+            const tint = (rgb, a) => 'rgba(' + rgb + ',' + a + ')';   // màu trong suốt: hiển thị tốt ở cả chế độ sáng/tối
+            const RGB = { ok: '16,185,129', bad: '239,68,68', none: '245,158,11', essay: '99,102,241' };
             const wrongTag = (i) => {
                 const pc = rateMap[i];
                 if (pc === undefined) return null;
                 const wrong = 100 - pc;
-                return wrong > HARD_WRONG ? <span className="text-[11px] font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">({wrong}% học sinh sai)</span> : null;
+                return wrong > HARD_WRONG_PCT ? <span className="text-[11px] font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">({wrong}% học sinh sai)</span> : null;
             };
             const psgBox = (q) => {
                 const k = q.p;
@@ -618,7 +620,7 @@ import { ATT_STATUS, BxhScoreEditor, EMPTY_LIST, GroupSettingsModal, Icon, THEME
                 return () => window.removeEventListener('keydown', h, true);
             }, []);
             return (
-                <div className="fixed inset-0 bg-slate-900/60 z-[55] flex items-center justify-center p-2 sm:p-4" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+                <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-2 sm:p-4" style={{ zIndex: 60 }} onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
                     <div className="bg-white rounded-2xl w-full max-w-3xl h-[92vh] flex flex-col overflow-hidden shadow-2xl">
                         <div className="shrink-0 px-4 sm:px-6 py-3 border-b border-slate-100 flex justify-between items-start gap-3">
                             <div className="min-w-0">
@@ -634,13 +636,13 @@ import { ATT_STATUS, BxhScoreEditor, EMPTY_LIST, GroupSettingsModal, Icon, THEME
                                 return (
                                     <React.Fragment key={i}>
                                         {psgBox(q)}
-                                        <div className={'rounded-xl border p-3 ' + (st === 'ok' ? 'border-emerald-200 bg-emerald-50/40' : st === 'bad' ? 'border-red-200 bg-red-50/40' : 'border-amber-200 bg-amber-50/40')}>
+                                        <div className="rounded-xl border p-3" style={{ background: tint(RGB[st], 0.08), borderColor: tint(RGB[st], 0.45) }}>
                                             <p className="text-sm font-bold text-slate-800 whitespace-pre-wrap break-words">Câu {i + 1}: {q.q} {wrongTag(i)}</p>
                                             <div className="mt-2 space-y-1">
                                                 {(q.a || []).map((o, j) => {
                                                     const chosen = my[i] === j, right = j === q.c;
                                                     return (
-                                                        <div key={j} className={'text-xs px-2.5 py-1.5 rounded-lg border ' + (right ? 'bg-emerald-100 border-emerald-300 text-emerald-800 font-semibold' : chosen ? 'bg-red-100 border-red-300 text-red-700 font-semibold' : 'bg-white border-slate-200 text-slate-600')}>
+                                                        <div key={j} className={'text-xs px-2.5 py-1.5 rounded-lg border ' + (right || chosen ? 'font-semibold' : 'bg-white border-slate-200 text-slate-600')} style={right ? { background: tint(RGB.ok, 0.22), borderColor: tint(RGB.ok, 0.7) } : chosen ? { background: tint(RGB.bad, 0.22), borderColor: tint(RGB.bad, 0.7) } : undefined}>
                                                             {'ABCD'[j]}. {o}{right && ' ✓'}{chosen && !right && ' ✗ (HS chọn)'}{chosen && right && ' (HS chọn)'}
                                                         </div>
                                                     );
@@ -663,13 +665,13 @@ import { ATT_STATUS, BxhScoreEditor, EMPTY_LIST, GroupSettingsModal, Icon, THEME
                                     {essayQs.map(({ q, i }) => (
                                         <div key={i}>
                                             {psgBox(q)}
-                                            <div className="rounded-xl border border-indigo-200 bg-indigo-50/50 p-3">
+                                            <div className="rounded-xl border p-3" style={{ background: tint(RGB.essay, 0.08), borderColor: tint(RGB.essay, 0.4) }}>
                                                 <p className="text-sm font-bold text-slate-800 whitespace-pre-wrap break-words">Câu {i + 1} (Tự luận){q.q ? ': ' + q.q : ''} {wrongTag(i)}</p>
                                                 {(q.images || []).map((im, k) => <img key={k} src={im} alt="" className="w-full mt-2 rounded-lg border border-indigo-200" />)}
                                             </div>
                                         </div>
                                     ))}
-                                    {row.graded && <p className="text-xs bg-emerald-50 text-emerald-700 rounded-lg px-3 py-2">Điểm đã chấm: <b>{Number(row.score) || 0}/100</b>{row.feedback ? ' — ' + row.feedback : ''}</p>}
+                                    {row.graded && <p className="text-xs rounded-lg px-3 py-2" style={{ background: tint(RGB.ok, 0.12) }}>Điểm đã chấm: <b>{Number(row.score) || 0}/100</b>{row.feedback ? ' — ' + row.feedback : ''}</p>}
                                 </div>
                             )}
                             {qs.length === 0 && <p className="text-center text-xs text-slate-400 py-8">Bài tập không có câu hỏi.</p>}
@@ -832,9 +834,9 @@ import { ATT_STATUS, BxhScoreEditor, EMPTY_LIST, GroupSettingsModal, Icon, THEME
                             {qRates.length > 0 && (
                                 <aside className="lg:w-72 xl:w-80 shrink-0 border-t lg:border-t-0 lg:border-l border-slate-100 bg-slate-50/60 p-4 lg:overflow-y-auto custom-scrollbar">
                                     <p className="text-xs font-bold text-slate-700">Tỉ lệ làm đúng từng câu</p>
-                                    <p className="text-[10px] text-slate-400 mb-2">Câu dưới 50% màu đỏ — cần ôn lại. Chữ đỏ đậm: hơn {HARD_WRONG}% học sinh sai</p>
+                                    <p className="text-[10px] text-slate-400 mb-2">Câu dưới 50% màu đỏ — cần ôn lại. Chữ đỏ đậm: hơn {HARD_WRONG_PCT}% học sinh sai</p>
                                     {qRates.map(({ i, pc }) => (
-                                        <div key={i} className="flex items-center gap-2 text-[11px] mb-1.5"><span className={'w-10 shrink-0 ' + (100 - pc > HARD_WRONG ? 'text-red-600 font-bold' : '')}>Câu {i + 1}</span>
+                                        <div key={i} className="flex items-center gap-2 text-[11px] mb-1.5"><span className={'w-10 shrink-0 ' + (100 - pc > HARD_WRONG_PCT ? 'text-red-600 font-bold' : '')}>Câu {i + 1}</span>
                                             <div className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden"><div style={{ width: pc + '%' }} className={'h-full ' + (pc < 50 ? 'bg-red-400' : 'bg-emerald-500')}></div></div>
                                             <span className="w-9 text-right font-semibold">{pc}%</span></div>
                                     ))}
