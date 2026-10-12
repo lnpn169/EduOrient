@@ -1,4 +1,4 @@
-const CACHE_NAME = 'eduorient-v20261012-2302';
+const CACHE_NAME = 'eduorient-v20261013-0002';
 
 // Cache riêng cho thư viện CDN: KHÔNG bị xóa mỗi lần deploy (update-sw.js chỉ đổi CACHE_NAME),
 // nhờ vậy người dùng không phải tải lại React/Firebase sau mỗi lần cập nhật.
