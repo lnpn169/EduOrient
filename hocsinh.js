@@ -84,13 +84,14 @@ const UNIS = [['ptit', 'Học viện Công nghệ Bưu chính Viễn thông', 'P
     ['hlu', 'Đại học Luật Hà Nội', 'HLU'], ['hup', 'Đại học Dược Hà Nội', 'HUP'], ['tlu', 'Đại học Thủy lợi', 'TLU'], ['vnua', 'Học viện Nông nghiệp Việt Nam', 'VNUA'],
     ['hou', 'Đại học Mở Hà Nội', 'HOU'], ['hau', 'Đại học Kiến trúc Hà Nội', 'HAU'], ['humg', 'Đại học Mỏ - Địa chất', 'HUMG'], ['fptu', 'Đại học FPT', 'FPTU']
 ].map((u) => ({ id: u[0], name: u[1], sub: u[2], hay: foldVN(u[1] + ' ' + u[2]) }));   // Top 30 ĐH tại Hà Nội (sửa danh sách tại đây)
-const ALL_SCHOOLS = SCHOOL_DB.flatMap((p) => p.schools.map((s) => ({ id: s.id, name: s.name, sub: p.name, hay: foldVN(s.name + ' ' + s.kw + ' ' + p.name) })));
+const ALL_SCHOOLS = SCHOOL_DB.flatMap((p) => p.schools.map((s) => ({ id: s.id, name: s.name, sub: p.name, pid: p.id, hay: foldVN(s.name + ' ' + s.kw + ' ' + p.name) })));
 // Ô chọn 1 input dùng chung (THPT + ĐH): bấm/focus => hiện TẤT CẢ, gõ => lọc không dấu. Chỉ chọn được mục có sẵn.
 function makeCombo(inp, items, onChange) {
     const list = document.createElement('div'); list.className = 'combo-list'; inp.after(list);
     const st = { sel: null };
+    let cur = items;   // danh sách đang hiển thị; có thể đổi bằng _combo.setItems() (ví dụ lọc theo Tỉnh)
     const show = () => {
-        const q = foldVN(inp.value.trim()), shown = (st.sel && inp.value === st.sel.name) || !q ? items : items.filter((i) => i.hay.includes(q));
+        const q = foldVN(inp.value.trim()), shown = (st.sel && inp.value === st.sel.name) || !q ? cur : cur.filter((i) => i.hay.includes(q));
         list._shown = shown; list.style.display = 'block';
         list.innerHTML = shown.length ? shown.map((i, k) => '<div class="combo-item' + (st.sel && st.sel.id === i.id ? ' sel' : '') + '" data-k="' + k + '"><span>' + esc(i.name) + '</span>' + (i.sub ? '<small>' + esc(i.sub) + '</small>' : '') + '</div>').join('') : '<div class="combo-empty">❌ Không tìm thấy kết quả phù hợp</div>';
     };
@@ -101,7 +102,7 @@ function makeCombo(inp, items, onChange) {
         st.sel = list._shown[+d.dataset.k]; inp.value = st.sel.name; list.style.display = 'none'; if (onChange) onChange(st.sel);
     });
     document.addEventListener('mousedown', (e) => { if (e.target !== inp && !list.contains(e.target)) list.style.display = 'none'; });
-    inp._combo = { get sel() { return st.sel; }, set(it) { st.sel = it || null; inp.value = it ? it.name : ''; list.style.display = 'none'; } };
+    inp._combo = { get sel() { return st.sel; }, set(it) { st.sel = it || null; inp.value = it ? it.name : ''; list.style.display = 'none'; }, setItems(arr) { cur = arr || []; list.style.display = 'none'; } };
 }
 const PICK = { reg: { q: 'reg-school-search' }, edit: { q: 'searchSchoolInput' } };
 const isSpecialSchool = (name) => /\bchuyen\b/.test(foldVN(name));   // "THPT Chuyên Lào Cai" => true (không phân biệt hoa/thường, có/không dấu)
@@ -146,10 +147,32 @@ function writeClass(prefix, cls) {
 function liveSchoolName(prefix) { const s = byId(PICK[prefix].q)._combo.sel; return s ? s.name : ''; }
 // Kiểm tra & đọc trường đã chọn. required=false: không chọn gì thì giữ nguyên trường cũ (school: null). KHÔNG cho tự nhập tên trường.
 function readSchool(prefix, required) {
-    const inp = byId(PICK[prefix].q), c = inp._combo;
+    const inp = byId(PICK[prefix].q), c = inp._combo, prov = provinceById(byId(prefix + '-province').value);
     if (c.sel) return { ok: true, school: { id: c.sel.id, name: c.sel.name } };
     if (inp.value.trim()) return { ok: false, msg: 'Hãy chọn trường THPT trong danh sách gợi ý (không thể tự nhập tên trường).' };
-    return required ? { ok: false, msg: 'Hãy chọn Trường THPT của bạn.' } : { ok: true, school: null };
+    if (prov && !prov.schools.length) {   // tỉnh chưa có danh sách trường: đăng ký phải chờ, còn sửa hồ sơ thì bỏ qua phần trường
+        return required ? { ok: false, msg: 'Danh sách trường THPT của ' + prov.name + ' đang được cập nhật nên chưa thể đăng ký. Bạn hãy quay lại sau nhé!' } : { ok: true, school: null };
+    }
+    if (prov) return { ok: false, msg: 'Hãy chọn Trường THPT của bạn.' };
+    return required ? { ok: false, msg: 'Hãy chọn Tỉnh / Thành phố và Trường THPT của bạn.' } : { ok: true, school: null };
+}
+// Điền danh sách 34 tỉnh/thành vào ô chọn Tỉnh của form 'reg' / 'edit' (Lào Cai đứng đầu, còn lại theo bảng chữ cái)
+function fillProvinceSelect(prefix) {
+    byId(prefix + '-province').innerHTML = '<option value="">-- Chọn Tỉnh / Thành phố --</option>' + SCHOOL_DB.map((p) => '<option value="' + p.id + '">' + esc(p.name) + '</option>').join('');
+}
+// Chọn Tỉnh => ô Trường chỉ hiện trường của tỉnh đó. keepSchool=true: giữ trường đang chọn (dùng khi mở form sửa hồ sơ).
+// Tỉnh chưa có danh sách trường: khóa ô Trường và hiện ghi chú. Thêm trường cho tỉnh trong PROVINCES (mảng s) là tự mở khóa.
+function setProvince(prefix, provId, keepSchool) {
+    const inp = byId(PICK[prefix].q), sel = byId(prefix + '-province'), note = byId(prefix + '-province-note'), prov = provinceById(provId);
+    const items = prov ? ALL_SCHOOLS.filter((s) => s.pid === prov.id) : [];
+    sel.value = prov ? prov.id : '';
+    inp._combo.setItems(items);
+    if (!keepSchool) inp._combo.set(null);
+    inp.disabled = !items.length;
+    inp.placeholder = !prov ? '🔍 Hãy chọn Tỉnh / Thành phố trước...' : items.length ? '🔍 Bấm để xem tất cả trường, gõ để lọc...' : 'Chưa có danh sách trường của tỉnh này';
+    note.style.display = prov && !items.length ? 'block' : 'none';
+    note.innerText = prov && !items.length ? 'Danh sách trường THPT của ' + prov.name + ' đang được cập nhật. Bạn hãy quay lại sau nhé!' : '';
+    updateClassMode(prefix);
 }
 function updateClassMode(prefix) {
     let name = liveSchoolName(prefix);
@@ -161,12 +184,17 @@ function updateClassMode(prefix) {
     if (sp !== was) {
         byId(prefix + (sp ? '-cls-sk' : '-cls-k')).value = byId(prefix + (sp ? '-cls-k' : '-cls-sk')).value;
         ['c', 'n', 'sub'].forEach((s) => { byId(prefix + '-cls-' + s).value = ''; });
-        byId(prefix + '-cls-note').style.display = 'none';
+        const nt = byId(prefix + '-cls-note'); if (nt) nt.style.display = 'none';   // form đăng ký không có ô ghi chú này
     }
 }
 function initPickers() {
     ['reg', 'edit'].forEach(fillClassSelects);
-    ['reg', 'edit'].forEach((p) => makeCombo(byId(PICK[p].q), ALL_SCHOOLS, () => updateClassMode(p)));
+    ['reg', 'edit'].forEach((p) => {
+        fillProvinceSelect(p);
+        makeCombo(byId(PICK[p].q), ALL_SCHOOLS, () => updateClassMode(p));
+        byId(p + '-province').addEventListener('change', (e) => setProvince(p, e.target.value));
+        setProvince(p, '');   // ban đầu chưa chọn Tỉnh => ô Trường tạm khóa
+    });
     makeCombo(byId('school-search-input'), ALL_SCHOOLS, (it) => { tempSelectedSchool = it; byId('btn-confirm-school').disabled = !it || (!!user.targetSchoolName && chargeState().charges <= 0); });
     makeCombo(byId('asp-school'), ALL_SCHOOLS); makeCombo(byId('asp-uni'), UNIS);
 }
@@ -2484,6 +2512,8 @@ function processRegister() {
 function openEdit() {
             pendingAvatar = null; $('edit-avatar').src = avatarOf(ME.uid, user.name); $('edit-name').value = user.name;
             // 1) Trường trước (quyết định kiểu chọn lớp)
+            const curInfo = parseSchoolInfo(user.targetSchoolId);
+            setProvince('edit', curInfo ? curInfo.province.id : '', true);   // Tỉnh suy ra từ trường hiện tại (id trường có dạng "<id tỉnh>-<slug>")
             $('searchSchoolInput')._combo.set(ALL_SCHOOLS.find((s) => s.id === user.targetSchoolId) || null); updateClassMode('edit');
             // 2) Rồi tới Lớp, điền theo kiểu của trường
             const clsOk = writeClass('edit', user.schoolClass), note = $('edit-cls-note');

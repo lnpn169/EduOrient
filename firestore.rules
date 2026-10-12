@@ -16,11 +16,15 @@ service cloud.firestore {
       return signedIn() && request.auth.token.email.lower() in ['lykhoilinh@gmail.com', 'iemmchyy@gmail.com'] && request.auth.token.email_verified == true;
     }
     function isTeacher() { return signedIn() && myUser().role == 'teacher' && myUser().status == 'approved'; }
+
     // Môn học giảng dạy hợp lệ (Chương trình GDPT 2018) và mã tỉnh/thành (vd: 'lao-cai')
     function validSubject(s) { return s is string && s in ['', 'Toán', 'Ngữ văn', 'Tiếng Anh', 'Lịch sử', 'Địa lí', 'Giáo dục kinh tế và pháp luật', 'Vật lí', 'Hóa học', 'Sinh học', 'Công nghệ', 'Tin học', 'Giáo dục thể chất', 'Giáo dục quốc phòng và an ninh', 'Âm nhạc', 'Mỹ thuật', 'Hoạt động trải nghiệm, hướng nghiệp', 'Giáo dục địa phương']; }
     function validProvince(p) { return p is string && p.size() > 0 && p.size() <= 40; }
-    // Mã học sinh (ID): 3-20 ký tự, chữ HOA / số / . _ -  (client tự chuẩn hóa về chữ HOA)
-    function validStudentId(s) { return s is string && s.matches('^[A-Z0-9._-]{3,20}$'); }
+
+    // Mã học sinh (ID) — ĐÃ VÁ: 3-20 ký tự, CHỈ chữ HOA (A-Z) và số (0-9). Không còn cho phép . _ -
+    // (client tự chuẩn hóa về chữ HOA và loại ký tự đặc biệt)
+    function validStudentId(s) { return s is string && s.matches('^[A-Z0-9]{3,20}$'); }
+
     // Mã học sinh DUY NHẤT: mỗi mã có 1 document studentIds/{MÃ} = { uid }. Document chỉ tạo được 1 lần (đã tồn tại -> bị từ chối)
     // nên hai tài khoản không thể cùng giữ một mã. Việc gán studentId vào users/{uid} bắt buộc đi kèm đăng ký mã (ghi cùng 1 batch - getAfter).
     function sidRegOk(id) { return id is string && getAfter(/databases/$(database)/documents/studentIds/$(id)).data.uid == request.auth.uid; }
@@ -48,15 +52,15 @@ service cloud.firestore {
         && (!('province' in request.resource.data) || (request.resource.data.role == 'teacher' && validProvince(request.resource.data.province)))
         && request.resource.data.email == request.auth.token.email
         && ((request.resource.data.role == 'student' && request.resource.data.status == 'approved')
-         || (request.resource.data.role == 'teacher' && request.resource.data.status == 'pending'));
+          || (request.resource.data.role == 'teacher' && request.resource.data.status == 'pending'));
       allow update: if isAdmin()
         || (signedIn() && request.auth.uid == uid
-            && resource.data.role == 'teacher' && resource.data.status == 'approved'
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['school','subject','province'])
-            && request.resource.data.school is string
-            && request.resource.data.school.size() >= 3 && request.resource.data.school.size() <= 80
-            && (!('subject' in request.resource.data) || validSubject(request.resource.data.subject))
-            && (!('province' in request.resource.data) || validProvince(request.resource.data.province)));
+          && resource.data.role == 'teacher' && resource.data.status == 'approved'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['school','subject','province'])
+          && request.resource.data.school is string
+          && request.resource.data.school.size() >= 3 && request.resource.data.school.size() <= 80
+          && (!('subject' in request.resource.data) || validSubject(request.resource.data.subject))
+          && (!('province' in request.resource.data) || validProvince(request.resource.data.province)));
       // Học sinh: tự cập nhật Mã học sinh (ID) DUY NHẤT MỘT LẦN khi chưa có (tài khoản cũ) - không đụng trường nào khác, không tự sửa lại về sau
       allow update: if signedIn() && request.auth.uid == uid
         && resource.data.role == 'student'
@@ -93,9 +97,9 @@ service cloud.firestore {
     }
 
     // Sổ đăng ký Mã học sinh (chống trùng): studentIds/{MÃ IN HOA} = { uid }
-    //  - get: người đã đăng nhập kiểm tra 1 mã đã có người dùng chưa (không cho liệt kê hàng loạt)
-    //  - create: chỉ khi mã CHƯA tồn tại, uid là của mình, và hồ sơ users/{uid} (sau thao tác) đang giữ đúng mã này
-    //  - không cho sửa; xóa: chủ mã (khi tự xóa tài khoản) hoặc Admin
+    // - get: người đã đăng nhập kiểm tra 1 mã đã có người dùng chưa (không cho liệt kê hàng loạt)
+    // - create: chỉ khi mã CHƯA tồn tại, uid là của mình, và hồ sơ users/{uid} (sau thao tác) đang giữ đúng mã này
+    // - không cho sửa; xóa: chủ mã (khi tự xóa tài khoản) hoặc Admin
     match /studentIds/{sid} {
       allow get: if signedIn();
       allow create: if signedIn() && validStudentId(sid)
@@ -112,7 +116,7 @@ service cloud.firestore {
     match /bxhScores/{uid} {
       allow read: if authed();
       allow create, update: if (isAdmin() || isTeacher())
-        && get(/databases/$(database)/documents/users/$(uid)).data.role == 'student'   // 1 lần get (document không tồn tại => get lỗi => từ chối, giống exists() cũ)
+        && get(/databases/$(database)/documents/users/$(uid)).data.role == 'student' // 1 lần get (document không tồn tại => get lỗi => từ chối, giống exists() cũ)
         && request.resource.data.keys().hasOnly(['adjustXp','updatedBy','updatedAt'])
         && request.resource.data.adjustXp is number
         && request.resource.data.adjustXp >= -1000000 && request.resource.data.adjustXp <= 1000000
@@ -129,16 +133,16 @@ service cloud.firestore {
       return request.resource.data.users.diff(resource.data.get('users', {})).affectedKeys().hasOnly([me])
         && newE.keys().hasOnly(['n','c','s','sn','u','un','xp','d','adj'])
         && newE.xp is number && newE.xp >= 0 && newE.xp <= 10000000
-        && newE.get('adj', 0) == oldE.get('adj', 0);          // học sinh KHÔNG được tự sửa adj
+        && newE.get('adj', 0) == oldE.get('adj', 0); // học sinh KHÔNG được tự sửa adj
     }
     match /bxh/{doc} {
-      allow read: if authed();   // Phụ huynh dùng phiên ẩn danh nên vẫn tính được hạng
+      allow read: if authed(); // Phụ huynh dùng phiên ẩn danh nên vẫn tính được hạng
       allow create: if signedIn() && doc == 'summary'
         && request.resource.data.keys().hasOnly(['users'])
         && (request.resource.data.users.keys().hasOnly([request.auth.uid]) || isAdmin() || isTeacher());
       allow update: if signedIn() && doc == 'summary'
         && request.resource.data.keys().hasOnly(['users'])
-        && ((request.auth.uid in request.resource.data.users && selfOnlyEntry()) || isAdmin() || isTeacher());   // học sinh: không tốn get(); admin: không tốn get(); chỉ giáo viên mới tốn 1 get
+        && ((request.auth.uid in request.resource.data.users && selfOnlyEntry()) || isAdmin() || isTeacher()); // học sinh: không tốn get(); admin: không tốn get(); chỉ giáo viên mới tốn 1 get
       allow delete: if false;
     }
 
@@ -164,7 +168,6 @@ service cloud.firestore {
       let mu = myUser();
       return request.resource.data.role == mu.role && (mu.role == 'student' || mu.status == 'approved');
     }
-
     // Hồ sơ công khai (tên, lớp, ảnh, nguyện vọng) - ai đã đăng nhập cũng xem được
     match /profiles/{uid} {
       allow read: if authed();
@@ -183,7 +186,7 @@ service cloud.firestore {
         && (!('isPrivate' in request.resource.data) || (request.resource.data.isPrivate is bool && request.resource.data.role == 'teacher'))
         // Avatar: chuỗi rỗng hoặc ẢNH Base64 hợp lệ (data:image/jpeg|png|webp;base64,...) < 60KB - chặn chuỗi lạ chèn mã độc (XSS) vào thẻ <img> của người xem
         && (!('avatar' in request.resource.data) || (request.resource.data.avatar is string && request.resource.data.avatar.size() < 60000
-            && (request.resource.data.avatar == '' || request.resource.data.avatar.matches('^data:image/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$'))));
+          && (request.resource.data.avatar == '' || request.resource.data.avatar.matches('^data:image/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$'))));
       // Quản trị viên bật/tắt "ẩn danh" của giáo viên: chỉ được đổi ĐÚNG trường isPrivate (kiểu bool), không đụng trường nào khác
       // (không ràng buộc role của hồ sơ: hồ sơ cũ thiếu role vẫn bật/tắt được; vẫn chỉ cho đổi đúng 1 trường isPrivate)
       allow update: if isAdmin()
@@ -242,14 +245,14 @@ service cloud.firestore {
     function subCreateOk(h) {
       let d = request.resource.data;
       return (!isEssayType(h) || (
-              d.get('status', '') in ['submitted', 'timeout']
-              && ((d.status == 'timeout' && d.photoCount == 0)
-                  || (d.status == 'submitted' && d.photoCount >= 1))))
-        && d.score <= h.questions.size() * 10   // mỗi câu trắc nghiệm đúng = 10 điểm
+          d.get('status', '') in ['submitted', 'timeout']
+          && ((d.status == 'timeout' && d.photoCount == 0)
+            || (d.status == 'submitted' && d.photoCount >= 1))))
+        && d.score <= h.questions.size() * 10 // mỗi câu trắc nghiệm đúng = 10 điểm
         && (!needsAttempt(h)
-            || (exists(attPath(d.hwId))
-                && (d.answers == get(attPath(d.hwId)).data.answers
-                    || inTime(h, get(attPath(d.hwId)).data.startedAt))))
+          || (exists(attPath(d.hwId))
+            && (d.answers == get(attPath(d.hwId)).data.answers
+              || inTime(h, get(attPath(d.hwId)).data.startedAt))))
         && (needsAttempt(h) || notLate(h));
     }
 
@@ -323,9 +326,9 @@ service cloud.firestore {
     // ===== Liên kết Phụ huynh (phiên ẩn danh) <-> 1 học sinh, xác thực bằng MÃ OTP 6 SỐ do HỌC SINH tạo =====
     // Học sinh tạo parentOtps/{MÃ HS} = { studentUid, code, createdAt } (xem match /parentOtps bên dưới). Mã sống 5 phút, dùng 1 lần.
     // Luồng của phụ huynh (3 bước, phiên ẩn danh):
-    //   1) update parentOtps/{MÃ HS} { usedBy, tryCode }  -> rules ép: tryCode == code thật, còn hạn 5 phút, chưa ai dùng
-    //   2) get parentOtps/{MÃ HS}                         -> chỉ đọc được SAU khi usedBy == uid của mình; lấy studentUid
-    //   3) set parentLinks/{uid}                          -> parentLinkOk: OTP đã được CHÍNH phiên này dùng và studentUid khớp
+    //   1) update parentOtps/{MÃ HS} { usedBy, tryCode } -> rules ép: tryCode == code thật, còn hạn 5 phút, chưa ai dùng
+    //   2) get parentOtps/{MÃ HS} -> chỉ đọc được SAU khi usedBy == uid của mình; lấy studentUid
+    //   3) set parentLinks/{uid} -> parentLinkOk: OTP đã được CHÍNH phiên này dùng và studentUid khớp
     // Nhờ vậy phụ huynh không cần (và không còn) quyền tra cứu bảng users.
     function parentLinkOk() {
       let d = request.resource.data;
@@ -391,7 +394,7 @@ service cloud.firestore {
       allow get: if isAdmin() || isTeacher() || (signedIn() && request.auth.uid == uid) || isParentOf(uid);
       allow list: if isAdmin() || isTeacher();
       allow create, update: if (isAdmin() || isTeacher())
-        && get(/databases/$(database)/documents/users/$(uid)).data.role == 'student'   // 1 lần get (document không tồn tại => get lỗi => từ chối, giống exists() cũ)
+        && get(/databases/$(database)/documents/users/$(uid)).data.role == 'student' // 1 lần get (document không tồn tại => get lỗi => từ chối, giống exists() cũ)
         && request.resource.data.keys().hasOnly(['days','notes','updatedBy','updatedAt'])
         && request.resource.data.days is map
         && request.resource.data.days.size() <= 2000
@@ -404,7 +407,7 @@ service cloud.firestore {
 
     // ===== PHẦN 4: Điểm danh ngoại lệ theo lớp & ngày: attendances/{classId_date} =====
     // Mặc định cả lớp "đủ"; chỉ lưu học sinh đi muộn / vắng:
-    //   { classId, date: 'YYYY-MM-DD', statuses: { uid: 'late'|'excused'|'unexcused' }, notes: { uid: 'ghi chú' }, studentUids: [uid], updatedBy, updatedAt }
+    // { classId, date: 'YYYY-MM-DD', statuses: { uid: 'late'|'excused'|'unexcused' }, notes: { uid: 'ghi chú' }, studentUids: [uid], updatedBy, updatedAt }
     // Giáo viên đã duyệt / Admin: đọc + ghi. Học sinh: chỉ đọc document có uid của MÌNH trong studentUids (query phải kèm array-contains uid của mình).
     // Phụ huynh xem qua bản sao attendance/{uid} ở trên (cần parentLinks hợp lệ) - chỉ lấy được đúng 1 học sinh.
     match /attendances/{id} {
@@ -434,7 +437,7 @@ service cloud.firestore {
     }
 
     // ===== GVCN / GVBM: classes/{gid} (gid trùng groups/{gid} của lớp) =====
-    //   { gvcnUid, cls, schoolId, gvbmUids: [uid giáo viên bộ môn], updatedAt }
+    // { gvcnUid, cls, schoolId, gvbmUids: [uid giáo viên bộ môn], updatedAt }
     // Đọc: giáo viên đã duyệt / Admin. Ghi: Admin, hoặc GVCN thật của lớp (groups/{gid}.homeroomTeacherUid) - chỉ thêm / gỡ 1 GVBM mỗi lần.
     function isClassHomeroom(cid) {
       return isTeacher()
@@ -486,7 +489,6 @@ service cloud.firestore {
     // groups/{gid}: nhóm do học sinh của lớp tự khởi tạo / tự tham gia (chỉ thêm CHÍNH MÌNH, và phải đúng lớp + trường trong hồ sơ)
     function myProfile() { return get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data; }
     function isGroupMember(gid) { return signedIn() && request.auth.uid in get(/databases/$(database)/documents/groups/$(gid)).data.members; }
-
     function isApprovedTeacherUid(u) {
       let d = get(/databases/$(database)/documents/users/$(u)).data;
       return d.role == 'teacher' && d.status == 'approved';
@@ -511,32 +513,31 @@ service cloud.firestore {
 
     // ===== Phân quyền GVCN & Lớp Trưởng =====
     // Dùng trong match /msgs (resource là tin nhắn, nên đọc nhóm bằng get())
-    function isGroupStaff(gid) {   // GVCN (giáo viên đã duyệt) hoặc Lớp Trưởng của nhóm - chỉ 1 lần get groups/{gid}
+    function isGroupStaff(gid) { // GVCN (giáo viên đã duyệt) hoặc Lớp Trưởng của nhóm - chỉ 1 lần get groups/{gid}
       let g = get(/databases/$(database)/documents/groups/$(gid)).data;
       return (g.get('monitorUid', '') == request.auth.uid) || (g.get('homeroomTeacherUid', '') == request.auth.uid && isTeacher());
     }
-
     // Dùng trong match /groups/{gid} (resource là chính nhóm)
     function isHomeroom() { return isTeacher() && resource.data.get('homeroomTeacherUid', '') == request.auth.uid; }
     function isMonitor() { return resource.data.get('monitorUid', '') == request.auth.uid && request.auth.uid in resource.data.members; }
     function changes(keys) { return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys); }
 
     // Admin / GVCN / Lớp Trưởng thêm đúng 1 người vào cuối danh sách members
-    //  - Admin: học sinh hoặc giáo viên;  GVCN: học sinh hoặc giáo viên đã duyệt;  Lớp Trưởng: chỉ học sinh
+    // - Admin: học sinh hoặc giáo viên; GVCN: học sinh hoặc giáo viên đã duyệt; Lớp Trưởng: chỉ học sinh
     function validStaffAdd() {
       let oldM = resource.data.members;
       let newM = request.resource.data.members;
       let a = newM[oldM.size()];
-      let ad = get(/databases/$(database)/documents/users/$(a)).data;   // 1 lần get (không tồn tại => lỗi => từ chối, giống exists() cũ)
+      let ad = get(/databases/$(database)/documents/users/$(a)).data; // 1 lần get (không tồn tại => lỗi => từ chối, giống exists() cũ)
       return newM.size() == oldM.size() + 1
         && newM[0:oldM.size()] == oldM
         && !(a in oldM)
         && (isAdmin()
-            || (isHomeroom() && (ad.role == 'student' || (ad.role == 'teacher' && ad.status == 'approved')))
-            || (isMonitor() && ad.role == 'student'));
+          || (isHomeroom() && (ad.role == 'student' || (ad.role == 'teacher' && ad.status == 'approved')))
+          || (isMonitor() && ad.role == 'student'));
     }
     // Kick: client ghi { members: arrayRemove(uid), lastKickUid: uid }. Không kick chính mình / GVCN / Lớp Trưởng đương nhiệm.
-    //  - Admin, GVCN: kick học sinh hoặc giáo viên;  Lớp Trưởng: chỉ kick học sinh
+    // - Admin, GVCN: kick học sinh hoặc giáo viên; Lớp Trưởng: chỉ kick học sinh
     function validKick() {
       let oldM = resource.data.members;
       let newM = request.resource.data.members;
@@ -547,7 +548,7 @@ service cloud.firestore {
         && k != resource.data.get('homeroomTeacherUid', '')
         && k != resource.data.get('monitorUid', '')
         && (isAdmin() || isHomeroom()
-            || (isMonitor() && get(/databases/$(database)/documents/users/$(k)).data.role == 'student'));
+          || (isMonitor() && get(/databases/$(database)/documents/users/$(k)).data.role == 'student'));
     }
     // Admin gán / đổi GVCN: chỉ sửa 'homeroomTeacherUid' (+ thêm đúng GVCN mới vào 'members')
     function adminAssignsHomeroom() {
@@ -566,7 +567,7 @@ service cloud.firestore {
       let m = request.resource.data.monitorUid;
       return m is string
         && (m == '' || (m in resource.data.members
-                        && get(/databases/$(database)/documents/users/$(m)).data.role == 'student'));
+          && get(/databases/$(database)/documents/users/$(m)).data.role == 'student'));
     }
     // Ẩn bản thân: chỉ thêm / xóa đúng UID CỦA MÌNH trong 'hiddenMembers'
     function validSelfHideChange() {
@@ -575,17 +576,17 @@ service cloud.firestore {
       let newH = request.resource.data.hiddenMembers;
       return newH is list
         && ((!(me in oldH) && me in newH && newH.size() == oldH.size() + 1 && newH.hasAll(oldH))
-            || (me in oldH && !(me in newH) && newH.size() == oldH.size() - 1 && oldH.hasAll(newH)));
+          || (me in oldH && !(me in newH) && newH.size() == oldH.size() - 1 && oldH.hasAll(newH)));
     }
 
     match /groups/{gid} {
-           allow get: if signedIn() && (
+      allow get: if signedIn() && (
         isAdmin()
         || resource == null
         || request.auth.uid in resource.data.members
         || (myUser().role == 'student'
-            && myProfile().cls == resource.data.cls
-            && myProfile().targetSchoolId == resource.data.schoolId));
+          && myProfile().cls == resource.data.cls
+          && myProfile().targetSchoolId == resource.data.schoolId));
       allow list: if signedIn() && (isAdmin() || request.auth.uid in resource.data.members);
       allow create: if signedIn() && myUser().role == 'student'
         && request.resource.data.keys().hasOnly(['type','name','cls','schoolId','members','createdAt'])
@@ -597,10 +598,8 @@ service cloud.firestore {
         && request.resource.data.createdAt == request.time
         && myProfile().cls == request.resource.data.cls
         && myProfile().targetSchoolId == request.resource.data.schoolId;
-
       // Admin: toàn quyền cập nhật nhóm (thêm / xóa members, GVCN, Lớp Trưởng...) - không phụ thuộc nhóm đã có GVCN hay chưa
       allow update: if isAdmin();
-
       // GVCN / Lớp Trưởng / học sinh: mỗi vai trò chỉ được sửa ĐÚNG các trường của nó (không ai sửa được trường khác)
       allow update: if signedIn() && resource.data.get('type', 'class') == 'class' && (
         // Học sinh tự tham gia / thành viên mời giáo viên đã duyệt

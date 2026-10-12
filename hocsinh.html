@@ -178,7 +178,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.14.5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="edu-common.js?v=0ec7397c40"></script>
     <!-- Tailwind: file CSS tĩnh build bằng CLI (thay cho cdn.tailwindcss.com chỉ dùng để thử nghiệm). Tắt preflight để không ảnh hưởng CSS cũ.
          Build: npx tailwindcss -c tailwind.hocsinh.config.js -i input.css -o hocsinh-tw.min.css --minify -->
@@ -202,8 +202,11 @@
                 <option value="THPT">Học sinh THPT (Cấp 3)</option>
                 <option value="THCS" disabled>Học sinh THCS (Đang bảo trì 🔒)</option>
             </select>
+            <div class="field-label">Tỉnh / Thành phố</div>
+            <select name="reg-province" id="reg-province" aria-label="Tỉnh / Thành phố"></select>
+            <div id="reg-province-note" class="field-note" style="display:none;"></div>
             <div class="field-label">Trường THPT của bạn</div>
-            <input name="reg-school-search" aria-label="Bấm để xem tất cả trường, gõ để lọc..." type="text" id="reg-school-search" placeholder="🔍 Bấm để xem tất cả trường, gõ để lọc..." autocomplete="off">
+            <input name="reg-school-search" aria-label="Bấm để xem tất cả trường, gõ để lọc..." type="text" id="reg-school-search" placeholder="🔍 Hãy chọn Tỉnh / Thành phố trước..." autocomplete="off">
             <div class="field-label" id="reg-cls-label">Lớp của bạn</div>
             <div id="reg-cls-normal" class="class-row"><select name="reg-cls-k" id="reg-cls-k" aria-label="Khối"></select><select name="reg-cls-c" id="reg-cls-c" aria-label="Chữ cái lớp"></select><select name="reg-cls-n" id="reg-cls-n" aria-label="Số lớp"></select></div>
             <div id="reg-cls-special" class="class-row" style="display:none;"><select name="reg-cls-sk" id="reg-cls-sk" aria-label="Khối"></select><select name="reg-cls-sub" id="reg-cls-sub" aria-label="Môn chuyên"></select></div>
@@ -414,8 +417,9 @@
     <div class="modal-card">
         <div class="modal-header"><div class="modal-title" id="sid-title">🪪 Cập nhật Mã Học Sinh</div></div>
         <div class="modal-body">
-            <p style="font-size:14px;line-height:1.5;color:#334155;margin:0 0 14px;font-weight:600;">Yêu cầu cập nhật Mã Học Sinh (ID) để tiếp tục sử dụng ứng dụng</p>
-            <input name="sid-input" aria-label="VD: HS11A801" type="text" id="sid-input" placeholder="VD: HS11A801" maxlength="20" autocomplete="off" autocapitalize="characters" onkeydown="if(event.key==='Enter'){event.preventDefault();saveStudentId();}" oninput="this.value=this.value.replace(/\s+/g,'').toUpperCase();$('sid-err').textContent=''">
+            <p style="font-size:14px;line-height:1.5;color:#334155;margin:0 0 6px;font-weight:600;">Yêu cầu cập nhật Mã Học Sinh (ID) để tiếp tục sử dụng ứng dụng</p>
+            <p style="font-size:12.5px;line-height:1.5;color:#64748b;margin:0 0 14px;">Mã này do <b>em tự tạo</b> (không phải mã do trường cấp): 3-20 ký tự gồm chữ, số hoặc . _ - . Mã không trùng với bạn khác và không đổi được sau khi lưu, hãy nhớ mã để đưa cho phụ huynh xem báo cáo.</p>
+            <input name="sid-input" aria-label="Mã học sinh tự tạo, ví dụ HS11A801" type="text" id="sid-input" placeholder="Tự tạo mã, VD: HS11A801" maxlength="20" autocomplete="off" autocapitalize="characters" onkeydown="if(event.key==='Enter'){event.preventDefault();saveStudentId();}" oninput="this.value=this.value.replace(/\s+/g,'').toUpperCase();$('sid-err').textContent=''">
             <div id="sid-err" style="color:#dc2626;font-size:12px;font-weight:600;min-height:16px;margin:-6px 0 8px;"></div>
             <button class="btn-primary" id="sid-save" onclick="saveStudentId()">Lưu &amp; Tiếp tục</button>
             <button class="btn-outline" onclick="logout()">Đăng xuất</button>
@@ -485,8 +489,11 @@
                 <div class="field-note" style="display:block;margin-top:6px;">Ảnh bìa được lưu ngay khi chọn hoặc căn chỉnh, không cần bấm "Lưu hồ sơ".</div>
             </div>
             <input name="edit-name" aria-label="Họ và tên" type="text" id="edit-name" placeholder="Họ và tên">
+            <div class="field-label">Tỉnh / Thành phố</div>
+            <select name="edit-province" id="edit-province" aria-label="Tỉnh / Thành phố"></select>
+            <div id="edit-province-note" class="field-note" style="display:none;"></div>
             <div class="field-label">Trường THPT của bạn</div>
-            <input name="searchSchoolInput" aria-label="Bấm để xem tất cả trường, gõ để lọc..." type="text" id="searchSchoolInput" placeholder="🔍 Bấm để xem tất cả trường, gõ để lọc..." autocomplete="off">
+            <input name="searchSchoolInput" aria-label="Bấm để xem tất cả trường, gõ để lọc..." type="text" id="searchSchoolInput" placeholder="🔍 Hãy chọn Tỉnh / Thành phố trước..." autocomplete="off">
             <div class="field-label" id="edit-cls-label">Lớp</div>
             <div id="edit-cls-normal" class="class-row"><select name="edit-cls-k" id="edit-cls-k" aria-label="Khối"></select><select name="edit-cls-c" id="edit-cls-c" aria-label="Chữ cái lớp"></select><select name="edit-cls-n" id="edit-cls-n" aria-label="Số lớp"></select></div>
             <div id="edit-cls-special" class="class-row" style="display:none;"><select name="edit-cls-sk" id="edit-cls-sk" aria-label="Khối"></select><select name="edit-cls-sub" id="edit-cls-sub" aria-label="Môn chuyên"></select></div>
@@ -826,7 +833,7 @@
         </div>
     </nav>
 
-    <script src="hocsinh.min.js?v=2e492a1959"></script>
+    <script src="hocsinh.min.js?v=4cb3db1d2a"></script>
 <script>
 // Thanh báo mất mạng (hiện khi trình duyệt báo offline, tự ẩn khi có mạng lại)
 (function () {
