@@ -990,6 +990,7 @@ function soonFeature() { return eduAlert('Tính năng đang được phát tri�
         const MON = [['toan','Toán'],['van','Văn'],['anh','Anh'],['ly','Lý'],['hoa','Hóa'],['sinh','Sinh'],['su','Sử'],['dia','Địa']];
         const HOL = [['R','🔧 Thực hành, máy móc'],['I','🔬 Nghiên cứu, tìm tòi'],['A','🎨 Sáng tạo, nghệ thuật'],['S','🤝 Giúp đỡ, giảng dạy'],['E','📣 Lãnh đạo, kinh doanh'],['C','📑 Số liệu, tổ chức']];
         let DEEP = null, DSTEP = 1;
+        let DPF = { q: '', g: '', k: '', ok: false, open: {} }, DPLIST = [];   // bộ lọc chọn ngành (tìm kiếm / nhóm ngành / khối thi / đủ điểm) + danh sách xếp hạng hiện tại
         const KHOI_TEN = { A00:'Toán, Vật lí, Hóa học', A01:'Toán, Vật lí, Tiếng Anh', B00:'Toán, Hóa học, Sinh học', C00:'Ngữ văn, Lịch sử, Địa lí', D01:'Toán, Ngữ văn, Tiếng Anh', V00:'Toán, Vật lí, Vẽ mỹ thuật', V01:'Toán, Ngữ văn, Vẽ mỹ thuật', H00:'Ngữ văn, Năng khiếu vẽ 1, Năng khiếu vẽ 2', T00:'Toán, Sinh học, Năng khiếu TDTT', N00:'Ngữ văn, Năng khiếu âm nhạc 1, 2', M00:'Ngữ văn, Toán, Năng khiếu' };
         const khoiFull = k => k + ': ' + (KHOI_TEN[k] || '') + (/^[VHTNM]\d/.test(k) ? ' (môn năng khiếu thi riêng, điểm ước tính)' : '');
         const kScore = (k, sc) => KHOI[k].reduce((a, m) => a + (Number(sc[m]) || 0), 0);
@@ -1016,7 +1017,7 @@ function soonFeature() { return eduAlert('Tính năng đang được phát tri�
         function openDeep() {
             if (!user.uniId || !UNIS.some(u => u.id === user.uniId)) return eduAlert('Bạn cần chọn Nguyện vọng Đại học trước (mục "Đổi nguyện vọng Đại học").', 'warning');
             // Mỗi lần làm Phân tích chuyên sâu: xóa sạch dữ liệu cũ (điểm học lực, Holland, MBTI, ngành đã chọn, điểm mục tiêu) - CHỈ giữ lại Ngày sinh
-            DEEP = deepFresh(); mbtiPage = 0;
+            DEEP = deepFresh(); DPF = { q: '', g: '', k: '', ok: false, open: {} }; mbtiPage = 0;
             $('modal-deep').style.display = 'flex';
             DSTEP = 1;   // luôn bắt đầu từ Phần 1 (ngày sinh cũ được điền sẵn)
             deepRender(); deepScroll(0);
@@ -1050,7 +1051,7 @@ function soonFeature() { return eduAlert('Tính năng đang được phát tri�
         }
         function deepLv(m, i) { DEEP.lv[m] = i; const t = deepScroller().scrollTop; deepRender(); deepScroll(t); }
         function deepAns(i, j) { DEEP.q[i] = j; DEEP.qv = 2; const t = deepScroller().scrollTop; deepRender(); deepScroll(t); }
-        function deepRestart() { const dob = DEEP.dob; DEEP = { dob, lv: {}, q: [], qv: 2, m: {}, majors: [] }; DSTEP = 1; mbtiPage = 0; deepRender(); deepScroll(0); }   // làm lại -> về Phần 1
+        function deepRestart() { const dob = DEEP.dob; DEEP = { dob, lv: {}, q: [], qv: 2, m: {}, majors: [] }; DSTEP = 1; DPF = { q: '', g: '', k: '', ok: false, open: {} }; mbtiPage = 0; deepRender(); deepScroll(0); }   // làm lại -> về Phần 1
         // Thoát Phân tích chuyên sâu bất cứ lúc nào (hỏi lại nếu đang làm dở Phần 2 / 3 / 4 để khỏi mất dữ liệu)
         async function deepExit() {
             if (DSTEP >= 2 && DSTEP <= DEEP_PARTS) {
@@ -1138,12 +1139,69 @@ function soonFeature() { return eduAlert('Tính năng đang được phát tri�
                 return { k, name: m[0], khoi: ks[0], pts: ks[1], dc, pct: Math.round(pct), parts: { mon: Math.round(kf * 100), safe: Math.round(sf * 100), hol: Math.round(hm * 100), mbti: mb.done ? Math.round(mf * 100) : null } };
             }).sort((a, b) => b.pct - a.pct);
         }
-        const mjRow = r => `<div onclick="deepPick('${r.k}')" style="display:flex;gap:10px;align-items:center;background:${DEEP.majors.includes(r.k) ? 'var(--sel-soft)' : 'var(--card-bg)'};border:2px solid ${DEEP.majors.includes(r.k) ? 'var(--primary)' : 'var(--border)'};border-radius:12px;padding:10px;cursor:pointer;">
-            <div style="flex:1;font-size:13px;"><b>${esc(r.name)}</b><br><span style="font-size:12px;color:#4361ee;font-weight:600;">Khối phù hợp nhất: ${khoiFull(r.khoi)}</span><br><span style="font-size:11px;color:#64748b;">Xét tuyển: ${MJ[r.k][1].split(',').join(' • ')}</span><br><span style="font-size:11px;color:#64748b;">Điểm chuẩn ${DC_YEARS.map((y, i) => y + ': ' + r.dc.ys[i]).join(' • ')}</span><br><span style="font-size:11px;color:#64748b;">Thành phần: Môn ${r.parts.mon}% • An toàn ${r.parts.safe}% • Holland ${r.parts.hol}%${r.parts.mbti === null ? '' : ' • MBTI ' + r.parts.mbti + '%'}</span><br>
-            <span style="font-size:12px;">🎯 Cần đạt an toàn: <b>${r.dc.safe}</b> • Hiện tại ước tính: <b>${r.pts.toFixed(1)}</b> ${r.pts >= r.dc.safe ? '<span style="color:#16a34a;">(đủ)</span>' : '<span style="color:#dc2626;">(thiếu ' + (r.dc.safe - r.pts).toFixed(1) + ')</span>'}</span></div>
-            <b style="color:var(--primary);">${r.pct}%</b></div>`;
+        // ================= CHỌN NGÀNH (Phân tích chuyên sâu): tìm kiếm, nhóm ngành, khối thi, thẻ chi tiết =================
+        const MJ_GROUPS = [['it','💻','Công nghệ & Dữ liệu'],['eng','⚙️','Kỹ thuật & Công nghiệp'],['build','🏗️','Xây dựng & Kiến trúc'],['eco','💼','Kinh tế & Quản lý'],['lang','🗣️','Ngôn ngữ & Quốc tế'],['media','📰','Truyền thông & Xã hội'],['law','⚖️','Luật & Chính trị'],['edu','🎓','Sư phạm & Giáo dục'],['med','🏥','Y dược & Sức khỏe'],['sci','🔬','Khoa học tự nhiên'],['agr','🌾','Nông nghiệp & Môi trường'],['design','🎨','Thiết kế & Nghệ thuật'],['sec','🛡️','Công an & An ninh']];
+        // Gán nhóm theo TÊN ngành, xét theo thứ tự (ngành không khớp luật nào => Kỹ thuật & Công nghiệp)
+        const MJ_GRULES = [['sec', /Cảnh sát|An ninh|ANTT|Thi hành án|hình sự|Nghiệp vụ/], ['med', /Y khoa|Răng|Y học|Y tế|Khúc xạ|Hộ sinh|Phục hồi|Dinh dưỡng|Dược|Điều dưỡng/], ['edu', /^(Sư phạm|Giáo dục)|giáo dục/i],
+            ['law', /Chính trị học|Chủ nghĩa|Xây dựng Đảng|Quản lý nhà nước|Quản lý công|Luật|Triết/], ['build', /xây dựng|Kiến trúc|Quy hoạch|Nội thất|cấp thoát nước|Cảnh quan/i], ['it', /vi mạch|Công nghệ thông tin|máy tính|Trí tuệ|dữ liệu|An toàn thông tin|Internet|Robot|Hệ thống thông tin/],
+            ['eco', /Kinh tế|Kinh doanh|Quản trị|Tài chính|Ngân hàng|Kế toán|Kiểm toán|Marketing|Logistics|Thương mại|Bất động sản|Bảo hiểm|Khởi nghiệp|nhân lực|Fintech|Công nghệ tài chính|Quản lý công nghiệp|Du lịch|Khách sạn/], ['media', /Báo chí|Truyền thông|Quan hệ công chúng|Xuất bản|Xã hội|Tâm lý|Thư viện|văn phòng|Lịch sử|Văn học|Khoa học quản lý/],
+            ['design', /Thiết kế|Đồ họa|Điêu khắc|Thời trang|Mỹ thuật|Đa phương tiện/], ['lang', /Ngôn ngữ|Châu Á|Quốc tế học|Đông phương|Đông Nam Á|Việt Nam học|Quan hệ quốc tế|ngoại giao|Hán Nôm|tiếng/],
+            ['agr', /Nông|Thú y|Thủy sản|Chăn nuôi|Bảo vệ thực vật|thực phẩm|môi trường|đất đai|Địa chất|Mỏ|Trắc địa|tài nguyên nước|dầu khí/i], ['sci', /^Toán|Thống kê|Vật lý|Vật lí|vật liệu|Hóa học|sinh học|Địa lý|Khí tượng/i]];
+        const mjGroup = name => (MJ_GRULES.find(x => x[1].test(name)) || ['eng'])[0];
+        // Nghề tiêu biểu (chỉ cho các ngành trong danh mục MJ; ngành bổ sung theo tên thì không hiện dòng này)
+        const MJ_JOBS = { it:'Lập trình viên, kỹ sư phần mềm, chuyên viên hệ thống', ai:'Kỹ sư AI, nhà khoa học dữ liệu, chuyên viên học máy', cs:'Chuyên gia an ninh mạng, kiểm thử xâm nhập', ce:'Kỹ sư vi mạch, hệ thống nhúng, phần cứng', me:'Kỹ sư cơ khí, cơ điện tử, thiết kế máy', ee:'Kỹ sư điện, tự động hóa, vận hành lưới điện', tel:'Kỹ sư viễn thông, mạng, IoT', auto:'Kỹ sư ô tô, thiết kế và bảo dưỡng xe',
+            civ:'Kỹ sư xây dựng, giám sát công trình, thiết kế kết cấu', arc:'Kiến trúc sư, thiết kế quy hoạch', trn:'Kỹ sư cầu đường, quản lý giao thông vận tải', log:'Chuyên viên logistics, quản lý chuỗi cung ứng', fin:'Chuyên viên ngân hàng, phân tích tài chính, đầu tư', acc:'Kế toán, kiểm toán viên, tư vấn thuế', bus:'Quản lý doanh nghiệp, khởi nghiệp, chuyên viên kinh doanh', mkt:'Chuyên viên marketing, quản lý thương hiệu',
+            eco:'Phân tích kinh tế, hoạch định chính sách, xuất nhập khẩu', ecom:'Quản lý kinh doanh trực tuyến, chuyên viên thương mại điện tử', law:'Luật sư, thẩm phán, pháp chế doanh nghiệp', jou:'Phóng viên, biên tập viên, sản xuất nội dung', pr:'Chuyên viên truyền thông, quan hệ công chúng, tổ chức sự kiện', en:'Biên phiên dịch, giảng viên, chuyên viên quốc tế', lang:'Biên phiên dịch, hướng dẫn viên, nhân viên doanh nghiệp nước ngoài', int:'Cán bộ ngoại giao, chuyên viên quan hệ quốc tế',
+            tour:'Quản lý khách sạn, điều hành tour, hướng dẫn viên', soc:'Công tác xã hội, nghiên cứu xã hội', psy:'Chuyên viên tâm lý, tham vấn học đường', edu:'Giáo viên các cấp, giảng viên, chuyên viên giáo dục', med:'Bác sĩ đa khoa, bác sĩ chuyên khoa', den:'Bác sĩ nha khoa', pha:'Dược sĩ, nghiên cứu và kiểm nghiệm thuốc', nur:'Điều dưỡng viên, kỹ thuật viên xét nghiệm, chẩn đoán hình ảnh', bio:'Nghiên cứu công nghệ sinh học, kỹ thuật viên phòng thí nghiệm',
+            chem:'Kỹ sư hóa, môi trường, quản lý chất lượng', food:'Kỹ sư thực phẩm, kiểm định chất lượng', agr:'Kỹ sư nông nghiệp, bác sĩ thú y', water:'Kỹ sư thủy lợi, tài nguyên nước', geo:'Kỹ sư địa chất, trắc địa, khai thác mỏ', math:'Chuyên viên thống kê, phân tích dữ liệu, giảng viên', phy:'Nghiên cứu vật liệu, kỹ sư công nghệ', des:'Nhà thiết kế đồ họa, sáng tạo nội dung số', mmd:'Sản xuất truyền thông, thiết kế đa phương tiện', ind:'Quản lý sản xuất, kỹ sư công nghiệp', pol:'Sĩ quan công an (xét tuyển theo quy định riêng)', sec:'Sĩ quan an ninh (xét tuyển theo quy định riêng)' };
+        const dpChipSt = on => 'flex:0 0 auto;padding:7px 12px;border-radius:999px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid ' + (on ? 'var(--primary)' : 'var(--border)') + ';background:' + (on ? 'var(--primary)' : 'var(--card-bg,#fff)') + ';color:' + (on ? '#fff' : 'inherit') + ';';
+        function dpFiltered(list) {
+            const t = foldVN(DPF.q.trim()).split(/\s+/).filter(Boolean);
+            return list.filter(r => (!DPF.g || mjGroup(r.name) === DPF.g) && (!DPF.k || MJ[r.k][1].split(',').includes(DPF.k)) && (!DPF.ok || r.pts >= r.dc.safe)
+                && (!t.length || t.every(x => foldVN(r.name + ' ' + (MJ_JOBS[r.k] || '') + ' ' + ((MJ_GROUPS.find(g => g[0] === mjGroup(r.name)) || [])[2] || '')).includes(x))));
+        }
+        function dpTray() {
+            return DEEP.majors.length ? '<div style="display:flex;gap:6px;overflow-x:auto;white-space:nowrap;padding:3px 0;scrollbar-width:none;"><span style="font-size:12px;color:#64748b;align-self:center;flex:0 0 auto;">Đã chọn:</span>'
+                + DEEP.majors.map(k => `<button type="button" onclick="deepPick('${k}')" style="flex:0 0 auto;max-width:220px;overflow:hidden;text-overflow:ellipsis;padding:6px 10px;border-radius:999px;border:0;background:var(--primary);color:#fff;font-size:12px;cursor:pointer;">${esc(MJ[k][0])} ✕</button>`).join('') + '</div>' : '';
+        }
+        function dpControls(list) {
+            const gs = MJ_GROUPS.filter(g => list.some(r => mjGroup(r.name) === g[0])), ks = [...new Set(list.flatMap(r => MJ[r.k][1].split(',')))].filter(x => KHOI[x]);
+            const chip = (key, val, label) => `<button type="button" data-dpchip="${key}|${val}" onclick="dpSet('${key}','${val}')" style="${dpChipSt(key === 'ok' ? DPF.ok : DPF[key] === val)}">${label}</button>`;
+            const row = h => `<div style="display:flex;gap:6px;overflow-x:auto;white-space:nowrap;padding:3px 0;scrollbar-width:none;">${h}</div>`;
+            return `<div id="dp-ctl" style="position:sticky;top:0;z-index:5;background:var(--card-bg,#fff);padding:8px 0 6px;">
+                <input id="dp-q" type="search" autocomplete="off" aria-label="Tìm ngành" value="${esc(DPF.q)}" oninput="dpSearch(this.value)" placeholder="🔍 Tìm ngành hoặc nghề (không cần dấu)..." style="width:100%;padding:11px 14px;border:2px solid var(--border);border-radius:12px;font-size:14px;background:var(--card-bg,#fff);color:inherit;outline:none;">
+                ${row(chip('g', '', 'Tất cả nhóm') + gs.map(g => chip('g', g[0], g[1] + ' ' + g[2])).join(''))}
+                ${row(chip('k', '', 'Mọi khối') + ks.map(x => chip('k', x, x)).join('') + chip('ok', '1', '✅ Đủ điểm an toàn'))}
+                <div id="dp-tray">${dpTray()}</div>
+                <div style="font-size:11px;color:#64748b;margin-top:2px;">Hiển thị <b id="dp-found">${dpFiltered(list).length}</b>/${list.length} ngành</div></div>`;
+        }
+        function dpRefresh() {   // chỉ vẽ lại danh sách + chip + khay "Đã chọn" (không vẽ lại cả popup nên ô tìm kiếm giữ nguyên con trỏ)
+            const box = document.getElementById('dp-list'); if (!box) return;
+            const ls = dpFiltered(DPLIST);
+            box.innerHTML = ls.map(mjRow).join('') || '<p style="font-size:13px;color:#64748b;">Không có ngành phù hợp. Thử bỏ bớt bộ lọc hoặc đổi từ khóa.</p>';
+            const f = document.getElementById('dp-found'); if (f) f.textContent = ls.length;
+            const tr = document.getElementById('dp-tray'); if (tr) tr.innerHTML = dpTray();
+            document.querySelectorAll('[data-dpchip]').forEach(b => { const p = b.dataset.dpchip.split('|'); b.style.cssText = dpChipSt(p[0] === 'ok' ? DPF.ok : DPF[p[0]] === p[1]); });
+        }
+        function dpSearch(v) { DPF.q = v; dpRefresh(); }
+        function dpSet(key, val) { if (key === 'ok') DPF.ok = !DPF.ok; else DPF[key] = (val && DPF[key] !== val) ? val : ''; dpRefresh(); }
+        function dpToggle(k) { DPF.open[k] = !DPF.open[k]; dpRefresh(); }
+        const mjRow = r => {
+            const on = DEEP.majors.includes(r.k), open = !!DPF.open[r.k], enough = r.pts >= r.dc.safe, jobs = MJ_JOBS[r.k];
+            const hol = (MJ[r.k][2] || '').split('').map(c => (HOL.find(x => x[0] === c) || [c, c])[1]).join(' • ');
+            return `<div style="background:${on ? 'var(--sel-soft)' : 'var(--card-bg)'};border:2px solid ${on ? 'var(--primary)' : 'var(--border)'};border-radius:14px;padding:10px 12px;">
+                <div onclick="deepPick('${r.k}')" style="display:flex;gap:10px;align-items:center;cursor:pointer;min-height:46px;">
+                    <span style="flex:0 0 26px;height:26px;border-radius:50%;border:2px solid var(--primary);background:${on ? 'var(--primary)' : 'transparent'};color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;">${on ? '✓' : ''}</span>
+                    <div style="flex:1;min-width:0;font-size:13px;"><b>${esc(r.name)}</b><br><span style="font-size:12px;color:#64748b;">Khối ${esc(r.khoi)} • An toàn <b>${r.dc.safe}</b> • Ước tính <b style="color:${enough ? '#16a34a' : '#dc2626'};">${r.pts.toFixed(1)}</b></span></div>
+                    <b style="color:var(--primary);font-size:15px;">${r.pct}%</b></div>
+                <button type="button" onclick="dpToggle('${r.k}')" style="margin-top:6px;padding:6px 0;border:0;background:none;color:var(--primary);font-size:12px;font-weight:700;cursor:pointer;">${open ? 'Ẩn chi tiết ▴' : 'Xem chi tiết ▾'}</button>
+                ${open ? `<div style="margin-top:4px;padding:10px;border-radius:10px;background:var(--bg,#f8fafc);font-size:12px;line-height:1.7;color:#475569;">
+                    ${jobs ? `💼 <b>Nghề tiêu biểu:</b> ${esc(jobs)}<br>` : ''}🧭 <b>Hợp với người:</b> ${esc(hol)}<br>📚 <b>Khối phù hợp nhất:</b> ${esc(khoiFull(r.khoi))}<br>📝 <b>Xét tuyển:</b> ${MJ[r.k][1].split(',').join(' • ')}<br>
+                    📈 <b>Điểm chuẩn:</b> ${DC_YEARS.map((y, i) => y + ': ' + r.dc.ys[i]).join(' • ')}<br>⚖️ <b>Thành phần:</b> Môn ${r.parts.mon}% • An toàn ${r.parts.safe}% • Holland ${r.parts.hol}%${r.parts.mbti === null ? '' : ' • MBTI ' + r.parts.mbti + '%'}<br>
+                    🎯 ${enough ? 'Đã đủ điểm an toàn.' : 'Còn thiếu <b>' + (r.dc.safe - r.pts).toFixed(1) + '</b> điểm so với mức an toàn.'}</div>` : ''}</div>`;
+        };
         function deepResultHtml() {
-            const mn = calcMenh(DEEP.dob), H = HANH[mn.hanh], list = deepRank(), mb = deepMbti(DEEP), hol = holScore();
+            const mn = calcMenh(DEEP.dob), H = HANH[mn.hanh], list = (DPLIST = deepRank()), mb = deepMbti(DEEP), hol = holScore();
             const topH = Object.keys(hol).sort((a, b) => hol[b] - hol[a]).slice(0, 2), holTxt = topH.map(c => (HOL.find(x => x[0] === c) || [c, c])[1]).join(' • ');
             const lvs = MON.filter(m => LEVELS[DEEP.lv[m[0]]]).map(m => [m[1], LEVELS[DEEP.lv[m[0]]][1]]), avg = lvs.length ? lvs.reduce((a, x) => a + x[1], 0) / lvs.length : 0;
             const best = lvs.slice().sort((a, b) => b[1] - a[1]).slice(0, 2).map(x => x[0]).join(', ');
@@ -1158,13 +1216,15 @@ function soonFeature() { return eduAlert('Tính năng đang được phát tri�
                 <h3 style="font-size:15px;margin-bottom:4px;">🎓 Ngành tại ${esc(user.uniName)}</h3>
                 <p style="font-size:12px;color:#64748b;margin-bottom:4px;">Bấm để chọn tối đa 3 ngành (đã chọn <b id="dp-count">${DEEP.majors.length}</b>/3). Điểm an toàn = trung bình điểm chuẩn 3 năm gần nhất + 0.5.</p>
                 <p style="font-size:12px;color:#64748b;margin-bottom:8px;">⚖️ Xếp hạng theo: <b>${mb.done ? DEEP_FORMULA : '30% Môn học + 30% Điểm an toàn 3 năm + 40% Holland'}</b></p>
-                <div id="dp-list" style="display:flex;flex-direction:column;gap:8px;">${list.map(mjRow).join('') || '<p style="font-size:13px;">Trường này chưa có danh sách ngành.</p>'}</div>
+                ${dpControls(list)}<div id="dp-list" style="display:flex;flex-direction:column;gap:8px;">${dpFiltered(list).map(mjRow).join('') || '<p style="font-size:13px;color:#64748b;">Không có ngành phù hợp. Thử bỏ bớt bộ lọc hoặc đổi từ khóa.</p>'}</div>
                 <div style="display:flex;gap:8px;margin-top:14px;">${dBtn('↺ Làm lại', 'deepRestart()', 'flex:1;background:#e2e8f0;color:#334155;')}${dBtn('💾 Lưu & về Hồ sơ', 'deepSave(1)', 'flex:2;background:var(--primary);color:#fff;')}</div>`;
         }
         function deepPick(k) {
             const set = new Set(DEEP.majors);
             if (set.has(k)) set.delete(k); else { if (set.size >= 3) return eduAlert('Chỉ chọn tối đa 3 ngành. Hãy bỏ bớt một ngành trước.', 'warning'); set.add(k); }
-            DEEP.majors = [...set]; const t = deepScroller().scrollTop; deepRender(); deepScroll(t);
+            DEEP.majors = [...set];
+            if (document.getElementById('dp-list')) { dpRefresh(); const c = document.getElementById('dp-count'); if (c) c.textContent = DEEP.majors.length; return; }
+            const t = deepScroller().scrollTop; deepRender(); deepScroll(t);
         }
 
         // ---- BÀI TẬP CỦA GIÁO VIÊN ----
