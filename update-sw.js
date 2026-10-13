@@ -7,7 +7,7 @@ const fs = require('fs');
 const crypto = require('crypto');
 
 // File tĩnh của app (tên file nằm cùng thư mục gốc). Thêm file mới vào đây là đủ.
-const ASSETS = ['app.min.js', 'tailwind.min.css', 'edu-common.js', 'index.css', 'hocsinh.min.js', 'hocsinh.min.css'];
+const ASSETS = ['app.min.js', 'tailwind.min.css', 'edu-common.js', 'index.css', 'hocsinh.min.js', 'hocsinh.min.css', 'hocsinh-tw.min.css'];
 const PAGES = ['index.html', 'hocsinh.html'];
 const SW_PATH = './sw.js';
 
