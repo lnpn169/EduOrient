@@ -2742,3 +2742,147 @@ function saveEdit() {
             }, e => { POSTS_READY = true; POSTS_ERR = e.message; if ($('modal-mxh').style.display === 'flex') renderPosts(); });
         });
     
+
+// ===== CHAT AI (Cloudflare Worker + Gemini) =====
+const AI_URL = 'https://eduorient.iemmchyy.workers.dev';
+const AI_HIST = []; let aiBusy = false;
+// Đổi markdown đơn giản (**đậm**, `mã`, danh sách, tiêu đề) sang HTML. Escape trước nên không chèn được HTML độc hại.
+function aiMd(text) {
+    let s = String(text == null ? '' : text).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    s = s.replace(/```[a-zA-Z]*\n?([\s\S]*?)```/g, (m, c) => '<pre style="margin:6px 0;padding:8px 10px;border-radius:8px;background:rgba(0,0,0,.18);overflow-x:auto;white-space:pre">' + c.replace(/\n$/, '') + '</pre>');
+    s = s.replace(/^\s{0,3}#{1,6}\s+(.+)$/gm, '<b>$1</b>');
+    s = s.replace(/^\s*[*-]\s+/gm, '• ');
+    s = s.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+    s = s.replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, '$1<i>$2</i>');
+    s = s.replace(/`([^`\n]+)`/g, '<code style="padding:1px 5px;border-radius:5px;background:rgba(0,0,0,.18)">$1</code>');
+    return s;
+}
+function aiBubble(role, text) {
+    const box = document.querySelector('.ai-msgs'); if (!box) return null;
+    const d = document.createElement('div');
+    d.className = 'chat-bubble other';
+    d.style.maxWidth = '75%'; d.style.whiteSpace = 'pre-wrap';
+    if (role === 'user') { d.style.alignSelf = 'flex-end'; d.style.background = 'var(--primary)'; d.style.color = '#fff'; d.textContent = text; }   // tin của học sinh: textContent
+    else { d.style.alignSelf = 'flex-start'; d.innerHTML = aiMd(text); }   // trả lời của AI: markdown đã escape
+    box.appendChild(d); box.scrollTop = box.scrollHeight; return d;
+}
+// Rút gọn thông báo lỗi để học sinh không thấy cả khối JSON thô
+function aiFriendlyError(msg) {
+    const m = /^AI đang bận \[(\d+)\]/.exec(msg || '');
+    if (!m) return msg || 'Không kết nối được AI, thử lại sau.';
+    if (m[1] === '429') return 'Trợ lý AI đang nhận quá nhiều câu hỏi (mã 429). Bạn đợi khoảng 1 phút rồi hỏi lại nhé.';
+    if (['408', '502', '504', '524'].includes(m[1])) return 'Trợ lý AI phản hồi quá lâu (mã ' + m[1] + '). Bạn thử lại nhé.';
+    if (m[1] === '503') return 'Trợ lý AI đang quá tải (mã 503). Bạn thử lại sau ít giây nhé.';
+    return 'Trợ lý AI đang bận (mã ' + m[1] + '). Bạn thử lại sau nhé.';
+}
+async function sendAi() {
+    const inp = document.getElementById('ai-question-input'); if (!inp) return;
+    const q = inp.value.trim();
+    if (!q || aiBusy) return;
+    if (window.EXAM_LOCKED) return eduAlert('Đang trong giờ làm bài, chưa dùng được trợ lý AI.', 'warning');
+    const cu = fbAuth.currentUser;
+    if (!cu) return eduAlert('Bạn cần đăng nhập lại.', 'warning');
+    aiBusy = true; inp.value = '';
+    const sendBtn = document.querySelector('.ai-in .chat-send'); if (sendBtn) sendBtn.disabled = true;
+    AI_HIST.push({ role: 'user', content: q });
+    if (AI_HIST.length > 20) AI_HIST.splice(0, AI_HIST.length - 20);
+    aiBubble('user', q);
+    const wait = aiBubble('assistant', '...');
+    try {
+        const token = await cu.getIdToken();
+        const res = await fetch(AI_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+            body: JSON.stringify({ messages: AI_HIST })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'AI đang bận, thử lại sau.');
+        if (data.ms) console.log('[AI] ' + data.model + ' - ' + data.ms + ' ms');
+        wait.innerHTML = aiMd(data.reply);
+        AI_HIST.push({ role: 'assistant', content: data.reply });
+        aiSave();
+    } catch (e) {
+        wait.textContent = aiFriendlyError(e && e.message);
+        AI_HIST.pop();
+    }
+    aiBusy = false;
+    if (sendBtn) sendBtn.disabled = false;
+    const box = document.querySelector('.ai-msgs'); if (box) box.scrollTop = box.scrollHeight;
+}
+window.sendAi = sendAi;
+
+// ===== LỊCH SỬ TRÒ CHUYỆN AI (Firestore: aiChats/{uid}/items/{id}) =====
+let AI_CUR = null, AI_LIST = [], AI_UID = '';
+const aiEsc = x => String(x == null ? '' : x).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const aiCol = () => fbDb.collection('aiChats').doc(fbAuth.currentUser.uid).collection('items');
+function aiResetBox() {
+    const box = document.querySelector('.ai-msgs'); if (!box) return;
+    box.innerHTML = '';
+    const g = document.createElement('div');
+    g.className = 'chat-bubble other'; g.style.maxWidth = '70%'; g.style.alignSelf = 'flex-start';
+    g.textContent = 'Xin chào! Mình là trợ lý học tập EduOrient AI. 👋';
+    box.appendChild(g);
+}
+function aiRenderList() {
+    const box = document.querySelector('.ai-hist'); if (!box) return;
+    if (!AI_LIST.length) { box.innerHTML = '<div class="ai-hist-empty">Chưa có cuộc trò chuyện nào.<br>Lịch sử hỏi đáp với trợ lý AI sẽ hiển thị tại đây.</div>'; return; }
+    box.innerHTML = AI_LIST.map(c =>
+        '<div class="ai-h-item' + (c.id === AI_CUR ? ' active' : '') + '" onclick="aiOpenChat(\'' + aiEsc(c.id) + '\')">' +
+        '<span class="ai-h-t">' + aiEsc(c.title || 'Cuộc trò chuyện') + '</span>' +
+        '<button type="button" class="ai-h-del" title="Xóa cuộc trò chuyện" aria-label="Xóa" onclick="event.stopPropagation();aiDeleteChat(\'' + aiEsc(c.id) + '\')">✕</button></div>'
+    ).join('');
+}
+async function aiLoadList() {
+    try {
+        const u = fbAuth.currentUser; if (!u || u.isAnonymous) return;
+        const s = await aiCol().orderBy('updatedAt', 'desc').limit(30).get();
+        AI_LIST = s.docs.map(d => ({ id: d.id, ...d.data() }));
+    } catch (e) { console.warn('Lịch sử AI:', e && e.message); AI_LIST = []; }
+    aiRenderList();
+}
+function aiNewChat() {
+    if (aiBusy) return eduAlert('Trợ lý AI đang trả lời, bạn chờ một chút nhé.', 'warning');
+    AI_CUR = null; AI_HIST.length = 0; aiResetBox(); aiRenderList();
+    const inp = document.getElementById('ai-question-input'); if (inp) inp.focus();
+}
+function aiOpenChat(id) {
+    if (aiBusy) return eduAlert('Trợ lý AI đang trả lời, bạn chờ một chút nhé.', 'warning');
+    const c = AI_LIST.find(x => x.id === id); if (!c) return;
+    AI_CUR = id; AI_HIST.length = 0;
+    (c.msgs || []).forEach(m => AI_HIST.push({ role: m.role === 'assistant' ? 'assistant' : 'user', content: String(m.content || '') }));
+    aiResetBox();
+    AI_HIST.forEach(m => aiBubble(m.role, m.content));
+    aiRenderList();
+}
+async function aiSave() {
+    try {
+        const u = fbAuth.currentUser; if (!u || u.isAnonymous || !AI_HIST.length) return;
+        const msgs = AI_HIST.slice(-40).map(m => ({ role: m.role, content: String(m.content).slice(0, 4000) }));
+        if (!AI_CUR) AI_CUR = aiCol().doc().id;
+        const id = AI_CUR;
+        const first = (AI_HIST.find(m => m.role === 'user') || {}).content || 'Cuộc trò chuyện';
+        const old = AI_LIST.find(x => x.id === id);
+        const title = old ? old.title : first.replace(/\s+/g, ' ').slice(0, 60);
+        await aiCol().doc(id).set({ title, msgs, updatedAt: NOW() });
+        AI_LIST = [{ id, title, msgs }].concat(AI_LIST.filter(x => x.id !== id)).slice(0, 30);
+        aiRenderList();
+    } catch (e) { console.warn('Không lưu được lịch sử AI:', e && e.message); }
+}
+async function aiDeleteChat(id) {
+    if (aiBusy) return eduAlert('Trợ lý AI đang trả lời, bạn chờ một chút nhé.', 'warning');
+    try {
+        await aiCol().doc(id).delete();
+        AI_LIST = AI_LIST.filter(x => x.id !== id);
+        if (AI_CUR === id) { AI_CUR = null; AI_HIST.length = 0; aiResetBox(); }
+        aiRenderList();
+    } catch (e) { eduAlert('Không xóa được cuộc trò chuyện, thử lại sau.', 'warning'); }
+}
+// Đăng nhập / đổi tài khoản: tải lại lịch sử, xóa nội dung của người trước
+fbAuth.onAuthStateChanged(u => {
+    const uid = u && !u.isAnonymous ? u.uid : '';
+    if (uid === AI_UID) return;
+    AI_UID = uid; AI_CUR = null; AI_LIST = []; AI_HIST.length = 0; aiResetBox(); aiRenderList();
+    if (uid) aiLoadList();
+});
+window.aiNewChat = aiNewChat; window.aiOpenChat = aiOpenChat; window.aiDeleteChat = aiDeleteChat;
+

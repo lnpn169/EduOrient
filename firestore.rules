@@ -373,6 +373,17 @@ service cloud.firestore {
     }
 
     // Đồng hồ máy chủ (để đồng hồ đếm ngược đúng dù đồng hồ máy học sinh lệch)
+    // Lịch sử trò chuyện với Trợ lý AI: aiChats/{uid}/items/{id} = { title, msgs: [{role, content}], updatedAt }
+    // Chỉ chính học sinh (tài khoản thật, không phải phiên ẩn danh) đọc / ghi / xóa lịch sử của mình.
+    match /aiChats/{uid}/items/{cid} {
+      allow read, delete: if signedIn() && request.auth.uid == uid;
+      allow create, update: if signedIn() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['title', 'msgs', 'updatedAt'])
+        && request.resource.data.title is string && request.resource.data.title.size() <= 80
+        && request.resource.data.msgs is list && request.resource.data.msgs.size() <= 40
+        && request.resource.data.updatedAt == request.time;
+    }
+
     match /clock/{uid} {
       allow read: if signedIn() && request.auth.uid == uid;
       allow write: if signedIn() && request.auth.uid == uid
