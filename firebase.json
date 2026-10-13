@@ -17,9 +17,19 @@
       "package.json",
       "package-lock.json",
       "input.css",
-      "tailwind.config.js"
+      "tailwind.config.js",
+      "tailwind.hocsinh.config.js",
+      "hocsinh.js",
+      "hocsinh.css"
     ],
     "headers": [
+      {
+        "source": "**",
+        "headers": [
+          { "key": "X-Content-Type-Options", "value": "nosniff" },
+          { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
+        ]
+      },
       {
         "source": "/",
         "headers": [{ "key": "Cache-Control", "value": "no-cache" }]

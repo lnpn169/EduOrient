@@ -1,4 +1,4 @@
-const CACHE_NAME = 'eduorient-v20261013-1512';
+const CACHE_NAME = 'eduorient-v20261013-1741';
 
 // Cache riêng cho thư viện CDN: KHÔNG bị xóa mỗi lần deploy (update-sw.js chỉ đổi CACHE_NAME),
 // nhờ vậy người dùng không phải tải lại React/Firebase sau mỗi lần cập nhật.
@@ -24,8 +24,8 @@ const APP_SHELL = [
 // JS/CSS của app kèm hash nội dung. DANH SÁCH NÀY DO update-sw.js TỰ GHI mỗi lần deploy.
 // <VERSIONED-ASSETS> (tự động ghi bởi update-sw.js - đừng sửa tay)
 const VERSIONED_ASSETS = [
-  '/app.min.js?v=cbdb08a7b9',
-  '/tailwind.min.css?v=23b4fc27b6',
+  '/app.min.js?v=fb0f6f7025',
+  '/tailwind.min.css?v=dae1862901',
   '/edu-common.js?v=0ec7397c40',
   '/index.css?v=e58cb98fc0',
   '/hocsinh.min.js?v=32bedf603c',
@@ -34,11 +34,11 @@ const VERSIONED_ASSETS = [
 // </VERSIONED-ASSETS>
 
 // Thư viện CDN cần có sẵn khi offline. URL phải KHỚP CHÍNH XÁC với thẻ <script>/<link> trong HTML.
+// (JSZip không nằm ở đây: chỉ cần khi giáo viên nhập đề từ Word, sẽ tự được lưu vào cache ở lần dùng đầu tiên nhờ cdnCacheFirst.)
 const CDN_ASSETS = [
   'https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js',
   'https://cdn.jsdelivr.net/npm/sweetalert2@11.14.5',
-  'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js',
   'https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js',
   'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js',
   'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js',

@@ -58,10 +58,14 @@
     <!-- Font: tải song song, không chặn render -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <!-- Host của script (React, Firebase SDK, SweetAlert2): mở kết nối sớm, lần truy cập đầu tiên nhanh hơn -->
+    <link rel="preconnect" href="https://www.gstatic.com">
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+    <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
 
     <!-- Tailwind CSS (file tĩnh, build bằng CLI: npm run build:css) -->
-    <link rel="stylesheet" href="tailwind.min.css?v=23b4fc27b6">
+    <link rel="stylesheet" href="tailwind.min.css?v=dae1862901">
 
     <!-- CSS riêng của app -->
 <link rel="stylesheet" href="index.css?v=e58cb98fc0">
@@ -82,7 +86,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
     <!-- type="module": bắt buộc để esbuild --splitting hoạt động; các chunk Giáo viên / Quản trị / Phụ huynh tự tải khi cần -->
-    <script type="module" src="app.min.js?v=cbdb08a7b9"></script>
+    <script type="module" src="app.min.js?v=fb0f6f7025"></script>
 <script>
   // Có bản mới: nếu người dùng đang ở tab khác thì tải lại âm thầm; nếu đang dùng thì hiện thanh "Cập nhật" (không làm mất dữ liệu đang nhập).
   if ('serviceWorker' in navigator) {

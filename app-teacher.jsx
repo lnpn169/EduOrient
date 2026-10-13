@@ -4,84 +4,8 @@ import { ATT_STATUS, BxhScoreEditor, EMPTY_LIST, GroupSettingsModal, Icon, THEME
 
         const { useState, useEffect, useRef, useMemo, useCallback, memo } = React;
 
-
-        // Pre-loaded subjects
-        const SUBJECTS = [
-            "Toán Học", "Vật Lý", "Hóa Học", "Ngữ Văn", 
-            "Tiếng Anh", "Lịch Sử", "Địa Lý", "Sinh Học", "GDCD / Tin Học"
-        ];
-
-
-        // Demo Database for Teachers
-        const INITIAL_TEACHERS = [
-            {
-                id: "gv-001",
-                email: "gv_toan@edu.vn",
-                password: "123",
-                name: "Thầy Nguyễn Văn Minh",
-                subject: "Toán Học",
-                school: "THPT Chuyên Hà Nội - Amsterdam",
-                teacherCardUrl: "https://placehold.co/400x250/4361ee/ffffff?text=THE+GIAO+VIEN+MINH",
-                status: "approved", // approved | pending
-                registeredAt: "10/05/2026",
-                bio: "10 năm kinh nghiệm luyện thi ĐH khối A, A01. Thủ khoa Sư phạm Toán."
-            },
-            {
-                id: "gv-002",
-                email: "gv_ly@edu.vn",
-                password: "123",
-                name: "Cô Trần Thị Thu",
-                subject: "Vật Lý",
-                school: "THPT Chuyên Chu Văn An",
-                teacherCardUrl: "https://placehold.co/400x250/10b981/ffffff?text=THE+GIAO+VIEN+THU",
-                status: "pending",
-                registeredAt: "28/09/2026",
-                bio: "Giáo viên giỏi cấp Thành phố, chuyên đề Lý 12."
-            }
-        ];
-
-
-        // Demo Database for Students
-        const INITIAL_STUDENTS = [
-            { id: "st-101", name: "Nguyễn Văn An", email: "an.nguyen@gmail.com", class: "12A1", targetSchool: "ĐH Bách Khoa Hà Nội (HUST)", xp: 480, rank: 1, gpa: 9.2, evaluation: "Học giỏi Tư duy Toán & Lý, cần duy trì phong độ." },
-            { id: "st-102", name: "Trần Thị Bảo", email: "bao.tran@gmail.com", class: "12A2", targetSchool: "ĐH Kinh Tế Quốc Dân (NEU)", xp: 410, rank: 2, gpa: 8.8, evaluation: "Năng lực Toán đại số tốt, cần rèn luyện thêm bài tập tổng hợp." },
-            { id: "st-103", name: "Lê Hoàng Cường", email: "cuong.le@gmail.com", class: "12A1", targetSchool: "ĐH Quốc Gia Hà Nội (VNU)", xp: 350, rank: 3, gpa: 8.1, evaluation: "Chăm chỉ, hoàn thành bài tập đầy đủ." }
-        ];
-
-
-        // Demo Database for Homework Assignments posted by Teachers
-        const INITIAL_ASSIGNMENTS = [
-            {
-                id: "hw-1",
-                title: "Bộ đề ôn thi Đại Học 2026 - Chuyên đề Hàm Số & Cực Trị",
-                subject: "Toán Học",
-                teacherName: "Thầy Nguyễn Văn Minh",
-                teacherId: "gv-001",
-                duration: "90 phút",
-                totalQuestions: 50,
-                status: "approved", // pending | approved
-                createdAt: "25/09/2026",
-                description: "Bài tập rèn luyện kỹ năng giải nhanh câu hỏi phân hóa từ 8+ đến 10 điểm.",
-                submissionsCount: 24,
-                questions: [
-                    { q: "Đạo hàm của hàm số y = x^2 là?", a: ["2x", "x", "2", "x^2"], c: 0 },
-                    { q: "Hàm số y = -x^3 + 3x có cực đại tại x bằng?", a: ["-1", "0", "1", "3"], c: 2 }
-                ]
-            },
-            {
-                id: "hw-2",
-                title: "Kiểm tra Định kỳ 45p - Dòng điện xoay chiều & Dao động",
-                subject: "Vật Lý",
-                teacherName: "Thầy Nguyễn Văn Minh",
-                teacherId: "gv-001",
-                duration: "45 phút",
-                totalQuestions: 40,
-                status: "approved",
-                createdAt: "27/09/2026",
-                description: "Đề thi thử gồm các dạng bài tập thực tế và lý thuyết trọng tâm.",
-                submissionsCount: 18
-            }
-        ];
+        // Dọn dữ liệu đăng nhập cũ (tài khoản mẫu + mật khẩu thô) còn sót trong trình duyệt của người dùng
+        try { localStorage.removeItem('eduorient_teachers'); } catch (e) {}
 
 
         // Mỗi dòng: Câu hỏi | A | B | C | D | Đáp án đúng (A/B/C/D)
@@ -721,12 +645,13 @@ async function readDocxLines(buf) {
             const zeroed = useRef(new Set());
             const needsGrade = (r) => r.status === 'submitted' && !r.graded;
             const isLate = (r) => r.status === 'timeout' && !r.adminEdited;
-            const rows = subs.filter((x) => x.hwId === hw.id).sort((a, b) => essay
+            // useMemo: không lọc / sắp xếp lại mỗi lần gõ ô tìm kiếm hay đổi bộ lọc (chỉ tính lại khi bài nộp / danh sách học sinh đổi)
+            const rows = useMemo(() => subs.filter((x) => x.hwId === hw.id).sort((a, b) => essay
                 ? ((needsGrade(b) ? 1 : 0) - (needsGrade(a) ? 1 : 0)) || String(a.name || '').localeCompare(String(b.name || ''), 'vi')   // bài chờ chấm lên đầu
-                : b.score - a.score);
-            const target = students.filter((s) => !(hw.classes && hw.classes.length) || hw.classes.map((c) => String(c).toUpperCase()).includes(s.class));
-            const done = new Set(rows.map((r) => r.uid));
-            const missing = target.filter((s) => !done.has(s.id));
+                : b.score - a.score), [subs, hw.id, essay]);
+            const target = useMemo(() => students.filter((s) => !(hw.classes && hw.classes.length) || hw.classes.map((c) => String(c).toUpperCase()).includes(s.class)), [students, hw.classes]);
+            const done = useMemo(() => new Set(rows.map((r) => r.uid)), [rows]);
+            const missing = useMemo(() => target.filter((s) => !done.has(s.id)), [target, done]);
             const scored = rows.map(subScore10).filter((x) => x !== null);
             const avg = scored.length ? (scored.reduce((a, x) => a + x, 0) / scored.length).toFixed(1) : '-';
             const pending = rows.filter(needsGrade).length;
@@ -739,10 +664,10 @@ async function readDocxLines(buf) {
             const shown = rows.filter((r) => match(r.name, r.cls) && (filter === 'all' || (filter === 'pending' && needsGrade(r)) || (filter === 'late' && isLate(r)) || (filter === 'done' && !needsGrade(r) && !isLate(r))));
             const shownMissing = missing.filter((s) => match(s.name, s.class));
             const chips = [['all', 'Tất cả', rows.length]].concat(essay ? [['pending', 'Chờ chấm', pending]] : [], [['done', essay ? 'Đã chấm' : 'Đã nộp', cDone], ['late', 'Quá hạn', cLate], ['missing', 'Chưa nộp', missing.length]]);
-            const qRates = (hw.type !== 'essay' && (hw.questions || []).length > 0 && rows.length > 0)
+            const qRates = useMemo(() => (hw.type !== 'essay' && (hw.questions || []).length > 0 && rows.length > 0)
                 ? hw.questions.map((qq, i) => (qq.kind === 'essay' ? null : { i, pc: Math.round(rows.filter((r) => r.answers && r.answers[i] === qq.c).length / rows.length * 100) })).filter(Boolean)
-                : [];
-            const rateMap = {}; qRates.forEach(({ i, pc }) => { rateMap[i] = pc; });
+                : [], [hw, rows]);
+            const rateMap = useMemo(() => { const m = {}; qRates.forEach(({ i, pc }) => { m[i] = pc; }); return m; }, [qRates]);
             const detailRow = detailUid ? rows.find((r) => r.uid === detailUid) : null;
             // Bài 'timeout' => tự động ghi score: 0 vào Firestore (chỉ giáo viên đăng bài thực hiện; hiển thị luôn là 0đ)
             useEffect(() => {
@@ -1986,15 +1911,6 @@ const gridCls = 'grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)
 
         // Màn hình Giáo viên (trước đây là phần thân của App). Chỉ được tải sau khi đăng nhập bằng tài khoản giáo viên.
         function TeacherApp({ user, setUser }) {
-            // App state
-            const [role, setRole] = useState('student'); // 'student' | 'teacher'
-            const [regMethod, setRegMethod] = useState('approval'); // 'approval' (Cách 2 - gửi thẻ 24h) | 'code' (Cách 1)
-            const [isLogin, setIsLogin] = useState(true);
-
-            // Database state
-            const [teachersList, setTeachersList] = useState(() => { try { return JSON.parse(localStorage.getItem('eduorient_teachers')) || INITIAL_TEACHERS; } catch(e) { return INITIAL_TEACHERS; } });
-            useEffect(() => { try { localStorage.setItem('eduorient_teachers', JSON.stringify(teachersList)); } catch(e){} }, [teachersList]);
-            const [studentsList, setStudentsList] = useState(INITIAL_STUDENTS);
             const [assignmentsAll, setAssignments] = useState([]);   // Phần 2: dữ liệu thô; bản đã lọc theo trường là `assignments` (khai báo bên dưới)
 
             // Teacher Dashboard Active Tab (3 Ô)
@@ -2006,24 +1922,7 @@ const gridCls = 'grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)
             // Student Active Tab
             const [studentTab, setStudentTab] = useState('assignments'); // 'assignments' | 'leaderboard' | 'profile'
 
-            // Registration Form Inputs (Cách 2)
-            const [regForm, setRegForm] = useState({
-                name: '',
-                subject: 'Toán Học',
-                email: '',
-                password: '',
-                teacherCardFile: null,
-                teacherCardPreview: '',
-                code: ''
-            });
-
-            // Login Form Inputs
-            const [loginForm, setLoginForm] = useState({ email: '', password: '' });
-
             // UI Messages & Modals
-            const [errorMessage, setErrorMessage] = useState('');
-            const [successMessage, setSuccessMessage] = useState('');
-            const [showAdminModal, setShowAdminModal] = useState(false);
             
             // Teacher Tab 1: New Assignment Modal / Form State
             const [showNewAssignmentModal, setShowNewAssignmentModal] = useState(false);
@@ -2045,7 +1944,6 @@ const gridCls = 'grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)
 
             // Teacher Tab 2: Class Management State
             const setClassStudents = () => {};
-            const [newStudentInput, setNewStudentInput] = useState('');
             const [selectedStudentForEval, setSelectedStudentForEval] = useState(null);
             const [evalCommentInput, setEvalCommentInput] = useState('');
 
@@ -2194,126 +2092,6 @@ const gridCls = 'grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)
                 }
             }, [user]);
 
-            // Handle registration form submit
-            const handleRegister = (e) => {
-                e.preventDefault();
-                setErrorMessage('');
-                setSuccessMessage('');
-
-                if (!regForm.email || !regForm.password || !regForm.name) {
-                    setErrorMessage('Vui lòng điền đầy đủ các thông tin bắt buộc.');
-                    return;
-                }
-
-                if (role === 'teacher') {
-                    if (regMethod === 'approval') {
-                        // CÁCH 2: Điền thông tin, thẻ giáo viên, đăng ký email/pass -> Chờ duyệt 24h
-                        if (!regForm.teacherCardPreview) {
-                            setErrorMessage('Vui lòng tải lên ảnh Thẻ giáo viên / Minh chứng công tác.');
-                            return;
-                        }
-
-                        const newTeacher = {
-                            id: `gv-${Date.now()}`,
-                            email: regForm.email,
-                            password: regForm.password,
-                            name: regForm.name,
-                            subject: regForm.subject,
-                            school: "THPT Quốc Gia",
-                            teacherCardUrl: regForm.teacherCardPreview,
-                            status: "pending", // Đợi duyệt
-                            registeredAt: new Date().toLocaleDateString('vi-VN'),
-                            bio: `Giáo viên bộ môn ${regForm.subject}.`
-                        };
-
-                        setTeachersList([newTeacher, ...teachersList]);
-                        setSuccessMessage('Hồ sơ của bạn đã được gửi thành công! Hệ thống đang kiểm tra thẻ giáo viên. Yêu cầu xét duyệt sẽ hoàn tất chậm nhất trong 24 giờ. Vui lòng quay lại đăng nhập sau.');
-                        setIsLogin(true);
-                    } else {
-                        // CÁCH 1: Dùng mã xác thực tức thì
-                        if (regForm.code !== "GV2026") {
-                            setErrorMessage('Mã xác thực Giáo viên không hợp lệ (Thử: GV2026).');
-                            return;
-                        }
-                        const newTeacher = {
-                            id: `gv-${Date.now()}`,
-                            email: regForm.email,
-                            password: regForm.password,
-                            name: regForm.name,
-                            subject: regForm.subject,
-                            school: "THPT Quốc Gia",
-                            teacherCardUrl: "https://placehold.co/400x250/4361ee/ffffff?text=THE+GIAO+VIEN",
-                            status: "approved",
-                            registeredAt: new Date().toLocaleDateString('vi-VN'),
-                            bio: `Giáo viên bộ môn ${regForm.subject}.`
-                        };
-                        setTeachersList([newTeacher, ...teachersList]);
-                        setSuccessMessage('Tạo tài khoản thành công! Bạn có thể đăng nhập ngay.');
-                        setIsLogin(true);
-                    }
-                } else {
-                    // Đăng ký Học sinh
-                    const accs = JSON.parse(localStorage.getItem('eduorient_students') || '[]');
-                    if (accs.some(a => a.email.toLowerCase() === regForm.email.toLowerCase())) { setErrorMessage('Email này đã được đăng ký.'); return; }
-                    const acc = { id: `st-${Date.now()}`, email: regForm.email, password: regForm.password, name: regForm.name, role: 'student' };
-                    localStorage.setItem('eduorient_students', JSON.stringify([...accs, acc]));
-                    setUser(acc);
-                }
-            };
-
-            // Handle Login
-            const handleLogin = (e) => {
-                e.preventDefault();
-                setErrorMessage('');
-                setSuccessMessage('');
-
-                if (role === 'teacher') {
-                    const foundTeacher = teachersList.find(
-                        t => t.email.toLowerCase() === loginForm.email.toLowerCase() && t.password === loginForm.password
-                    );
-
-                    if (!foundTeacher) {
-                        setErrorMessage('Tài khoản hoặc mật khẩu Giáo viên không chính xác.');
-                        return;
-                    }
-
-                    if (foundTeacher.status === 'pending') {
-                        setErrorMessage('Tài khoản của bạn ĐANG CHỜ ADMIN XÉT DUYỆT THẺ GIÁO VIÊN (chậm nhất 24h). Vui lòng thử lại sau hoặc dùng nút "Giả lập Admin duyệt nhanh" để kiểm tra.');
-                        return;
-                    }
-
-                    setUser({ ...foundTeacher, role: 'teacher' });
-                } else {
-                    // Đăng nhập Học sinh
-                    const accs = JSON.parse(localStorage.getItem('eduorient_students') || '[]');
-                    const st = accs.find(a => a.email.toLowerCase() === loginForm.email.toLowerCase() && a.password === loginForm.password);
-                    if (!st) { setErrorMessage('Email hoặc mật khẩu Học sinh không chính xác.'); return; }
-                    setUser(st);
-                }
-            };
-
-            // Simulated File Upload handler for Teacher Card
-            const handleImageUpload = (e) => {
-                const file = e.target.files[0];
-                if (file) {
-                    const reader = new FileReader();
-                    reader.onloadend = () => {
-                        setRegForm(prev => ({
-                            ...prev,
-                            teacherCardFile: file,
-                            teacherCardPreview: reader.result
-                        }));
-                    };
-                    reader.readAsDataURL(file);
-                }
-            };
-
-            // Admin instant approve simulation
-            const approveTeacherInstantly = (teacherId) => {
-                setTeachersList(prev => prev.map(t => t.id === teacherId ? { ...t, status: 'approved' } : t));
-                setSuccessMessage('Đã duyệt tài khoản giáo viên thành công! Bây giờ bạn có thể đăng nhập.');
-            };
-
             // ===== Bài tập tự luận (Phần 1): nhận diện loại đề =====
             const ESSAY_IMG_MAX = 6, ESSAY_IMG_CHARS = 700000;   // tối đa 6 ảnh / câu, tổng ~700KB Base64 để vừa giới hạn 1MB/document
             const isBlankQ = (x) => !x.q.trim() && (x.kind === 'essay' ? !(x.images || []).length : x.a.every((o) => !o.trim()));
@@ -2363,34 +2141,6 @@ const gridCls = 'grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)
 
 
 
-            // Teacher Action 2: Add Student to Class
-            const handleAddStudentToClass = (e) => {
-                e.preventDefault();
-                if (!newStudentInput.trim()) return;
-
-                const foundInGlobal = studentsList.find(s => s.email.toLowerCase() === newStudentInput.trim().toLowerCase() || s.name.toLowerCase().includes(newStudentInput.trim().toLowerCase()));
-
-                const studentToAdd = foundInGlobal || {
-                    id: `st-${Date.now()}`,
-                    name: newStudentInput.split('@')[0],
-                    email: newStudentInput.includes('@') ? newStudentInput : `${newStudentInput.toLowerCase()}@gmail.com`,
-                    class: "12A1",
-                    targetSchool: "Đại Học Kinh Tế Quốc Dân",
-                    xp: 200,
-                    rank: classStudents.length + 1,
-                    gpa: 8.0,
-                    evaluation: "Mới thêm vào lớp. Đang theo dõi tiến độ."
-                };
-
-                if (classStudents.some(s => s.email.toLowerCase() === studentToAdd.email.toLowerCase())) {
-                    eduAlert('Học sinh này đã có trong danh sách lớp học!', 'warning');
-                    return;
-                }
-
-                setClassStudents([...classStudents, studentToAdd]);
-                setNewStudentInput('');
-            };
-
             // Save Teacher Evaluation for Student
             const handleSaveEvaluation = () => {
                 if (!selectedStudentForEval) return;
@@ -2416,7 +2166,6 @@ const gridCls = 'grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)
                                 </div>
                             </div>
 
-                            {user ? (
                                 <div className="flex items-center gap-2 sm:gap-3 min-w-0 shrink-0">
                                     {/* Desktop / tablet: badge + tên */}
                                     <div className="hidden sm:flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-full border border-slate-200 min-w-0">
@@ -2434,14 +2183,6 @@ const gridCls = 'grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)
                                         <span className="hidden sm:inline">Đăng xuất</span>
                                     </button>
                                 </div>
-                            ) : (
-                                <button
-                                    onClick={() => setShowAdminModal(true)}
-                                    className="touch text-xs font-semibold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-3 rounded-xl border border-indigo-200 transition flex items-center gap-1.5 shrink-0"
-                                >
-                                    <Icon name="shield-check" className="w-4 h-4" /> <span className="hidden sm:inline">Bảng Giả Lập Admin</span><span className="sm:hidden">Admin</span>
-                                </button>
-                            )}
                         </div>
 
                         {/* Mobile: hàng thứ 2 — badge vai trò + tên (truncate, không tràn lề phải) */}
@@ -2457,231 +2198,7 @@ const gridCls = 'grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)
 
                     {/* MAIN CONTENT AREA */}
                     <main className="flex-1 max-w-6xl w-full mx-auto p-3 sm:p-6 md:p-8 min-w-0">
-                        {!user ? (
-                            /* --- LOGIN & REGISTRATION SCREEN --- */
-                            <div className="max-w-md mx-auto bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden my-4">
-                                {/* Role Selector */}
-                                <div className="bg-slate-100 p-1.5 flex rounded-t-2xl gap-1">
-                                    <button 
-                                        type="button"
-                                        onClick={() => { setRole('student'); setErrorMessage(''); setSuccessMessage(''); }}
-                                        className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition flex items-center justify-center gap-2 ${role === 'student' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                                    >
-                                        <Icon name="user" className="w-4 h-4" /> Học Sinh
-                                    </button>
-                                    <button 
-                                        type="button"
-                                        onClick={() => { setRole('teacher'); setErrorMessage(''); setSuccessMessage(''); }}
-                                        className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition flex items-center justify-center gap-2 ${role === 'teacher' ? 'bg-white text-amber-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                                    >
-                                        <Icon name="graduation-cap" className="w-4 h-4" /> Giáo Viên
-                                    </button>
-                                </div>
-
-                                <div className="p-6">
-                                    {/* Subtitle Header */}
-                                    <div className="text-center mb-5">
-                                        <h2 className="text-xl font-bold text-slate-900">
-                                            {isLogin ? 'Đăng Nhập Tài Khoản' : (role === 'teacher' ? 'Đăng Ký Tài Khoản Giáo Viên' : 'Đăng Ký Tài Khoản Học Sinh')}
-                                        </h2>
-                                        <p className="text-xs text-slate-500 mt-1">
-                                            {role === 'teacher' 
-                                                ? 'Cổng thông tin giảng dạy & quản lý bài tập EduOrient' 
-                                                : 'Hệ thống trắc nghiệm định hướng nghề nghiệp & ôn thi'}
-                                        </p>
-                                    </div>
-
-                                    {/* Teacher Registration Methods Selector (Cách 2 vs Cách 1) */}
-                                    {role === 'teacher' && !isLogin && (
-                                        <div className="mb-5 bg-amber-50/60 border border-amber-200 rounded-xl p-3">
-                                            <label className="block text-xs font-bold text-amber-900 mb-2">Phương thức đăng ký Giáo viên:</label>
-                                            <div className="grid grid-cols-2 gap-2">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setRegMethod('approval')}
-                                                    className={`px-3 py-2 rounded-lg text-xs font-bold border transition text-left flex items-start gap-1.5 ${regMethod === 'approval' ? 'bg-amber-600 text-white border-amber-600 shadow-sm' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}
-                                                >
-                                                    <Icon name="file-badge" className="w-4 h-4 shrink-0 mt-0.5" />
-                                                    <div>
-                                                        <div>Cách 2: Gửi Thẻ GV</div>
-                                                        <div className="text-[10px] opacity-80 font-normal">Chờ duyệt (chậm nhất 24h)</div>
-                                                    </div>
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setRegMethod('code')}
-                                                    className={`px-3 py-2 rounded-lg text-xs font-bold border transition text-left flex items-start gap-1.5 ${regMethod === 'code' ? 'bg-amber-600 text-white border-amber-600 shadow-sm' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}
-                                                >
-                                                    <Icon name="key-round" className="w-4 h-4 shrink-0 mt-0.5" />
-                                                    <div>
-                                                        <div>Cách 1: Mã Kích Hoạt</div>
-                                                        <div className="text-[10px] opacity-80 font-normal">Kích hoạt nhanh</div>
-                                                    </div>
-                                                </button>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Messages */}
-                                    {errorMessage && (
-                                        <div className="mb-4 bg-red-50 border border-red-200 text-red-700 p-3 rounded-xl text-xs flex items-start gap-2">
-                                            <Icon name="alert-circle" className="w-4 h-4 shrink-0 mt-0.5 text-red-600" />
-                                            <span className="leading-relaxed">{errorMessage}</span>
-                                        </div>
-                                    )}
-                                    {successMessage && (
-                                        <div className="mb-4 bg-emerald-50 border border-emerald-200 text-emerald-800 p-3 rounded-xl text-xs flex items-start gap-2">
-                                            <Icon name="check-circle-2" className="w-4 h-4 shrink-0 text-emerald-600 mt-0.5" />
-                                            <span className="leading-relaxed">{successMessage}</span>
-                                        </div>
-                                    )}
-
-                                    {/* FORM */}
-                                    <form id="main-auth-form" name="main-auth-form" onSubmit={isLogin ? handleLogin : handleRegister} className="space-y-4">
-                                        {!isLogin && (
-                                            <>
-                                                {/* Full Name */}
-                                                <div>
-                                                    <label className="block text-xs font-bold text-slate-700 mb-1">
-                                                        {role === 'teacher' ? 'Họ và tên Giáo viên' : 'Họ và tên Học sinh'} <span className="text-red-500">*</span>
-                                                    </label>
-                                                    <input id="reg-name" name="name" aria-label="Họ và tên" autoComplete="name" 
-                                                        type="text"
-                                                        required
-                                                        placeholder="VD: Nguyễn Văn Minh"
-                                                        value={regForm.name}
-                                                        onChange={(e) => setRegForm({...regForm, name: e.target.value})}
-                                                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                                                    />
-                                                </div>
-
-                                                {/* Teacher Subject selection */}
-                                                {role === 'teacher' && (
-                                                    <div>
-                                                        <label className="block text-xs font-bold text-slate-700 mb-1">
-                                                            Môn học đang giảng dạy <span className="text-red-500">*</span>
-                                                        </label>
-                                                        <select id="reg-subject" name="subject" aria-label="Môn giảng dạy"
-                                                            value={regForm.subject}
-                                                            onChange={(e) => setRegForm({...regForm, subject: e.target.value})}
-                                                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-amber-500 outline-none bg-white font-medium"
-                                                        >
-                                                            {SUBJECTS.map((sub) => (
-                                                                <option key={sub} value={sub}>{sub}</option>
-                                                            ))}
-                                                        </select>
-                                                    </div>
-                                                )}
-
-                                                {/* CÁCH 2: Upload Teacher ID Card / Proof */}
-                                                {role === 'teacher' && regMethod === 'approval' && (
-                                                    <div className="p-3 bg-slate-50 border border-dashed border-amber-300 rounded-xl space-y-2">
-                                                        <label className="block text-xs font-bold text-amber-900 flex items-center justify-between">
-                                                            <span>Thẻ Giáo Viên / Minh Chứng Công Tác <span className="text-red-500">*</span></span>
-                                                            <span className="text-[10px] text-amber-700 font-normal">Xét duyệt 24h</span>
-                                                        </label>
-                                                        
-                                                        {regForm.teacherCardPreview ? (
-                                                            <div className="relative rounded-lg overflow-hidden border border-amber-200">
-                                                                <img src={regForm.teacherCardPreview} alt="Preview Thẻ GV" className="w-full h-32 object-cover" />
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => setRegForm({...regForm, teacherCardPreview: '', teacherCardFile: null})}
-                                                                    className="absolute top-2 right-2 bg-red-600 text-white p-1 rounded-full text-xs hover:bg-red-700"
-                                                                >
-                                                                    <Icon name="x" className="w-3.5 h-3.5" />
-                                                                </button>
-                                                            </div>
-                                                        ) : (
-                                                            <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-slate-300 rounded-xl cursor-pointer hover:bg-amber-50/50 transition">
-                                                                <Icon name="upload-cloud" className="w-6 h-6 text-amber-600 mb-1" />
-                                                                <span className="text-xs font-medium text-slate-600">Bấm để tải ảnh Thẻ GV hoặc Giấy xác nhận</span>
-                                                                <span className="text-[10px] text-slate-400 mt-0.5">Định dạng JPG, PNG</span>
-                                                                <input id="reg-avatar" name="avatar" type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
-                                                            </label>
-                                                        )}
-                                                    </div>
-                                                )}
-
-                                                {/* CÁCH 1: Teacher Code */}
-                                                {role === 'teacher' && regMethod === 'code' && (
-                                                    <div>
-                                                        <label className="block text-xs font-bold text-slate-700 mb-1 flex justify-between">
-                                                            <span>Mã kích hoạt Giáo viên <span className="text-red-500">*</span></span>
-                                                            <span className="text-[10px] text-amber-600 font-semibold">Mã mẫu: GV2026</span>
-                                                        </label>
-                                                        <input id="reg-teacher-code" name="teacherCode" aria-label="Mã giáo viên" 
-                                                            type="text"
-                                                            placeholder="Nhập GV2026..."
-                                                            value={regForm.code}
-                                                            onChange={(e) => setRegForm({...regForm, code: e.target.value.toUpperCase()})}
-                                                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-amber-500 outline-none uppercase font-mono"
-                                                        />
-                                                    </div>
-                                                )}
-                                            </>
-                                        )}
-
-                                        {/* Username / Email */}
-                                        <div>
-                                            <label className="block text-xs font-bold text-slate-700 mb-1">
-                                                Tên tài khoản / Email <span className="text-red-500">*</span>
-                                            </label>
-                                            <input id="auth-email" name="email" aria-label="Email" autoComplete="email" 
-                                                type="email"
-                                                required
-                                                placeholder={role === 'teacher' ? "VD: gv_toan@edu.vn" : "VD: hocsinh@gmail.com"}
-                                                value={isLogin ? loginForm.email : regForm.email}
-                                                onChange={(e) => isLogin ? setLoginForm({...loginForm, email: e.target.value}) : setRegForm({...regForm, email: e.target.value})}
-                                                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                                            />
-                                        </div>
-
-                                        {/* Password */}
-                                        <div>
-                                            <label className="block text-xs font-bold text-slate-700 mb-1">
-                                                Mật khẩu <span className="text-red-500">*</span>
-                                            </label>
-                                            <input id="auth-password" name="password" aria-label="Mật khẩu" autoComplete={isLogin ? 'current-password' : 'new-password'} 
-                                                type="password"
-                                                required
-                                                placeholder="••••••••"
-                                                value={isLogin ? loginForm.password : regForm.password}
-                                                onChange={(e) => isLogin ? setLoginForm({...loginForm, password: e.target.value}) : setRegForm({...regForm, password: e.target.value})}
-                                                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                                            />
-                                        </div>
-
-                                        {/* Submit Button */}
-                                        <button 
-                                            type="submit"
-                                            className={`w-full text-white font-bold py-3 rounded-xl transition shadow-lg text-sm flex items-center justify-center gap-2 mt-2 ${role === 'teacher' ? 'bg-amber-600 hover:bg-amber-700 shadow-amber-200' : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200'}`}
-                                        >
-                                            {isLogin ? (
-                                                <>
-                                                    <Icon name="log-in" className="w-4 h-4" /> Đăng Nhập {role === 'teacher' ? 'Giáo Viên' : 'Học Sinh'}
-                                                </>
-                                            ) : (
-                                                role === 'teacher' && regMethod === 'approval' 
-                                                    ? 'Gửi Thẻ & Đăng Ký Xét Duyệt (24h)' 
-                                                    : 'Tạo Tài Khoản Ngay'
-                                            )}
-                                        </button>
-                                    </form>
-
-                                    {/* Toggle Switch */}
-                                    <div className="mt-5 pt-4 border-t border-slate-100 text-center">
-                                        <button 
-                                            type="button"
-                                            onClick={() => { setIsLogin(!isLogin); setErrorMessage(''); setSuccessMessage(''); }}
-                                            className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition"
-                                        >
-                                            {isLogin ? 'Chưa có tài khoản? Đăng ký ngay' : 'Đã có tài khoản? Quay lại Đăng nhập'}
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        ) : user.role === 'teacher' ? (
+                        {user.role === 'teacher' ? (
                             /* --- TEACHER DASHBOARD (UI mới từ gvien.html — dữ liệu thật từ Firestore) --- */
                             (() => {
                                 const visibleAssignments = myAssignments;   // Quyền riêng: giáo viên chỉ thấy & quản lý đề do CHÍNH MÌNH đăng
@@ -2895,65 +2412,6 @@ const gridCls = 'grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)
                             </div>
                         )}
                     </main>
-
-                    {}
-                    {/* MODAL 1: GIẢ LẬP BẢNG DUYỆT ADMIN (Để test duyệt nhanh tài khoản Giáo viên Cách 2) */}
-                    {showAdminModal && (
-                        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                            <div className="bg-white rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl">
-                                <div className="flex justify-between items-center pb-3 border-b border-slate-100">
-                                    <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
-                                        <Icon name="shield-check" className="w-5 h-5 text-indigo-600" />
-                                        Bảng Xét Duyệt Thẻ Giáo Viên Admin
-                                    </h3>
-                                    <button onClick={() => setShowAdminModal(false)} className="text-slate-400 hover:text-slate-600">
-                                        <Icon name="x" className="w-5 h-5" />
-                                    </button>
-                                </div>
-
-                                <p className="text-xs text-slate-500">
-                                    Các tài khoản Giáo viên đăng ký bằng <b>Cách 2 (Thẻ giáo viên / Minh chứng)</b> sẽ nằm ở danh sách này chờ Admin duyệt trong vòng 24 giờ.
-                                </p>
-
-                                <div className="space-y-3 max-h-80 overflow-y-auto custom-scrollbar">
-                                    {teachersList.filter(t => t.status === 'pending').length === 0 ? (
-                                        <div className="p-4 text-center text-xs text-slate-400 bg-slate-50 rounded-xl">
-                                            Không có tài khoản giáo viên nào đang chờ duyệt.
-                                        </div>
-                                    ) : (
-                                        teachersList.filter(t => t.status === 'pending').map((t) => (
-                                            <div key={t.id} className="p-3 border border-amber-200 bg-amber-50/50 rounded-xl space-y-2">
-                                                <div className="flex justify-between items-start">
-                                                    <div>
-                                                        <div className="font-bold text-xs text-slate-900">{t.name}</div>
-                                                        <div className="text-[10px] text-amber-800 font-semibold">Môn: {t.subject} • Email: {t.email}</div>
-                                                        <div className="text-[10px] text-slate-400">Gửi lúc: {t.registeredAt}</div>
-                                                    </div>
-                                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-200 text-amber-900">Chờ duyệt (24h)</span>
-                                                </div>
-                                                {t.teacherCardUrl && (
-                                                    <img src={t.teacherCardUrl} alt="Thẻ GV" className="w-full h-24 object-cover rounded-lg border border-slate-200" />
-                                                )}
-                                                <button 
-                                                    onClick={() => approveTeacherInstantly(t.id)}
-                                                    className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition"
-                                                >
-                                                    ✓ Duyệt Ngay Tài Khoản Này
-                                                </button>
-                                            </div>
-                                        ))
-                                    )}
-                                </div>
-
-                                <button 
-                                    onClick={() => setShowAdminModal(false)}
-                                    className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-xs"
-                                >
-                                    Đóng
-                                </button>
-                            </div>
-                        </div>
-                    )}
 
                     <TeacherTools user={user} setUser={setUser} open={toolModal} setOpen={setToolModal} />
                     {resHw && <HwResults hw={resHw} subs={subsAll} students={classStudents} user={user} onClose={closeRes} />}

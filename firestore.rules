@@ -11,6 +11,8 @@ service cloud.firestore {
     // Liên kết Phụ huynh <-> Học sinh: parentLinks/{uid phiên ẩn danh} = { studentUid, studentId, email, createdAt } (xem match /parentLinks bên dưới)
     function parentLinkPath() { return /databases/$(database)/documents/parentLinks/$(request.auth.uid); }
     function isParentOf(sid) { return authed() && exists(parentLinkPath()) && get(parentLinkPath()).data.studentUid == sid; }
+    // Phụ huynh ĐÃ liên kết OTP (phiên ẩn danh có parentLinks/{uid}). Phiên ẩn danh chưa liên kết thì KHÔNG đọc được dữ liệu dùng chung.
+    function parentLinked() { return isAnon() && exists(parentLinkPath()); }
     function myUser() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
     function isAdmin() {
       return signedIn() && request.auth.token.email.lower() in ['lykhoilinh@gmail.com', 'iemmchyy@gmail.com'] && request.auth.token.email_verified == true;
@@ -114,7 +116,9 @@ service cloud.firestore {
     // Bản sao công khai điểm chênh lệch BXH (adjustXp) do Admin / Giáo viên đặt (để BXH của mọi người đọc được). Nguồn gốc: users/{uid}.adjustXp
     // Tổng điểm BXH hiển thị = (tổng XP từ các bài nộp) + adjustXp
     match /bxhScores/{uid} {
-      allow read: if authed();
+      // Chỉ tài khoản thật; phụ huynh đã liên kết chỉ get được đúng 1 học sinh của mình (không list)
+      allow get: if signedIn() || isParentOf(uid);
+      allow list: if signedIn();
       allow create, update: if (isAdmin() || isTeacher())
         && get(/databases/$(database)/documents/users/$(uid)).data.role == 'student' // 1 lần get (document không tồn tại => get lỗi => từ chối, giống exists() cũ)
         && request.resource.data.keys().hasOnly(['adjustXp','updatedBy','updatedAt'])
@@ -136,7 +140,9 @@ service cloud.firestore {
         && newE.get('adj', 0) == oldE.get('adj', 0); // học sinh KHÔNG được tự sửa adj
     }
     match /bxh/{doc} {
-      allow read: if authed(); // Phụ huynh dùng phiên ẩn danh nên vẫn tính được hạng
+      // Phụ huynh (phiên ẩn danh) vẫn tính được hạng, nhưng CHỈ sau khi đã liên kết OTP; người lạ dùng ẩn danh thì không đọc được
+      allow get: if signedIn() || parentLinked();
+      allow list: if signedIn();
       allow create: if signedIn() && doc == 'summary'
         && request.resource.data.keys().hasOnly(['users'])
         && (request.resource.data.users.keys().hasOnly([request.auth.uid]) || isAdmin() || isTeacher());
@@ -170,7 +176,9 @@ service cloud.firestore {
     }
     // Hồ sơ công khai (tên, lớp, ảnh, nguyện vọng) - ai đã đăng nhập cũng xem được
     match /profiles/{uid} {
-      allow read: if authed();
+      // Chỉ tài khoản thật; phụ huynh đã liên kết chỉ get được hồ sơ ĐÚNG con mình (không list)
+      allow get: if signedIn() || isParentOf(uid);
+      allow list: if signedIn();
       allow create, update: if signedIn() && request.auth.uid == uid
         && request.resource.data.keys().hasOnly(['name','cls','level','role','avatar','subject','school','province','targetSchoolId','targetSchoolName','uniId','uniName','isPrivate','schoolChangeCharges','lastSchoolChangeTime','majors'])
         // Ngành học HS đang aim (bản công khai cho Cổng Phụ huynh): tối đa 3 ngành
@@ -222,11 +230,17 @@ service cloud.firestore {
 
     // Bài tập: giáo viên đã duyệt đăng, chỉ chủ bài sửa/xóa
     match /assignments/{id} {
-      allow read: if authed();
+      // Phụ huynh đã liên kết chỉ get theo id (xem tên bài đã nộp của con), không list
+      allow get: if signedIn() || parentLinked();
+      allow list: if signedIn();
       allow create: if isTeacher() && request.resource.data.teacherId == request.auth.uid
         && request.resource.data.questions.size() > 0 && request.resource.data.questions.size() <= 100
         && (!('type' in request.resource.data) || request.resource.data.type in ['quiz', 'essay', 'mixed']);
-      allow update, delete: if isTeacher() && resource.data.teacherId == request.auth.uid;
+      // Sửa: chỉ chủ bài; không được chuyển bài cho người khác (teacherId bất biến) và vẫn phải còn 1-100 câu hỏi
+      allow update: if isTeacher() && resource.data.teacherId == request.auth.uid
+        && request.resource.data.teacherId == resource.data.teacherId
+        && request.resource.data.questions.size() > 0 && request.resource.data.questions.size() <= 100;
+      allow delete: if isTeacher() && resource.data.teacherId == request.auth.uid;
     }
 
     // ===== Hàm hỗ trợ cho bài tập có giờ làm bài / hạn nộp =====
@@ -395,7 +409,13 @@ service cloud.firestore {
       // Học sinh đọc nhận xét của mình; Giáo viên / Admin đọc; Phụ huynh (đã liên kết) chỉ get được đúng 1 nhận xét của con
       allow get: if isParentOf(uid);
       allow read: if isAdmin() || isTeacher() || (signedIn() && request.auth.uid == uid);
-      allow write: if isTeacher() && request.resource.data.text.size() <= 500;
+      // Đúng các trường mà app giáo viên ghi; teacherId phải là chính người ghi (không giả danh giáo viên khác)
+      allow write: if isTeacher()
+        && request.resource.data.keys().hasOnly(['text','teacherId','teacherName','updatedAt'])
+        && request.resource.data.text is string && request.resource.data.text.size() <= 500
+        && request.resource.data.teacherId == request.auth.uid
+        && request.resource.data.teacherName is string && request.resource.data.teacherName.size() <= 100
+        && request.resource.data.updatedAt == request.time;
     }
 
     // Chuyên cần & nề nếp: 1 document / học sinh, days = { 'YYYY-MM-DD': 'present' | 'late' | 'excused' | 'unexcused' }, notes = { 'YYYY-MM-DD': 'ghi chú' }
@@ -479,11 +499,38 @@ service cloud.firestore {
     }
 
     // Bảng tin
+    // Người dùng thường CHỈ được: (1) bật/tắt LIKE của CHÍNH MÌNH, (2) thêm ĐÚNG 1 bình luận mang uid CỦA MÌNH ở cuối danh sách.
+    // (Hành vi ghi no-op, ví dụ arrayUnion trùng giá trị, vẫn được chấp nhận như trước.) Admin: sửa tự do (xóa bình luận...).
+    function postLikeOk() {
+      let me = request.auth.uid;
+      let oldL = resource.data.get('likes', []);
+      let newL = request.resource.data.get('likes', []);
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes'])
+        && newL is list
+        && (newL == oldL
+          || (!(me in oldL) && me in newL && newL.size() == oldL.size() + 1 && newL.hasAll(oldL))
+          || (me in oldL && !(me in newL) && newL.size() == oldL.size() - 1 && oldL.hasAll(newL)));
+    }
+    function postCommentOk() {
+      let oldC = resource.data.get('comments', []);
+      let newC = request.resource.data.get('comments', []);
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['comments'])
+        && newC is list
+        && (newC == oldC
+          || (newC.size() == oldC.size() + 1
+            && newC[0:oldC.size()] == oldC
+            && newC[oldC.size()].keys().hasOnly(['uid', 'name', 'text', 'at'])
+            && newC[oldC.size()].uid == request.auth.uid
+            && newC[oldC.size()].text is string && newC[oldC.size()].text.size() > 0 && newC[oldC.size()].text.size() <= 500
+            && (!('name' in newC[oldC.size()]) || (newC[oldC.size()].name is string && newC[oldC.size()].name.size() <= 100))));
+    }
     match /posts/{id} {
       allow read: if signedIn();
+      // Bài mới luôn bắt đầu với 0 like / 0 bình luận (không tự dựng sẵn lượt like hay bình luận giả)
       allow create: if signedIn() && request.resource.data.uid == request.auth.uid
-        && request.resource.data.content is string && request.resource.data.content.size() <= 1000;
-      allow update: if isAdmin() || (signedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes','comments']));
+        && request.resource.data.content is string && request.resource.data.content.size() <= 1000
+        && request.resource.data.get('likes', []) == [] && request.resource.data.get('comments', []) == [];
+      allow update: if isAdmin() || (signedIn() && (postLikeOk() || postCommentOk()));
       allow delete: if signedIn() && (resource.data.uid == request.auth.uid || isAdmin());
     }
 
