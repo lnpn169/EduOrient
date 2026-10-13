@@ -170,7 +170,37 @@ import { ATT_STATUS, BxhScoreEditor, EMPTY_LIST, GroupSettingsModal, Icon, THEME
             };
         })();
 
-        async function readDocxLines(buf) {
+        // ===== Xuất Excel kết quả bài tập (ExcelJS chỉ tải khi bấm nút) =====
+const loadExcelJS = (() => {
+  const URL_EXCELJS = 'https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js';
+  let pending = null;
+  return () => {
+    if (window.ExcelJS) return Promise.resolve(window.ExcelJS);
+    if (pending) return pending;
+    pending = new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = URL_EXCELJS; s.async = true;
+      s.onload = () => (window.ExcelJS ? resolve(window.ExcelJS) : (pending = null, reject(new Error('Không tải được thư viện xuất Excel.'))));
+      s.onerror = () => { pending = null; s.remove(); reject(new Error('Không tải được thư viện xuất Excel. Hãy kiểm tra kết nối mạng rồi thử lại.')); };
+      document.head.appendChild(s);
+    });
+    return pending;
+  };
+})();
+
+// Đếm số câu trắc nghiệm đúng của 1 bài nộp
+const countCorrect = (hw, r) => {
+  const qs = hw.questions || [];
+  if (!Array.isArray(r.answers) && !qs.length) return { n: Number(r.score) || 0, t: Number(r.total) || 0 };
+  const my = r.answers || []; let n = 0, t = 0;
+  qs.forEach((q, i) => { if (q.kind === 'essay') return; t++; if (my[i] === q.c) n++; });
+  return { n, t };
+};
+const gradeLabel10 = (s) => s === null || s === undefined ? '' : s >= 8 ? 'Giỏi' : s >= 6.5 ? 'Khá' : s >= 5 ? 'Trung bình' : 'Yếu';
+const lastWordVN = (n) => { const p = String(n || '').trim().split(/\s+/); return p[p.length - 1] || ''; };
+const byNameVN = (a, b) => lastWordVN(a.name).localeCompare(lastWordVN(b.name), 'vi') || String(a.name || '').localeCompare(String(b.name || ''), 'vi'); // xếp theo TÊN (từ cuối)
+
+async function readDocxLines(buf) {
             const JSZip = await loadJSZip();
             let zip; try { zip = await JSZip.loadAsync(buf); } catch (e) { throw new Error('Không mở được file. Hãy chọn file Word đuôi .docx (file .doc cũ: mở bằng Word rồi Lưu thành .docx).'); }
             const entry = zip.file('word/document.xml');
@@ -685,7 +715,7 @@ import { ATT_STATUS, BxhScoreEditor, EMPTY_LIST, GroupSettingsModal, Icon, THEME
             const essay = isEssayHw(hw);
             const canGrade = essay && !!user && hw.teacherId === user.id;
             const [viewUid, setViewUid] = useState(null);
-            const [detailUid, setDetailUid] = useState(null);   // học sinh đang xem chi tiết bài làm
+            const [detailUid, setDetailUid] = useState(null); const [exporting, setExporting] = useState(false);   // học sinh đang xem chi tiết bài làm
             const [filter, setFilter] = useState('all');
             const [q, setQ] = useState('');
             const zeroed = useRef(new Set());
@@ -735,7 +765,119 @@ import { ATT_STATUS, BxhScoreEditor, EMPTY_LIST, GroupSettingsModal, Icon, THEME
             const afterSave = (uid) => { const nx = rows.find((r) => r.uid !== uid && needsGrade(r) && photoCountOf(r) > 0); setViewUid(nx ? nx.uid : null); };
             // Quyền riêng: chỉ giáo viên đăng bài tập mới xem được kết quả của bài đó
             if (!user || hw.teacherId !== user.id) return null;
-            const gridCls = 'grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)_72px_minmax(0,220px)_96px] items-center gap-x-3';
+            const exportExcel = async () => {
+    if (exporting || rows.length === 0) return;
+    setExporting(true);
+    try {
+      const ExcelJS = await loadExcelJS();
+      const totalMcq = (hw.questions || []).filter((q) => q.kind !== 'essay').length;
+      const list = rows.map((r) => {
+        const late = isLate(r), wait = essay && needsGrade(r);
+        const s = wait ? null : subScore10(r);
+        return { name: r.name || '', cls: r.cls || '', n: (essay && totalMcq === 0) ? null : countCorrect(hw, r).n, s: s === null ? null : Math.round(s * 100) / 100, st: late ? 'Quá hạn' : wait ? 'Chờ chấm' : 'Đã nộp' };
+      }).concat(missing.map((s) => ({ name: s.name || '', cls: s.class || '', n: null, s: null, st: 'Chưa nộp' })));
+      list.sort(byNameVN);
+
+      const FONT = 'Arial', NAVY = 'FF1F4E79', BLUE = 'FF2E75B6';
+      const thin = { style: 'thin', color: { argb: 'FFBFC9D4' } };
+      const border = { top: thin, left: thin, bottom: thin, right: thin };
+      const solid = (argb) => ({ type: 'pattern', pattern: 'solid', fgColor: { argb } });
+      const cfFill = (argb) => ({ type: 'pattern', pattern: 'solid', bgColor: { argb } });
+      const wb = new ExcelJS.Workbook();
+
+      // ---------- Sheet 1: Kết quả ----------
+      const ws = wb.addWorksheet('Kết quả', { views: [{ state: 'frozen', ySplit: 4 }], pageSetup: { orientation: 'portrait', fitToPage: true, fitToWidth: 1, fitToHeight: 0, printTitlesRow: '4:4' } });
+      [6, 30, 9, 14, 16, 13, 14].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
+      const first = 5, last = first + list.length - 1;
+      const scores = list.map((x) => x.s).filter((x) => x !== null);
+      const avg2 = scores.length ? (scores.reduce((a, x) => a + x, 0) / scores.length).toFixed(2) : '-';
+
+      ws.mergeCells('A1:G1');
+      Object.assign(ws.getCell('A1'), { value: hw.title, font: { name: FONT, size: 18, bold: true, color: { argb: 'FFFFFFFF' } }, fill: solid(NAVY), alignment: { horizontal: 'center', vertical: 'middle', wrapText: true } });
+      ws.getRow(1).height = 34;
+      ws.mergeCells('A2:G2');
+      Object.assign(ws.getCell('A2'), { value: 'Tổng số câu: ' + totalMcq + '   •   Đã nộp: ' + rows.length + '/' + list.length + '   •   Điểm trung bình: ' + avg2, font: { name: FONT, size: 11, italic: true, color: { argb: 'FF44546A' } }, fill: solid('FFDDEBF7'), alignment: { horizontal: 'center', vertical: 'middle' } });
+      ws.getRow(2).height = 24;
+
+      ['STT', 'Họ và tên', 'Lớp', 'Số câu đúng', 'Điểm (thang 10)', 'Xếp loại', 'Trạng thái'].forEach((h, j) => {
+        Object.assign(ws.getCell(4, j + 1), { value: h, font: { name: FONT, bold: true, color: { argb: 'FFFFFFFF' } }, fill: solid(BLUE), alignment: { horizontal: 'center', vertical: 'middle', wrapText: true }, border });
+      });
+      ws.getRow(4).height = 30;
+
+      list.forEach((x, i) => {
+        const r = first + i, gray = x.st === 'Chưa nộp';
+        const vals = [i + 1, x.name, x.cls, x.n, x.s, { formula: 'IF(E' + r + '="","",IF(E' + r + '>=8,"Giỏi",IF(E' + r + '>=6.5,"Khá",IF(E' + r + '>=5,"Trung bình","Yếu"))))', result: gradeLabel10(x.s) }, x.st];
+        vals.forEach((v, j) => {
+          Object.assign(ws.getCell(r, j + 1), {
+            value: v, border,
+            font: { name: FONT, italic: gray, color: { argb: gray ? 'FF808080' : 'FF000000' } },
+            alignment: { horizontal: j === 1 ? 'left' : 'center', vertical: 'middle' },
+            ...(gray ? { fill: solid('FFEDEDED') } : (i % 2 === 1 ? { fill: solid('FFF3F7FB') } : {}))
+          });
+        });
+        ws.getCell(r, 4).numFmt = '0"/' + totalMcq + '"';
+        ws.getCell(r, 5).numFmt = '0.00';
+      });
+      ws.autoFilter = 'A4:G' + last;
+      ws.addConditionalFormatting({ ref: 'E' + first + ':E' + last, rules: [
+        { type: 'expression', priority: 1, formulae: ['AND(ISNUMBER(E' + first + '),E' + first + '<5)'], style: { fill: cfFill('FFF8CBAD'), font: { bold: true, color: { argb: 'FF9C0006' } } } },
+        { type: 'expression', priority: 2, formulae: ['AND(ISNUMBER(E' + first + '),E' + first + '>=5,E' + first + '<8)'], style: { fill: cfFill('FFFFEB9C'), font: { bold: true, color: { argb: 'FF7F6000' } } } },
+        { type: 'expression', priority: 3, formulae: ['AND(ISNUMBER(E' + first + '),E' + first + '>=8)'], style: { fill: cfFill('FFC6EFCE'), font: { bold: true, color: { argb: 'FF006100' } } } }
+      ] });
+
+      // ---------- Sheet 2: Thống kê ----------
+      const w2 = wb.addWorksheet('Thống kê');
+      [26, 14, 16].forEach((w, i) => { w2.getColumn(i + 1).width = w; });
+      w2.mergeCells('A1:C1');
+      Object.assign(w2.getCell('A1'), { value: 'THỐNG KÊ BÀI TẬP: ' + hw.title, font: { name: FONT, size: 16, bold: true, color: { argb: 'FFFFFFFF' } }, fill: solid(NAVY), alignment: { horizontal: 'center', vertical: 'middle', wrapText: true } });
+      w2.getRow(1).height = 32;
+      const hdr = (r, labels) => labels.forEach((h, j) => Object.assign(w2.getCell(r, j + 1), { value: h, font: { name: FONT, bold: true, color: { argb: 'FFFFFFFF' } }, fill: solid(BLUE), alignment: { horizontal: 'center' }, border }));
+      hdr(3, ['Xếp loại', 'Số HS', 'Tỉ lệ']);
+      const bands = [['Giỏi (≥ 8)', 'Giỏi', 'FFC6EFCE'], ['Khá (6.5 – 7.99)', 'Khá', 'FFDDEBF7'], ['Trung bình (5 – 6.49)', 'Trung bình', 'FFFFEB9C'], ['Yếu (< 5)', 'Yếu', 'FFF8CBAD']];
+      const cnt = bands.map(([, key]) => list.filter((x) => gradeLabel10(x.s) === key).length), sum = cnt.reduce((a, b) => a + b, 0);
+      bands.forEach(([lab, key, col], i) => {
+        const r = 4 + i;
+        const cells = [lab, { formula: "COUNTIF('Kết quả'!F" + first + ':F' + last + ',"' + key + '")', result: cnt[i] }, { formula: 'IF(SUM($B$4:$B$7)=0,0,B' + r + '/SUM($B$4:$B$7))', result: sum ? cnt[i] / sum : 0 }];
+        cells.forEach((v, j) => Object.assign(w2.getCell(r, j + 1), { value: v, font: { name: FONT }, border, alignment: { horizontal: j === 0 ? 'left' : 'center' }, ...(j === 0 ? { fill: solid(col) } : {}) }));
+        w2.getCell(r, 3).numFmt = '0%';
+      });
+      [['Tổng', null], [{ formula: 'SUM(B4:B7)', result: sum }, null], [{ formula: 'SUM(C4:C7)', result: sum ? 1 : 0 }, null]].forEach(([v], j) => {
+        Object.assign(w2.getCell(8, j + 1), { value: j === 0 ? 'Tổng' : v, font: { name: FONT, bold: true }, border, alignment: { horizontal: j === 0 ? 'left' : 'center' } });
+      });
+      w2.getCell(8, 3).numFmt = '0%';
+
+      if (qRates.length) {
+        Object.assign(w2.getCell('A10'), { value: 'Tỉ lệ làm đúng từng câu', font: { name: FONT, bold: true, size: 12, color: { argb: NAVY } } });
+        hdr(12, ['Câu', 'Tỉ lệ đúng', 'Ghi chú']);
+        qRates.forEach(({ i, pc }, k) => {
+          const r = 13 + k;
+          [ 'Câu ' + (i + 1), pc / 100, { formula: 'IF(B' + r + '<0.5,"Cần ôn lại","")', result: pc < 50 ? 'Cần ôn lại' : '' } ].forEach((v, j) => {
+            Object.assign(w2.getCell(r, j + 1), { value: v, font: { name: FONT, ...(j === 2 && pc < 50 ? { bold: true, color: { argb: 'FF9C0006' } } : {}) }, border, alignment: { horizontal: 'center' } });
+          });
+          w2.getCell(r, 2).numFmt = '0%';
+        });
+        const l2 = 12 + qRates.length;
+        w2.addConditionalFormatting({ ref: 'B13:B' + l2, rules: [
+          { type: 'expression', priority: 1, formulae: ['B13<0.5'], style: { fill: cfFill('FFF8CBAD') } },
+          { type: 'expression', priority: 2, formulae: ['AND(B13>=0.5,B13<0.8)'], style: { fill: cfFill('FFFFEB9C') } },
+          { type: 'expression', priority: 3, formulae: ['B13>=0.8'], style: { fill: cfFill('FFC6EFCE') } }
+        ] });
+      }
+
+      const buf = await wb.xlsx.writeBuffer();
+      const url = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+      const a = document.createElement('a');
+      a.href = url; a.download = 'KetQua_' + (slugVN(hw.title).slice(0, 50) || 'bai-tap') + '.xlsx';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 3000);
+      eduToast('Đã xuất file Excel', 'success');
+    } catch (e) {
+      eduAlert(e.message || fbErr(e), 'error');
+    }
+    setExporting(false);
+  };
+  
+const gridCls = 'grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)_72px_minmax(0,220px)_96px] items-center gap-x-3';
             const badges = (r, timeout) => {
                 const n = photoCountOf(r);
                 return (<>
@@ -759,7 +901,10 @@ import { ATT_STATUS, BxhScoreEditor, EMPTY_LIST, GroupSettingsModal, Icon, THEME
                                     <h3 className="font-bold text-slate-900 text-base sm:text-lg leading-snug break-words">{hw.title}</h3>
                                     <p className="text-xs text-slate-500 mt-0.5">{hw.classesText || 'Tất cả các lớp'} • {(hw.questions || []).length} câu{canGrade ? ' • Bạn là giáo viên đăng bài này' : ''}</p>
                                 </div>
-                                <button type="button" onClick={onClose} className="shrink-0 w-9 h-9 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 text-lg" aria-label="Đóng">✕</button>
+                                <div className="shrink-0 flex items-center gap-2">
+<button type="button" onClick={exportExcel} disabled={exporting || rows.length === 0} className="h-9 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold disabled:opacity-50">{exporting ? 'Đang xuất...' : '⬇ Xuất Excel'}</button>
+<button type="button" onClick={onClose} className="w-9 h-9 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 text-lg" aria-label="Đóng">✕</button>
+</div>
                             </div>
                             <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
                                 <div className={statCard}>
