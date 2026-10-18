@@ -366,18 +366,41 @@ function AuthGate({ onUser }) {
 
   // Xác thực phụ huynh: lookupStudentForParent (app-parent.jsx) tự đăng nhập ẩn danh, tìm học sinh theo Mã HS rồi gửi mã OTP (do học sinh tạo) + ghi parentLinks trong 1 batch.
   // Dùng import() động (giống LazyParentPortal) để không kéo cả app-parent.jsx vào trang đăng nhập và tránh vòng import app-core <-> app-parent.
+  // ===== KHÓA TẠM SAU 5 LẦN NHẬP SAI OTP (giao diện) =====
+  // Lưu ở localStorage theo từng Mã HS: { n: số lần sai liên tiếp, until: mốc hết khóa }. Lỗi mạng/quyền KHÔNG tính là nhập sai.
+  // Lưu ý: người có kiến thức kỹ thuật vẫn có thể xóa localStorage hoặc gọi thẳng API, nên đây KHÔNG thay thế giới hạn ở máy chủ.
+  const PARENT_MAX_FAIL = 5, PARENT_LOCK_MS = 15 * 60 * 1000, PARENT_FAIL_KEY = 'eduorient_parent_fail';
+  const parentFailRead = () => { try { return JSON.parse(localStorage.getItem(PARENT_FAIL_KEY) || '{}') || {}; } catch (e) { return {}; } };
+  const parentFailWrite = (o) => { try { localStorage.setItem(PARENT_FAIL_KEY, JSON.stringify(o)); } catch (e) {} };
+  const parentLockLeftMs = (sid) => { const r = parentFailRead()[sid]; return r && r.until ? Math.max(0, r.until - Date.now()) : 0; };
+  const parentFailBump = (sid) => {   // ghi 1 lần sai; trả về số lần còn lại (0 = vừa bị khóa)
+    const o = parentFailRead(), r = o[sid] || { n: 0, until: 0 };
+    if (r.until && r.until <= Date.now()) { r.n = 0; r.until = 0; }   // hết khóa cũ thì đếm lại từ đầu
+    r.n += 1;
+    if (r.n >= PARENT_MAX_FAIL) { r.until = Date.now() + PARENT_LOCK_MS; r.n = 0; }
+    o[sid] = r; parentFailWrite(o);
+    return r.until ? 0 : PARENT_MAX_FAIL - r.n;
+  };
+  const parentFailClear = (sid) => { const o = parentFailRead(); if (o[sid]) { delete o[sid]; parentFailWrite(o); } };
   const verifyParent = async (e) => {
     if (e) e.preventDefault();
     if (parentBusy) return;
     const otp = String(pf.otp || '').replace(/\D/g, ''), sid = normStudentId(pf.sid); // studentId luôn lưu dạng chữ HOA + số; OTP = 6 chữ số
     if (!sid || otp.length !== 6) { setParentErr('Vui lòng nhập Mã học sinh (ID) và mã OTP gồm 6 chữ số.'); return; }
+    // Khóa tạm sau 5 lần nhập sai liên tiếp cho cùng 1 Mã HS (chỉ chặn thao tác thông thường trên giao diện; xem mục 3.6 của báo cáo)
+    const lockLeft = parentLockLeftMs(sid);
+    if (lockLeft > 0) { setParentErr('Bạn đã nhập sai quá ' + PARENT_MAX_FAIL + ' lần. Hãy thử lại sau khoảng ' + Math.ceil(lockLeft / 60000) + ' phút, hoặc nhờ con tạo mã OTP mới.'); return; }
     setParentBusy(true); setParentErr('');
     try {
       const { lookupStudentForParent } = await import('./app-parent.jsx');
       const d = await lookupStudentForParent(sid, otp); // null nếu sai mã / hết hạn / đã dùng
       if (!d || d.role !== 'student') {
-        setParentErr('Mã OTP không đúng, đã hết hạn (5 phút) hoặc đã được dùng. Hãy nhờ con tạo mã mới.');
+        const left = parentFailBump(sid);   // số lần còn lại trước khi bị khóa
+        setParentErr(left > 0
+          ? 'Mã OTP không đúng, đã hết hạn (5 phút) hoặc đã được dùng. Hãy nhờ con tạo mã mới. (Còn ' + left + ' lần thử)'
+          : 'Bạn đã nhập sai quá ' + PARENT_MAX_FAIL + ' lần. Hãy thử lại sau ' + Math.ceil(PARENT_LOCK_MS / 60000) + ' phút, hoặc nhờ con tạo mã OTP mới.');
       } else {
+        parentFailClear(sid);
         const ps = { id: d.id, name: d.name || 'Học sinh', email: d.email, studentId: d.studentId, nguyenVong: d.nguyenVong || null };
         saveParentSession(ps); setParentStudent(ps);
         setParentOpen(false); setPf({ otp: '', sid: '' });
@@ -535,6 +558,14 @@ function AuthGate({ onUser }) {
 }
 
 // Chỉ chấp nhận avatar là ẢNH Base64 hợp lệ (chặn chuỗi lạ / URL ngoài chèn vào <img>). Phải khớp firestore.rules
+// Avatar chữ cái đầu tạo ngay trong trình duyệt (thay ui-avatars.com để không gửi tên học sinh ra bên ngoài)
+const initialsAvatar = (name, bg, len, fs) => {
+  const words = String(name == null ? '' : name).trim().split(/\s+/).filter(Boolean);
+  let t = len > 2 ? words.join('').slice(0, len) : (words.length > 1 ? words[0].charAt(0) + words[words.length - 1].charAt(0) : (words[0] || '?').slice(0, len || 2));
+  t = (t || '?').toUpperCase().replace(/[<>&"']/g, '');
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" fill="#' + (bg || '4361ee') + '"/><text x="32" y="32" dy=".35em" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-weight="700" font-size="' + Math.round(64 * (fs || 0.4)) + '" fill="#fff">' + t + '</text></svg>';
+  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+};
 const safeAvatar = (a) => (typeof a === 'string' && a.length < 60000 && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+\/=]+$/.test(a)) ? a : '';
 
 const GDPT_SUBJECTS = ["Toán", "Ngữ văn", "Tiếng Anh", "Lịch sử", "Địa lí", "Giáo dục kinh tế và pháp luật", "Vật lí", "Hóa học", "Sinh học", "Công nghệ", "Tin học", "Giáo dục thể chất", "Giáo dục quốc phòng và an ninh", "Âm nhạc", "Mỹ thuật", "Hoạt động trải nghiệm, hướng nghiệp", "Giáo dục địa phương"];
@@ -593,4 +624,4 @@ class ErrorBoundary extends React.Component {
   }
 }
 
-export { AuthGate, ErrorBoundary, GDPT_SUBJECTS, LazyAdminPanel, LazyTeacherApp, PAGE_LOGIN, PAGE_STUDENT, SCHOOL_DB, SchoolPicker, ScreenLoading, SubjectSelect, Suspense, fbAuth, fbDb, fbErr, fbNow, fbSignOut, foldVN, goTo, isAdminEmail, readSchoolPick, safeAvatar };
+export { initialsAvatar, AuthGate, ErrorBoundary, GDPT_SUBJECTS, LazyAdminPanel, LazyTeacherApp, PAGE_LOGIN, PAGE_STUDENT, SCHOOL_DB, SchoolPicker, ScreenLoading, SubjectSelect, Suspense, fbAuth, fbDb, fbErr, fbNow, fbSignOut, foldVN, goTo, isAdminEmail, readSchoolPick, safeAvatar };

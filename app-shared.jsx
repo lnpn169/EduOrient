@@ -1,5 +1,5 @@
 // EduOrient — code dùng chung cho các màn hình tải theo nhu cầu (Giáo viên / Quản trị / Phụ huynh). KHÔNG nằm trong gói tải ban đầu.
-import { fbAuth, fbDb, fbErr, fbNow, safeAvatar } from './app-core.jsx';
+import { fbAuth, fbDb, fbErr, fbNow, initialsAvatar, safeAvatar } from './app-core.jsx';
 
         const { useState, useEffect, useRef, useMemo, useCallback, memo } = React;
 
@@ -39,6 +39,8 @@ import { fbAuth, fbDb, fbErr, fbNow, safeAvatar } from './app-core.jsx';
             'clipboard-edit': '<rect width="8" height="4" x="8" y="2" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-5.5"/><path d="M4 13.5V6a2 2 0 0 1 2-2h2"/><path d="M13.378 15.626a1 1 0 1 0-3.004-3.004l-5.01 5.012a2 2 0 0 0-.506.854l-.837 2.87a.5.5 0 0 0 .62.62l2.87-.837a2 2 0 0 0 .854-.506z"/>',
             'compass': '<path d="m16.24 7.76-1.804 5.411a2 2 0 0 1-1.265 1.265L7.76 16.24l1.804-5.411a2 2 0 0 1 1.265-1.265z"/><circle cx="12" cy="12" r="10"/>',
             'file-badge': '<path d="M12 22h6a2 2 0 0 0 2-2V7l-5-5H6a2 2 0 0 0-2 2v3"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M5 17a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path d="M7 16.5 8 22l-3-1-3 1 1-5.5"/>',
+            'clipboard-paste': '<path d=\"M15 2H9a1 1 0 0 0-1 1v2c0 .6.4 1 1 1h6c.6 0 1-.4 1-1V3c0-.6-.4-1-1-1Z\"/><path d=\"M8 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2\"/><path d=\"M16 4h2a2 2 0 0 1 2 2v2\"/><path d=\"M11 14h10\"/><path d=\"m17 10 4 4-4 4\"/>',
+            'sparkles': '<path d=\"M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z\"/><path d=\"M20 3v4\"/><path d=\"M22 5h-4\"/><path d=\"M4 17v2\"/><path d=\"M5 18H3\"/>',
             'file-up': '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M12 12v6"/><path d="m15 15-3-3-3 3"/>',
             'graduation-cap': '<path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z"/><path d="M22 10v6"/><path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5"/>',
             'image-plus': '<path d="M16 5h6"/><path d="M19 2v6"/><path d="M21 11.5V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7.5"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/><circle cx="9" cy="9" r="2"/>',
@@ -84,7 +86,7 @@ import { fbAuth, fbDb, fbErr, fbNow, safeAvatar } from './app-core.jsx';
             dayoff:    { label: 'Ngày nghỉ (lớp không đi học)', cell: 'bg-purple-100 text-purple-700 border border-purple-300', dot: 'bg-purple-500' }
         };
 
-        const avatarUrl = (p) => (p && safeAvatar(p.avatar)) || 'https://ui-avatars.com/api/?name=' + encodeURIComponent((p && p.name) || '?') + '&background=d97706&color=fff&bold=true';
+        const avatarUrl = (p) => (p && safeAvatar(p.avatar)) || initialsAvatar(p && p.name, 'd97706');
 
         // Ràng buộc điểm: luôn ép kiểu số và giới hạn 0 - 100
         const clampScore = (score) => { const numericScore = Number(score); return Math.min(100, Math.max(0, Number.isFinite(numericScore) ? numericScore : 0)); };

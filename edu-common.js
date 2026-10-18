@@ -65,3 +65,44 @@
         window.alert = function (m) { window.eduAlert(m); };
     })();
     
+
+    // ===== HIỂN THỊ CÔNG THỨC TOÁN (KaTeX, tải khi cần) =====
+    // eduHasMath(text)  : chuỗi có chứa công thức ($...$, $$...$$, \(...\), \[...\]) không
+    // eduTypeset(el)    : tải KaTeX (1 lần) rồi vẽ công thức trong phần tử el (nội dung đã escape HTML)
+    // Chỉ tải thư viện khi thực sự có công thức, nên trang không có công thức không tốn thêm dung lượng.
+    (function () {
+        var BASE = 'https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/';
+        var pending = null;
+        function addScript(src) {
+            return new Promise(function (res, rej) {
+                var s = document.createElement('script'); s.src = src; s.async = true;
+                s.onload = res; s.onerror = function () { s.remove(); rej(new Error('Không tải được ' + src)); };
+                document.head.appendChild(s);
+            });
+        }
+        function load() {
+            if (window.katex && window.renderMathInElement) return Promise.resolve();
+            if (pending) return pending;
+            if (!document.getElementById('katex-css')) {
+                var l = document.createElement('link'); l.id = 'katex-css'; l.rel = 'stylesheet'; l.href = BASE + 'katex.min.css';
+                document.head.appendChild(l);
+            }
+            pending = addScript(BASE + 'katex.min.js').then(function () { return addScript(BASE + 'contrib/auto-render.min.js'); })
+                .catch(function (e) { pending = null; throw e; });
+            return pending;
+        }
+        var DELIMS = [
+            { left: '$$', right: '$$', display: true },
+            { left: '\\[', right: '\\]', display: true },
+            { left: '\\(', right: '\\)', display: false },
+            { left: '$', right: '$', display: false }
+        ];
+        window.eduHasMath = function (t) { return /\$[^$]+\$|\\\(|\\\[/.test(String(t == null ? '' : t)); };
+        window.eduTypeset = function (el) {
+            if (!el || !el.textContent || !window.eduHasMath(el.textContent)) return Promise.resolve();
+            return load().then(function () {
+                if (el.isConnected === false) return;
+                window.renderMathInElement(el, { delimiters: DELIMS, throwOnError: false, ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'] });
+            }).catch(function () { /* mất mạng: giữ nguyên dạng chữ */ });
+        };
+    })();

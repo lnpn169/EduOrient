@@ -1,5 +1,25 @@
 
         const esc = x => String(x).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+        // Ảnh đại diện mặc định: vẽ chữ cái đầu bằng SVG ngay trong trình duyệt (không gửi tên học sinh ra trang ngoài, không tốn lượt tải ảnh)
+        const AV_CACHE = new Map();
+        function initialsAv(name, bg, len) {
+            len = len || 2;
+            const key = (name || '') + '|' + bg + '|' + len;
+            if (AV_CACHE.has(key)) return AV_CACHE.get(key);
+            const w = String(name == null ? '?' : name).normalize('NFC').trim().split(/\s+/).filter(Boolean);
+            let t;
+            if (!w.length) t = '?';
+            else if (len <= 2 && w.length >= 2) t = Array.from(w[0])[0] + Array.from(w[w.length - 1])[0];
+            else t = Array.from(w[0]).slice(0, len).join('');
+            t = t.toUpperCase().replace(/[&<>"']/g, '');
+            const fs = t.length >= 4 ? 17 : t.length === 3 ? 21 : 27;
+            const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" fill="' + bg + '"/><text x="32" y="32" dy=".35em" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-weight="700" font-size="' + fs + '" fill="#fff">' + t + '</text></svg>';
+            const uri = 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+            if (AV_CACHE.size > 300) AV_CACHE.clear();
+            AV_CACHE.set(key, uri);
+            return uri;
+        }
         // ===================== TỈNH / TRƯỜNG THPT & LỚP =====================
 // Cấu trúc: PROVINCES = [{ id, name, s: [[tên trường, nhóm, từ khóa tìm kiếm (không bắt buộc)], ...] }]
 // Muốn thêm trường cho một tỉnh khác: thêm các dòng ['Tên trường', '', 'từ khóa'] vào mảng s của tỉnh đó.
@@ -247,56 +267,6 @@ function soonFeature() { return eduAlert('Tính năng đang được phát tri�
             }
             document.getElementById('career-profile-content').innerHTML = html;
             document.getElementById('modal-ho-so-huong-nghiep').style.display = 'flex';
-        }
-
-        // CHỨC NĂNG 2: TẠO ĐỀ BẰNG AI
-        function openAiQuizGenerator() {
-            document.getElementById('modal-ai-quiz').style.display = 'flex';
-        }
-
-        function generateAIQuiz() {
-            let text = document.getElementById('ai-text-input').value;
-            let fileInput = document.getElementById('ai-file-input');
-
-            if(!text && fileInput.files.length === 0) {
-                return eduAlert("Vui lòng tải file hoặc nhập nội dung văn bản để AI tạo câu hỏi!", 'warning');
-            }
-
-            let container = document.getElementById('quiz-questions-container');
-            container.innerHTML = "<p style='color:var(--primary); font-weight:bold; text-align:center;'>🤖 AI đang phân tích dữ liệu văn bản và khởi tạo câu hỏi trắc nghiệm...</p>";
-            document.getElementById('ai-quiz-result').style.display = 'block';
-
-            setTimeout(() => {
-                let sampleQuiz = [
-                    { q: "Câu 1: Dựa trên nội dung tài liệu, kiến thức trọng tâm được đề cập thuộc nhóm nào?", a: ["Khái niệm & Định lý cơ bản", "Ứng dụng thực tiễn", "Lịch sử phát triển", "Bản vẽ kỹ thuật"], c: 0 },
-                    { q: "Câu 2: Đâu là giải pháp tối ưu được hệ thống gợi ý cho bài toán này?", a: ["Phương pháp thủ công", "Áp dụng thuật toán tự động AI", "Bỏ qua bước kiểm tra", "Thay đổi toàn bộ đầu vào"], c: 1 },
-                    { q: "Câu 3: Mục tiêu cốt lõi của bài học trong tài liệu là gì?", a: ["Nắm vững kiến thức để thi đấu", "Tăng thời gian làm bài", "Giảm số lượng câu hỏi", "Ghi nhớ vẹt"], c: 0 }
-                ];
-
-                let html = "";
-                sampleQuiz.forEach((item, qIndex) => {
-                    html += `<div style="margin-bottom:15px; background:#f8fafc; padding:12px; border-radius:10px;">
-                        <p style="font-weight:bold; font-size:13px; margin-bottom:8px;">${item.q}</p>`;
-                    item.a.forEach((opt, optIndex) => {
-                        html += `<div class="quiz-option" onclick="checkAnswer(this, ${optIndex}, ${item.c})">${String.fromCharCode(65 + optIndex)}. ${opt}</div>`;
-                    });
-                    html += `</div>`;
-                });
-                container.innerHTML = html;
-            }, 1200);
-        }
-
-        function checkAnswer(element, selected, correct) {
-            let parent = element.parentElement;
-            let options = parent.querySelectorAll('.quiz-option');
-            options.forEach(opt => opt.onclick = null); // Khóa chọn lại
-
-            if(selected === correct) {
-                element.classList.add('correct');
-            } else {
-                element.classList.add('wrong');
-                options[correct].classList.add('correct');
-            }
         }
 
         // CHỨC NĂNG 3: ORIENT NEW & MESSENGER (openMXHHocTap / nhắn tin: xem phần "Nhắn tin" bên dưới)
@@ -595,8 +565,20 @@ function soonFeature() { return eduAlert('Tính năng đang được phát tri�
             const ttl = document.getElementById('top-title');
             if (ttl) ttl.innerText = { 'tab-phantich': 'Phân Tích', 'tab-baitap': 'Bài Tập', 'tab-ai': 'Chat AI', 'tab-bxh': 'Bảng Xếp Hạng', 'tab-profile': 'Tài Khoản' }[tabId] || '';
             updateFab();
+            syncAiLayout(tabId === 'tab-ai');
+            if (tabId === 'tab-ai') aiEnsureList();   // lần đầu mở Chat AI mới tải lịch sử
             if (tabId === 'tab-bxh' && ME) loadBxh();   // tự bỏ qua nếu cache < 5 phút
         }
+
+        // Chat AI trên máy tính: khóa cuộn CẢ TRANG (chỉ khung tin nhắn / lịch sử cuộn bên trong) và đo chiều cao thanh tiêu đề
+        // để khung chat vừa khít màn hình, không còn vùng trống bên dưới. CSS tương ứng: body.ai-tab-on trong hocsinh.css.
+        function syncAiLayout(on) {
+            if (typeof on === 'boolean') document.body.classList.toggle('ai-tab-on', on);
+            const h = document.querySelector('.app-header');
+            document.documentElement.style.setProperty('--app-hdr', (h ? h.offsetHeight : 70) + 'px');
+            if (on === true) window.scrollTo(0, 0);
+        }
+        window.addEventListener('resize', () => syncAiLayout());
 
         // ===== NÚT NỔI NHẮN TIN (Yêu cầu 7) =====
         // Hiện: chỉ khi đang ở Phân Tích / Bài Tập / BXH VÀ không có modal/giao diện sâu nào đang mở
@@ -1290,7 +1272,7 @@ function soonFeature() { return eduAlert('Tính năng đang được phát tri�
         let ME = null, MY_SID = '', PROFILES = {}, BXH_ADJ = {}, SUBS_ALL = [], POSTS = [], curChatId = null, pendingAvatar = null;
         // Chỉ chấp nhận avatar là ẢNH Base64 hợp lệ (data:image/jpeg|png|webp;base64,...) - chặn chuỗi lạ / URL ngoài / mã độc chèn vào thẻ <img> (XSS). Phải khớp firestore.rules
         const safeAvatar = a => (typeof a === 'string' && a.length < 60000 && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+\/=]+$/.test(a)) ? a : '';
-        const avatarOf = (uid, name) => safeAvatar(PROFILES[uid] && PROFILES[uid].avatar) || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(name || '?') + '&background=4361ee&color=fff&bold=true';
+        const avatarOf = (uid, name) => safeAvatar(PROFILES[uid] && PROFILES[uid].avatar) || initialsAv(name, '#4361ee', 2);
         const clean = o => JSON.parse(JSON.stringify(o === undefined ? null : o));
         // Phần 2: trường của chính học sinh đang đăng nhập + kiểm tra 1 hồ sơ có CÙNG TRƯỜNG hay không
         const mySchool = () => schoolOfProfile({ role: 'student', targetSchoolId: user.targetSchoolId, targetSchoolName: user.targetSchoolName });
@@ -1494,7 +1476,7 @@ function processRegister() {
             ensureProfiles(rows.slice(0, 10).map(r => r.id));          // chỉ tải avatar cho top 10
             const mi = rows.findIndex(r => r.id === ME.uid);
             const row = (r, i) => `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 6px;border-bottom:1px solid #f1f5f9;${r.id === ME.uid ? 'background:#eff6ff;border-radius:8px;' : ''}">
-                <div style="display:flex;align-items:center;gap:8px;"><b style="color:var(--primary)">#${i + 1}</b><img src="${esc(avatarOf(r.id, r.p.name))}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;"><div>${esc(r.p.name)}<br><small style="color:var(--text-sub)">${esc(schoolNameOf(r.p) || 'Chưa chọn trường')}</small></div></div>
+                <div style="display:flex;align-items:center;gap:8px;"><b style="color:var(--primary)">#${i + 1}</b><img loading="lazy" decoding="async" src="${esc(avatarOf(r.id, r.p.name))}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;"><div>${esc(r.p.name)}<br><small style="color:var(--text-sub)">${esc(schoolNameOf(r.p) || 'Chưa chọn trường')}</small></div></div>
                 <b style="color:var(--primary)">${r.pts} XP</b></div>`;
             return rows.slice(0, 100).map(row).join('') + (mi >= 100 ? '<div style="text-align:center;color:#94a3b8">⋯</div>' + row(rows[mi], mi) : '');
         }
@@ -1789,6 +1771,7 @@ function processRegister() {
                 }
                 refreshPhotos();
             }
+            if (window.eduTypeset) eduTypeset($('hw-body'));   // vẽ công thức toán trong đề / đáp án / giải thích
             hwSetupNav(h, done, my);
             $('modal-hw').style.display = 'flex';
             if (live) startTimer(h, endAt);
@@ -1879,7 +1862,19 @@ function processRegister() {
             parts.push(postTimeAgo(p.createdAt));
             return parts.map(esc).join(' · ');
         }
-        const commentHtml = c => `<div class="cmt-item"><img class="cmt-av" src="${esc(avatarOf(c.uid, c.name))}" alt=""><div class="cmt-body"><div class="cmt-bubble"><div class="cmt-name">${esc(c.name)}</div><div class="cmt-text">${esc(c.text)}</div></div>${c.at ? `<div class="cmt-time">${esc(agoMs(c.at))}</div>` : ''}</div></div>`;
+        const commentHtml = c => `<div class="cmt-item"><img loading="lazy" decoding="async" class="cmt-av" src="${esc(avatarOf(c.uid, c.name))}" alt=""><div class="cmt-body"><div class="cmt-bubble"><div class="cmt-name">${esc(c.name)}</div><div class="cmt-text">${esc(c.text)}</div></div>${c.at ? `<div class="cmt-time">${esc(agoMs(c.at))}</div>` : ''}</div></div>`;
+        // Bảng tin: 40 bài mới nhất kèm bình luận, cập nhật realtime. Chỉ bắt đầu nghe khi mở Orient New lần đầu
+        // (trước đây nghe ngay lúc đăng nhập dù học sinh chưa mở), sau đó giữ nguyên để bảng tin luôn mới.
+        let POSTS_STARTED = false;
+        function startPostsListener() {
+            if (POSTS_STARTED || !ME) return;
+            POSTS_STARTED = true;
+            fbDb.collection('posts').orderBy('createdAt', 'desc').limit(40).onSnapshot(s => {
+                POSTS = s.docs.map(d => ({ id: d.id, ...d.data() })); POSTS_READY = true; POSTS_ERR = '';
+                ensureProfiles(POSTS.flatMap(p => [p.uid].concat((p.comments || []).map(c => c.uid))));
+                if ($('modal-mxh').style.display === 'flex') renderPosts();
+            }, e => { POSTS_READY = true; POSTS_ERR = e.message; if ($('modal-mxh').style.display === 'flex') renderPosts(); });
+        }
         function renderPosts() {
             if (!ME) return;
             $('composer-avatar').src = avatarOf(ME.uid, user.name);
@@ -1899,7 +1894,7 @@ function processRegister() {
                 const full = p.createdAt && p.createdAt.toDate ? p.createdAt.toDate().toLocaleString('vi-VN') : '';
                 const draft = CMT_DRAFT[p.id] || '';
                 return `<div class="post-card" id="post-${p.id}">
-                <div class="post-header"><img src="${esc(avatarOf(p.uid, p.name))}" alt=""><div style="flex:1;min-width:0;"><div class="post-author">${esc(p.name)}${isT ? '<span class="post-badge">Giáo viên</span>' : ''}</div><div class="post-time" title="${esc(full)}">${postMeta(p)}</div></div>${p.uid === ME.uid ? `<button type="button" class="post-del" title="Xóa bài viết" aria-label="Xóa bài viết" onclick="deletePost('${p.id}')">🗑️</button>` : ''}</div>
+                <div class="post-header"><img loading="lazy" decoding="async" src="${esc(avatarOf(p.uid, p.name))}" alt=""><div style="flex:1;min-width:0;"><div class="post-author">${esc(p.name)}${isT ? '<span class="post-badge">Giáo viên</span>' : ''}</div><div class="post-time" title="${esc(full)}">${postMeta(p)}</div></div>${p.uid === ME.uid ? `<button type="button" class="post-del" title="Xóa bài viết" aria-label="Xóa bài viết" onclick="deletePost('${p.id}')">🗑️</button>` : ''}</div>
                 <div class="post-content">${esc(p.content)}</div>
                 <div class="post-actions">
                     <button type="button" class="post-action-btn ${liked ? 'liked' : ''}" aria-pressed="${liked}" aria-label="${liked ? 'Bỏ thả tim' : 'Thả tim'}" onclick="toggleLike('${p.id}')"><span class="ic">${liked ? '❤️' : '🤍'}</span> ${likes.length} Thích</button>
@@ -1907,7 +1902,7 @@ function processRegister() {
                 </div>
                 <div class="cmt-panel" id="cmt-panel-${p.id}" ${open ? '' : 'hidden'}>
                     <div class="cmt-list" id="cmt-list-${p.id}" data-id="${p.id}">${comments.length ? comments.map(commentHtml).join('') : '<div class="cmt-empty">Chưa có bình luận nào. Hãy là người đầu tiên!</div>'}</div>
-                    <div class="cmt-form"><img class="cmt-av" src="${esc(avatarOf(ME.uid, user.name))}" alt="">
+                    <div class="cmt-form"><img loading="lazy" decoding="async" class="cmt-av" src="${esc(avatarOf(ME.uid, user.name))}" alt="">
                         <input name="cmt-input-${p.id}" aria-label="Viết bình luận..." type="text" class="cmt-input" id="cmt-input-${p.id}" data-cmt="${p.id}" maxlength="${CMT_MAX}" placeholder="Viết bình luận..." autocomplete="off" value="${esc(draft)}" oninput="onCmtInput('${p.id}')" onkeydown="onCmtKey(event,'${p.id}')">
                         <button type="button" class="cmt-send" id="cmt-send-${p.id}" ${draft.trim() ? '' : 'disabled'} onclick="sendComment('${p.id}')">Gửi</button></div>
                 </div></div>`;
@@ -2009,7 +2004,7 @@ function processRegister() {
         const isGroupId = id => String(id).indexOf('g:') === 0;
         const msgsRef = id => isGroupId(id) ? fbDb.collection('groups').doc(String(id).slice(2)).collection('msgs') : fbDb.collection('chats').doc(chatIdOf(id)).collection('msgs');
         const classGroupId = () => 'lop-' + foldVN(user.targetSchoolId).replace(/[^a-z0-9]+/g, '-') + '--' + foldVN(user.schoolClass).replace(/[^a-z0-9]+/g, '');
-        const groupAv = cls => 'https://ui-avatars.com/api/?name=' + encodeURIComponent(cls || 'L') + '&length=4&font-size=0.34&background=4361ee&color=fff&bold=true';
+        const groupAv = cls => initialsAv(cls || 'L', '#4361ee', 4);
         const groupSub = () => (MY_GROUP ? MY_GROUP.n + ' thành viên • ' : '') + 'Chat chung của lớp';
         function ensureClassGroup() {
             if (!ME || !user.schoolClass || !user.targetSchoolId) { MY_GROUP = null; return; }
@@ -2098,7 +2093,7 @@ function processRegister() {
                 const badge = (m.uid === hr ? '<span class="role-badge hr">GVCN</span>' : '') + (m.uid === mon ? '<span class="role-badge mon">Lớp Trưởng</span>' : '') + (m.uid === ME.uid && isHiddenMe() ? '<span class="role-badge hid">Đang ẩn</span>' : '');
                 const kickBtn = (isMonitorMe() && !m.teacher && m.uid !== ME.uid && m.uid !== hr && m.uid !== mon)
                     ? `<button type="button" class="mi-kick" data-uid="${esc(m.uid)}" onclick="kickMember(this.dataset.uid)">Kick</button>` : '';
-                return `<div class="member-item"><img src="${esc(avatarOf(m.uid, m.name))}" alt=""><div class="mi-main"><div class="mi-name">${esc(m.name)}${badge}${m.uid === ME.uid ? ' <span class="mi-you">(Bạn)</span>' : ''}</div><div class="mi-sub">${esc(sub)}</div></div>${kickBtn}<span class="mi-tag ${m.teacher ? 't' : 's'}">${m.teacher ? 'Giáo viên' : 'Học sinh'}</span></div>`;
+                return `<div class="member-item"><img loading="lazy" decoding="async" src="${esc(avatarOf(m.uid, m.name))}" alt=""><div class="mi-main"><div class="mi-name">${esc(m.name)}${badge}${m.uid === ME.uid ? ' <span class="mi-you">(Bạn)</span>' : ''}</div><div class="mi-sub">${esc(sub)}</div></div>${kickBtn}<span class="mi-tag ${m.teacher ? 't' : 's'}">${m.teacher ? 'Giáo viên' : 'Học sinh'}</span></div>`;
             }).join('') : '<div class="chat-empty">Chưa có thành viên nào.</div>';
         }
         // ---- Kick thành viên (CHỈ Lớp Trưởng; GVCN & Admin thao tác bên index.html) ----
@@ -2303,7 +2298,7 @@ function processRegister() {
                 groupInfoBusy = false; btn.disabled = false; btn.innerText = 'Thêm vào nhóm';
             }
         }
-        const CLASS_AV = 'https://ui-avatars.com/api/?name=CL&background=8b5cf6&color=fff&bold=true';
+        const CLASS_AV = initialsAv('CL', '#8b5cf6', 2);
         // normSchool đã được khai báo ở khối helper Phần 2 (phía trên)
         const tsOf = m => (m && m.createdAt && m.createdAt.toMillis) ? m.createdAt.toMillis() : Date.now();
         const pad2 = x => String(x).padStart(2, '0');
@@ -2335,6 +2330,12 @@ function processRegister() {
                 scheduleChatList();
             }, () => {});
         }
+        // Gỡ các listener xem trước khi đóng cửa sổ nhắn tin: nếu để chạy ngầm thì mỗi tin mới trong "Phòng chung"
+        // / nhóm lớp sẽ tốn thêm 1 lượt đọc cho MỖI học sinh đang mở trang, dù không ai nhìn thấy danh sách.
+        // Mở lại thì renderChatList tự đăng ký lại (dữ liệu xem trước cũ trong PREV vẫn hiện ngay, rồi cập nhật).
+        function stopPreviews() {
+            Object.keys(PREV_UNSUB).forEach(k => { try { PREV_UNSUB[k](); } catch (e) {} delete PREV_UNSUB[k]; });
+        }
         function scheduleChatList() {
             if (chatListTimer) return;
             chatListTimer = setTimeout(() => { chatListTimer = 0; if (listVisible()) renderChatList(); }, 120);
@@ -2351,7 +2352,7 @@ function processRegister() {
             return { html: esc(who + v.text), t: v.t };
         }
         function chatRowHtml(r) {
-            return `<div class="chat-friend-item${r.grp ? ' pin-group' : ''}" onclick="openChat('${r.id}')"><img class="cl-av" src="${esc(r.avatar)}" alt=""><div class="cl-main"><div class="cl-top"><span class="cl-name">${esc(r.name)}</span><span class="cl-time">${r.t ? fmtShort(r.t) : ''}</span></div><div class="cl-prev">${r.tag ? `<span class="cl-tag${r.grp ? ' grp' : ''}">${esc(r.tag)}</span>` : ''}${r.prev}</div></div></div>`;
+            return `<div class="chat-friend-item${r.grp ? ' pin-group' : ''}" onclick="openChat('${r.id}')"><img loading="lazy" decoding="async" class="cl-av" src="${esc(r.avatar)}" alt=""><div class="cl-main"><div class="cl-top"><span class="cl-name">${esc(r.name)}</span><span class="cl-time">${r.t ? fmtShort(r.t) : ''}</span></div><div class="cl-prev">${r.tag ? `<span class="cl-tag${r.grp ? ' grp' : ''}">${esc(r.tag)}</span>` : ''}${r.prev}</div></div></div>`;
         }
         function renderChatList() {
             const box = $('friends-avatar-list'), note = $('chat-list-note');
@@ -2396,7 +2397,7 @@ function processRegister() {
         function stopRoomListener() { if (unsubRoom) { unsubRoom(); unsubRoom = null; } }
         function showChatRoom(on) { $('chat-room-view').style.display = on ? 'block' : 'none'; $('chat-list-view').style.display = on ? 'none' : 'block'; }
         function closeChatRoom() { stopRoomListener(); curChatId = null; closeGroupInfo(); showChatRoom(false); if ($('modal-mxh').style.display === 'flex') renderChatList(); }
-        function closeMxh() { stopRoomListener(); closeGroupInfo(); closeModal('modal-mxh'); }
+        function closeMxh() { stopRoomListener(); stopPreviews(); closeGroupInfo(); closeModal('modal-mxh'); }
 
         function openChat(id) {
             const p = PROFILES[id] || liteProfile(id), isGroup = isGroupId(id);
@@ -2439,7 +2440,7 @@ function processRegister() {
                 const bubble = `<div class="chat-bubble ${mine ? 'mine' : 'other'}${newGroup ? '' : ' cont-up'}${endGroup ? '' : ' cont-down'}">${esc(m.text)}</div>`;
                 const del = delBtn(m);
                 if (mine) { html += `<div class="msg-row mine${newGroup ? ' first' : ''}"><div class="msg-col">${del ? `<div class="bubble-row">${del}${bubble}</div>` : bubble}</div></div>`; return; }
-                html += `<div class="msg-row other${newGroup ? ' first' : ''}"><img class="msg-av${endGroup ? '' : ' ghost'}" src="${esc(avatarOf(m.from, m.name))}" alt=""><div class="msg-col">${isClass && newGroup ? `<div class="msg-name">${esc(m.name || '')}${badge(m.from)}</div>` : ''}${del ? `<div class="bubble-row">${bubble}${del}</div>` : bubble}</div></div>`;
+                html += `<div class="msg-row other${newGroup ? ' first' : ''}"><img loading="lazy" decoding="async" class="msg-av${endGroup ? '' : ' ghost'}" src="${esc(avatarOf(m.from, m.name))}" alt=""><div class="msg-col">${isClass && newGroup ? `<div class="msg-name">${esc(m.name || '')}${badge(m.from)}</div>` : ''}${del ? `<div class="bubble-row">${bubble}${del}</div>` : bubble}</div></div>`;
             });
             return html;
         }
@@ -2452,7 +2453,7 @@ function processRegister() {
             $('mxh-tabnav').style.display = 'none';
             $('mxh-title').innerHTML = scope === 'chat' ? '💬 Nhắn tin' : '🧭 Orient New';
         }
-        function openMXHHocTap() { setMxhScope('feed'); renderPosts(); switchMxhTab('feed'); $('modal-mxh').style.display = 'flex'; }
+        function openMXHHocTap() { setMxhScope('feed'); startPostsListener(); renderPosts(); switchMxhTab('feed'); $('modal-mxh').style.display = 'flex'; }
         // Yêu cầu 6: từ Tab Tài khoản mở thẳng mục "Tin Nhắn"
         function openNhanTin() { if (window.EXAM_LOCKED) return; setMxhScope('chat'); $('modal-mxh').style.display = 'flex'; chatTab = 'chats'; switchMxhTab('chat'); }
 
@@ -2735,26 +2736,29 @@ function saveEdit() {
             fbDb.collection('bxhScores').doc(ME.uid).onSnapshot(d => { const v = (d.data() || {}).adjustXp; BXH_ADJ = typeof v === 'number' ? { [ME.uid]: v } : {}; if (PROFILES[ME.uid]) refreshUI(); }, () => {});
             // 5) BXH của mọi người: 1 lượt đọc doc tổng hợp (cache 5 phút)
             loadBxh(true);
-            fbDb.collection('posts').orderBy('createdAt', 'desc').limit(40).onSnapshot(s => {
-                POSTS = s.docs.map(d => ({ id: d.id, ...d.data() })); POSTS_READY = true; POSTS_ERR = '';
-                ensureProfiles(POSTS.flatMap(p => [p.uid].concat((p.comments || []).map(c => c.uid))));
-                if ($('modal-mxh').style.display === 'flex') renderPosts();
-            }, e => { POSTS_READY = true; POSTS_ERR = e.message; if ($('modal-mxh').style.display === 'flex') renderPosts(); });
+            // Bảng tin (posts): không nghe lúc đăng nhập nữa, chỉ bắt đầu khi học sinh mở Orient New lần đầu (xem startPostsListener)
         });
     
 
 // ===== CHAT AI (Cloudflare Worker + Gemini) =====
 const AI_URL = 'https://eduorient.iemmchyy.workers.dev';
 const AI_HIST = []; let aiBusy = false;
+// Chỉ gửi 10 tin cuối và cắt đúng cỡ Worker (user 2000, AI 5000 ký tự) để body không vượt giới hạn khi cuộc trò chuyện dài
+const aiPayload = () => AI_HIST.slice(-10).map(m => ({ role: m.role, content: String(m.content || '').slice(0, m.role === 'assistant' ? 5000 : 2000) }));
 // Đổi markdown đơn giản (**đậm**, `mã`, danh sách, tiêu đề) sang HTML. Escape trước nên không chèn được HTML độc hại.
 function aiMd(text) {
     let s = String(text == null ? '' : text).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    // Cất công thức ($$..$$, \[..\], \(..\), $..$) vào chỗ tạm để các bước markdown bên dưới (*, -, _) không làm hỏng; KaTeX sẽ vẽ sau (eduTypeset)
+    const MATH = [];
+    s = s.replace(/\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\]|\\\([\s\S]+?\\\)|\$[^$\n]+?\$/g, m => { MATH.push(m); return '\u0001' + (MATH.length - 1) + '\u0002'; });
     s = s.replace(/```[a-zA-Z]*\n?([\s\S]*?)```/g, (m, c) => '<pre style="margin:6px 0;padding:8px 10px;border-radius:8px;background:rgba(0,0,0,.18);overflow-x:auto;white-space:pre">' + c.replace(/\n$/, '') + '</pre>');
     s = s.replace(/^\s{0,3}#{1,6}\s+(.+)$/gm, '<b>$1</b>');
+    s = s.replace(/^\s*([-*_])(?:\s*\1){2,}\s*$/gm, '<hr style="border:0;border-top:1px solid rgba(148,163,184,.4);margin:8px 0">');
     s = s.replace(/^\s*[*-]\s+/gm, '• ');
     s = s.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
     s = s.replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, '$1<i>$2</i>');
     s = s.replace(/`([^`\n]+)`/g, '<code style="padding:1px 5px;border-radius:5px;background:rgba(0,0,0,.18)">$1</code>');
+    s = s.replace(/\u0001(\d+)\u0002/g, (m, i) => MATH[+i]);
     return s;
 }
 function aiBubble(role, text) {
@@ -2763,17 +2767,231 @@ function aiBubble(role, text) {
     d.className = 'chat-bubble other';
     d.style.maxWidth = '75%'; d.style.whiteSpace = 'pre-wrap';
     if (role === 'user') { d.style.alignSelf = 'flex-end'; d.style.background = 'var(--primary)'; d.style.color = '#fff'; d.textContent = text; }   // tin của học sinh: textContent
-    else { d.style.alignSelf = 'flex-start'; d.innerHTML = aiMd(text); }   // trả lời của AI: markdown đã escape
+    else { d.style.alignSelf = 'flex-start'; d.innerHTML = aiMd(text); if (window.eduTypeset) eduTypeset(d); }   // trả lời của AI: markdown đã escape + vẽ công thức
     box.appendChild(d); box.scrollTop = box.scrollHeight; return d;
+}
+// Bong bóng "đang suy nghĩ": 3 chấm nhảy + dòng chữ đổi theo thời gian chờ (Worker có thể mất tới ~26 giây nên học sinh không tưởng bị treo)
+const AI_WAIT_TEXTS = [[0, 'Đang suy nghĩ'], [6, 'Đang tìm cách giải thích dễ hiểu nhất'], [14, 'Câu hỏi hơi khó, mình đang soạn kỹ hơn'], [22, 'Hơi lâu một chút, mình vẫn đang làm nhé']];
+function aiThinkingBubble() {
+    const d = aiBubble('assistant', ''); if (!d) return null;
+    d.classList.add('ai-thinking'); d.setAttribute('role', 'status'); d.setAttribute('aria-live', 'polite');
+    d.innerHTML = '<span class="ai-dots" aria-hidden="true"><i></i><i></i><i></i></span><span class="ai-wait-t">Đang suy nghĩ</span>';
+    const t = d.querySelector('.ai-wait-t'), t0 = Date.now();
+    d._timer = setInterval(() => {
+        if (!d.isConnected) return aiThinkingDone(d);   // đã đổi sang cuộc trò chuyện khác -> dừng bộ đếm
+        const sec = (Date.now() - t0) / 1000; let txt = AI_WAIT_TEXTS[0][1];
+        for (const w of AI_WAIT_TEXTS) if (sec >= w[0]) txt = w[1];
+        if (t && t.textContent !== txt) t.textContent = txt;
+    }, 1000);
+    return d;
+}
+function aiThinkingDone(d) {
+    if (!d) return;
+    if (d._timer) { clearInterval(d._timer); d._timer = null; }
+    d.classList.remove('ai-thinking'); d.removeAttribute('role'); d.removeAttribute('aria-live');
 }
 // Rút gọn thông báo lỗi để học sinh không thấy cả khối JSON thô
 function aiFriendlyError(msg) {
+    if (/abort|timeout|timed out/i.test(msg || '')) return 'Trợ lý AI phản hồi quá lâu. Bạn kiểm tra mạng rồi thử lại nhé.';
     const m = /^AI đang bận \[(\d+)\]/.exec(msg || '');
     if (!m) return msg || 'Không kết nối được AI, thử lại sau.';
     if (m[1] === '429') return 'Trợ lý AI đang nhận quá nhiều câu hỏi (mã 429). Bạn đợi khoảng 1 phút rồi hỏi lại nhé.';
-    if (['408', '502', '504', '524'].includes(m[1])) return 'Trợ lý AI phản hồi quá lâu (mã ' + m[1] + '). Bạn thử lại nhé.';
+    if (['408', '504', '524'].includes(m[1])) return 'Trợ lý AI phản hồi quá lâu (mã ' + m[1] + '). Bạn thử lại nhé.';
+    if (m[1] === '502') return 'Trợ lý AI đang bận (mã 502). Bạn thử lại sau ít giây nhé.';
     if (m[1] === '503') return 'Trợ lý AI đang quá tải (mã 503). Bạn thử lại sau ít giây nhé.';
     return 'Trợ lý AI đang bận (mã ' + m[1] + '). Bạn thử lại sau nhé.';
+}
+// ---- Chạy chữ thật (streaming) ----
+// Cắt bỏ phần đuôi chưa viết xong (công thức $..$ / $$..$$ chưa đóng, **đậm** dở, khối mã dở...) để lúc đang chạy không hiện ký tự thô.
+// Phần bị cắt sẽ hiện ra ở mẩu sau, khi đã đóng đủ.
+function aiSafeCut(t) {
+    const n = t.length; let i = 0, open = null;
+    while (i < n) {
+        if (!open) {
+            if (t.startsWith('```', i)) { open = { c: '```', at: i }; i += 3; }
+            else if (t.startsWith('$$', i)) { open = { c: '$$', at: i }; i += 2; }
+            else if (t.startsWith('\\[', i)) { open = { c: '\\]', at: i }; i += 2; }
+            else if (t.startsWith('\\(', i)) { open = { c: '\\)', at: i }; i += 2; }
+            else if (t[i] === '$') { open = { c: '$', at: i, line: true }; i += 1; }
+            else if (t.startsWith('**', i)) { open = { c: '**', at: i, line: true }; i += 2; }
+            else if (t[i] === '`') { open = { c: '`', at: i, line: true }; i += 1; }
+            else i++;
+        } else if (t.startsWith(open.c, i)) { i += open.c.length; open = null; }
+        else if (open.line && (t[i] === '\n' || i - open.at > 300)) { open = null; }   // không đóng trong cùng dòng -> coi là ký tự thường
+        else i++;
+    }
+    let head = open ? t.slice(0, open.at) : t;
+    head = head.replace(/(^|[^`])``$/, '$1').replace(/(^|[^*])\*$/, '$1').replace(/\\$/, '');   // nửa dấu mở đang viết dở
+    head = head.replace(/(^|\n)[ ]{0,3}(?:#{1,6}|[-*_]+)[ ]*$/, '$1');                              // dòng cuối mới có "-", "#", "---": chờ thêm chữ
+    return head;
+}
+// Hiệu ứng "mờ dần hiện lên": mỗi lần vẽ lại, phần chữ MỚI so với lần trước được bọc trong <span class="ai-fade"> (CSS: opacity 0 -> 1).
+// Vì bong bóng được vẽ lại bằng innerHTML, mỗi đoạn mới ghi nhớ giờ xuất hiện (d._fadeSegs) và được cho animation-delay âm,
+// nên đoạn đang mờ dở vẫn mờ tiếp đúng tiến độ chứ không bị khựng hay chạy lại từ đầu. Công thức KaTeX được coi là 1 khối.
+const AI_FADE_MS = 650;
+function aiFade(d) {
+    const now = Date.now();
+    let U = 0;
+    const count = n => { for (let c = n.firstChild; c; c = c.nextSibling) { if (c.nodeType === 3) U += c.data.length; else if (c.nodeType === 1) { if (aiIsMath(c)) U += 1; else count(c); } } };
+    count(d);
+    if (d._fadeLen == null) d._fadeLen = U;
+    else if (U > d._fadeLen) { (d._fadeSegs = d._fadeSegs || []).push({ from: d._fadeLen, to: U, t: now }); d._fadeLen = U; }
+    const segs = (d._fadeSegs || (d._fadeSegs = [])).filter(x => now - x.t < AI_FADE_MS);
+    d._fadeSegs = segs;
+    if (!segs.length) return;
+    let pos = 0;
+    const span = (seg, block) => { const e = document.createElement('span'); e.className = 'ai-fade'; e.style.animationDelay = '-' + (now - seg.t) + 'ms'; if (block) e.style.display = 'block'; return e; };
+    const walk = (n, inFade) => {
+        for (let c = n.firstChild; c;) {
+            const next = c.nextSibling;
+            if (c.nodeType === 3) {
+                const a = pos, len = c.data.length; pos += len;
+                if (inFade) { c = next; continue; }
+                const cuts = [];
+                for (const g of segs) { const s0 = Math.max(a, g.from), e0 = Math.min(a + len, g.to); if (e0 > s0) cuts.push([s0 - a, e0 - a, g]); }
+                if (cuts.length) {
+                    const frag = document.createDocumentFragment(); let cur = 0;
+                    for (const [x, y, g] of cuts) {
+                        if (x > cur) frag.appendChild(document.createTextNode(c.data.slice(cur, x)));
+                        const e = span(g); e.textContent = c.data.slice(x, y); frag.appendChild(e); cur = y;
+                    }
+                    if (cur < len) frag.appendChild(document.createTextNode(c.data.slice(cur)));
+                    c.replaceWith(frag);
+                }
+            } else if (c.nodeType === 1) {
+                if (aiIsMath(c)) {
+                    const a = pos; pos += 1;
+                    if (!inFade) { const g = segs.find(x => a >= x.from && a < x.to); if (g) { const e = span(g, c.classList.contains('katex-display')); c.replaceWith(e); e.appendChild(c); } }
+                } else walk(c, inFade || c.classList.contains('ai-fade'));
+            }
+            c = next;
+        }
+    };
+    walk(d, false);
+}
+const aiIsMath = e => e.classList.contains('katex-display') || e.classList.contains('katex');
+// Vẽ lại bong bóng AI. Chỉ tự cuộn xuống khi học sinh đang ở sát đáy; cuộn lên đọc lại thì không bị kéo xuống.
+function aiPaint(d, text, final) {
+    const box = d.parentNode;
+    const near = !box || box.scrollHeight - box.scrollTop - box.clientHeight < 90;
+    d.innerHTML = aiMd(final ? text : aiSafeCut(text));
+    const down = () => { if (near && box) box.scrollTop = box.scrollHeight; };
+    down();
+    const fade = () => { if (d.isConnected) aiFade(d); down(); };
+    if (window.eduTypeset) Promise.resolve(eduTypeset(d)).then(fade); else fade();
+}
+const AI_STREAM_OK = typeof ReadableStream !== 'undefined' && typeof TextDecoder !== 'undefined' && typeof AbortController !== 'undefined';
+let aiCtl = null;
+window.addEventListener('pagehide', () => { if (aiCtl) { try { aiCtl.abort(); } catch (e) { /* đã dừng */ } } });   // học sinh thoát / tải lại trang -> dừng luồng
+
+// Đường cũ (chờ nhận đủ câu trả lời): dùng khi trình duyệt không hỗ trợ luồng
+async function aiAskPlain(token) {
+    const res = await fetch(AI_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({ messages: aiPayload() }),
+        signal: AbortSignal.timeout(35000)   // Worker tối đa ~26s; quá 35s thì báo lỗi thay vì treo dấu "..."
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'AI đang bận, thử lại sau.');
+    if (!data.reply) throw new Error('AI đang bận, thử lại sau.');
+    return String(data.reply);
+}
+// Nếu tại vị trí i bắt đầu một cụm (công thức, **đậm**, `mã`, khối mã) thì cho chữ "nhảy" qua cả cụm một lần thay vì gõ từng ký tự (công thức hiện ra gọn, không bị khựng).
+// Trả về: vị trí mới (> i) nếu cụm đã đóng đủ; i nếu là ký tự thường; -1 nếu cụm chưa đến đủ -> chờ thêm chữ.
+function aiJump(t, i, finished) {
+    const O = [['```', '```', 0], ['$$', '$$', 0], ['\\[', '\\]', 0], ['\\(', '\\)', 0], ['**', '**', 1], ['$', '$', 1], ['`', '`', 1]];
+    for (const [a, b, line] of O) {
+        if (!t.startsWith(a, i)) continue;
+        const j = t.indexOf(b, i + a.length), nl = t.indexOf('\n', i);
+        if (line) {
+            if (j >= 0 && !(nl >= 0 && nl < j) && j - i <= 300) return j + b.length;
+            if (j < 0 && !finished && nl < 0 && t.length - i <= 300) return -1;
+            return i;
+        }
+        if (j >= 0) return j + b.length;
+        return (finished || t.length - i > 600) ? i : -1;
+    }
+    return i;
+}
+// Đường mới: đọc luồng NDJSON từ Worker. Chữ nhận về được cho vào "bộ đệm", rồi nhỏ giọt ra màn hình đều đặn (kiểu gõ chữ mượt),
+// tốc độ tự tăng khi bộ đệm đầy để không bao giờ chậm hơn AI quá lâu. Trả về toàn văn khi đã hiện xong.
+// Lỗi ném ra có thể gắn: aiPartial (đã nhận được một phần chữ), aiEarly (đứt ngay khi mới bắt đầu -> thử lại đường cũ), aiGone (bong bóng đã bị bỏ).
+async function aiAskStream(token, wait) {
+    const ctl = new AbortController(); aiCtl = ctl;
+    let timer = 0, ticker = 0, full = '', shown = 0, finished = false, drained = null, started = false, gotStream = false;
+    const arm = ms => { clearTimeout(timer); timer = setTimeout(() => ctl.abort(), ms); };
+    const tick = () => {
+        if (!wait.isConnected) { clearInterval(ticker); ticker = 0; if (drained) drained(); return; }
+        const left = full.length - shown;
+        if (left > 0) {
+            if (document.hidden) shown = full.length;   // tab đang ẩn: không cần hiệu ứng, hiện luôn cho khỏi dồn việc
+            else {
+                const target = shown + Math.max(1, Math.ceil(left / (finished ? 5 : 16)));   // càng nhiều chữ chờ càng chạy nhanh
+                let p = shown;
+                while (p < target) { const j = aiJump(full, p, finished); if (j < 0) break; if (j > p) { p = j; break; } p++; }
+                if (p === shown) return;   // đang chờ một công thức / đoạn đậm chưa đến đủ
+                if (p === target && p < full.length && !/\s/.test(full[p - 1])) {   // gom cho tới hết từ đang gõ dở: chữ hiện theo cụm từ, mờ dần dịu hơn
+                    let q = p; while (q < full.length && !/\s/.test(full[q])) q++;
+                    if (q < full.length || finished) p = q;
+                    else { const ws = full.slice(shown, p).search(/\s\S*$/); if (ws < 0) return; p = shown + ws + 1; }   // từ chưa nhận đủ -> lùi về cuối từ trước
+                }
+                shown = p;
+            }
+            aiPaint(wait, full.slice(0, shown), false);
+        }
+        if (finished && shown >= full.length) { clearInterval(ticker); ticker = 0; if (drained) drained(); }
+    };
+    try {
+        arm(35000);   // chờ chữ đầu tiên (Worker trả phản hồi sau khi đã có chữ đầu)
+        const res = await fetch(AI_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+            body: JSON.stringify({ messages: aiPayload(), stream: true }),
+            signal: ctl.signal
+        });
+        if (!/ndjson/i.test(res.headers.get('Content-Type') || '') || !res.body || !res.body.getReader) {
+            // Worker trả JSON thường (lỗi, câu bị chặn an toàn, hoặc Worker bản cũ chưa hỗ trợ luồng)
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || 'AI đang bận, thử lại sau.');
+            if (!data.reply) throw new Error('AI đang bận, thử lại sau.');
+            return String(data.reply);
+        }
+        gotStream = true;
+        const rd = res.body.getReader(), dec = new TextDecoder();
+        let buf = '', done = false, bad = false;
+        arm(20000);
+        for (;;) {
+            if (!wait.isConnected) { ctl.abort(); const g = new Error('abort'); g.aiGone = true; throw g; }   // đã đổi cuộc trò chuyện / tài khoản
+            const r = await rd.read();
+            if (r.done) break;
+            arm(20000);   // quá 20 giây không có mẩu mới -> coi là đứt
+            buf += dec.decode(r.value, { stream: true });
+            let nl;
+            while ((nl = buf.indexOf('\n')) >= 0) {
+                const line = buf.slice(0, nl).trim(); buf = buf.slice(nl + 1);
+                if (!line) continue;
+                let ev; try { ev = JSON.parse(line); } catch (e) { continue; }
+                if (typeof ev.t === 'string' && ev.t) {
+                    if (!started) { started = true; aiThinkingDone(wait); wait.classList.add('ai-streaming'); wait._fadeLen = 0; wait._fadeSegs = []; ticker = setInterval(tick, 50); }
+                    full += ev.t;
+                } else if (ev.done) { done = true; }
+                else if (ev.err) bad = true;
+            }
+        }
+        if (!done || bad) throw new Error('stream cut');
+        finished = true; clearTimeout(timer);
+        if (ticker) await new Promise(res => { drained = res; if (shown >= full.length) res(); });   // chờ chữ chạy nốt phần còn lại
+        return full;
+    } catch (e) {
+        if (e && e.aiGone) throw e;
+        if (full) { const x = new Error(e && e.message); x.aiPartial = full; throw x; }
+        if (gotStream) e.aiEarly = true;
+        throw e;
+    } finally {
+        clearTimeout(timer); clearInterval(ticker);
+        if (aiCtl === ctl) aiCtl = null;
+    }
 }
 async function sendAi() {
     const inp = document.getElementById('ai-question-input'); if (!inp) return;
@@ -2787,31 +3005,49 @@ async function sendAi() {
     AI_HIST.push({ role: 'user', content: q });
     if (AI_HIST.length > 20) AI_HIST.splice(0, AI_HIST.length - 20);
     aiBubble('user', q);
-    const wait = aiBubble('assistant', '...');
+    const wait = aiThinkingBubble();
+    if (window.eduTypeset) { const w = document.createElement('span'); w.textContent = '$x$'; eduTypeset(w); }   // tải sẵn KaTeX để công thức vẽ ngay khi chữ chạy tới
     try {
         const token = await cu.getIdToken();
-        const res = await fetch(AI_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-            body: JSON.stringify({ messages: AI_HIST })
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.error || 'AI đang bận, thử lại sau.');
-        if (data.ms) console.log('[AI] ' + data.model + ' - ' + data.ms + ' ms');
-        wait.innerHTML = aiMd(data.reply);
-        AI_HIST.push({ role: 'assistant', content: data.reply });
-        aiSave();
+        let reply;
+        if (AI_STREAM_OK) {
+            try { reply = await aiAskStream(token, wait); }
+            catch (e) {
+                if (e && e.aiEarly && wait.isConnected) reply = await aiAskPlain(token);   // luồng đứt ngay từ đầu (mạng/proxy chặn luồng) -> thử đường cũ 1 lần
+                else throw e;
+            }
+        } else reply = await aiAskPlain(token);
+        if (wait.isConnected) {
+            aiThinkingDone(wait); wait.classList.remove('ai-streaming');
+            aiPaint(wait, reply, true);
+            AI_HIST.push({ role: 'assistant', content: reply });   // chỉ lưu vào lịch sử khi đã chạy xong trọn vẹn
+            aiSave();
+        }
     } catch (e) {
-        wait.textContent = aiFriendlyError(e && e.message);
-        AI_HIST.pop();
+        if (!(e && e.aiGone)) {
+            aiThinkingDone(wait); wait.classList.remove('ai-streaming');
+            if (e && e.aiPartial) {
+                aiPaint(wait, e.aiPartial, true);
+                const note = document.createElement('div');
+                note.style.cssText = 'margin-top:6px;font-size:.9em;opacity:.75';
+                note.textContent = '(đứt kết nối, thử lại nhé)';
+                wait.appendChild(note);
+            } else wait.textContent = aiFriendlyError(e && e.message);
+            if (AI_HIST.length && AI_HIST[AI_HIST.length - 1].role === 'user') AI_HIST.pop();   // câu hỏi này chưa có trả lời trọn vẹn
+        }
+    } finally {
+        aiBusy = false;
+        if (sendBtn) sendBtn.disabled = false;
+        const box = document.querySelector('.ai-msgs');
+        if (box && box.scrollHeight - box.scrollTop - box.clientHeight < 90) box.scrollTop = box.scrollHeight;
     }
-    aiBusy = false;
-    if (sendBtn) sendBtn.disabled = false;
-    const box = document.querySelector('.ai-msgs'); if (box) box.scrollTop = box.scrollHeight;
 }
 window.sendAi = sendAi;
 
-// ===== LỊCH SỬ TRÒ CHUYỆN AI (Firestore: aiChats/{uid}/items/{id}) =====
+// ===== LỊCH SỬ TRÒ CHUYỆN AI =====
+// Cấu trúc mới (v:2): aiChats/{uid}/items/{id} = { title, updatedAt, v:2 }  (nhẹ, dùng cho danh sách bên cạnh)
+//                     aiChats/{uid}/items/{id}/data/msgs = { msgs:[{role,content}], updatedAt }  (chỉ tải khi mở đúng cuộc đó)
+// Cuộc cũ (trước v:2) còn để msgs ngay trong tài liệu chính: vẫn mở được; lần nhắn tiếp theo sẽ tự chuyển sang cấu trúc mới.
 let AI_CUR = null, AI_LIST = [], AI_UID = '';
 const aiEsc = x => String(x == null ? '' : x).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const aiCol = () => fbDb.collection('aiChats').doc(fbAuth.currentUser.uid).collection('items');
@@ -2832,26 +3068,63 @@ function aiRenderList() {
         '<button type="button" class="ai-h-del" title="Xóa cuộc trò chuyện" aria-label="Xóa" onclick="event.stopPropagation();aiDeleteChat(\'' + aiEsc(c.id) + '\')">✕</button></div>'
     ).join('');
 }
+let AI_LOADED = false, AI_LOADING = null;
 async function aiLoadList() {
+    const uid = AI_UID;
     try {
         const u = fbAuth.currentUser; if (!u || u.isAnonymous) return;
         const s = await aiCol().orderBy('updatedAt', 'desc').limit(30).get();
-        AI_LIST = s.docs.map(d => ({ id: d.id, ...d.data() }));
-    } catch (e) { console.warn('Lịch sử AI:', e && e.message); AI_LIST = []; }
+        if (uid !== AI_UID) return;   // trong lúc chờ đã đổi tài khoản: bỏ kết quả của người trước
+        const list = s.docs.map(d => ({ id: d.id, ...d.data() }));
+        // cuộc trò chuyện vừa lưu trong lúc đang tải (chưa kịp có trong kết quả) thì giữ lại ở đầu danh sách
+        const fresh = AI_LIST.filter(x => !list.some(y => y.id === x.id));
+        AI_LIST = fresh.concat(list).slice(0, 30);
+        AI_LOADED = true;
+    } catch (e) { console.warn('Lịch sử AI:', e && e.message); if (uid === AI_UID) AI_LIST = []; }
     aiRenderList();
+}
+// Chỉ tải lịch sử (30 cuộc kèm toàn bộ tin nhắn) khi học sinh mở tab Chat AI; tải xong một lần thì không tải lại.
+// Tải lỗi thì lần mở tab sau sẽ thử lại.
+function aiEnsureList() {
+    if (AI_LOADED || AI_LOADING || !AI_UID) return;
+    const uid = AI_UID;
+    AI_LOADING = aiLoadList().finally(() => {
+        AI_LOADING = null;
+        if (uid !== AI_UID && document.body.classList.contains('ai-tab-on')) aiEnsureList();   // đổi tài khoản khi đang tải: tải cho người mới
+    });
 }
 function aiNewChat() {
     if (aiBusy) return eduAlert('Trợ lý AI đang trả lời, bạn chờ một chút nhé.', 'warning');
     AI_CUR = null; AI_HIST.length = 0; aiResetBox(); aiRenderList();
     const inp = document.getElementById('ai-question-input'); if (inp) inp.focus();
 }
-function aiOpenChat(id) {
+let AI_OPENING = false;
+function aiRepaint() { aiResetBox(); AI_HIST.forEach(m => aiBubble(m.role, m.content)); }
+async function aiOpenChat(id) {
+    if (AI_OPENING) return;   // đang tải một cuộc khác: bỏ qua cú bấm thêm
     if (aiBusy) return eduAlert('Trợ lý AI đang trả lời, bạn chờ một chút nhé.', 'warning');
     const c = AI_LIST.find(x => x.id === id); if (!c) return;
+    let msgs = Array.isArray(c.msgs) ? c.msgs : null;   // cuộc cũ: có sẵn; cuộc mới (v:2) hoặc chưa mở lần nào: phải tải riêng
+    if (!msgs) {
+        const uid = AI_UID, sendBtn = document.querySelector('.ai-in .chat-send');
+        AI_OPENING = true; aiBusy = true;   // khóa gửi tin / đổi cuộc trong lúc tải để không ghi đè nhầm
+        if (sendBtn) sendBtn.disabled = true;
+        const box = document.querySelector('.ai-msgs');
+        if (box) { box.innerHTML = ''; const g = document.createElement('div'); g.className = 'chat-bubble other'; g.style.alignSelf = 'flex-start'; g.textContent = 'Đang tải cuộc trò chuyện...'; box.appendChild(g); }
+        let failed = false;
+        try {
+            const d = await aiCol().doc(id).collection('data').doc('msgs').get();
+            msgs = d.exists && Array.isArray(d.data().msgs) ? d.data().msgs : [];
+            c.msgs = msgs;   // nhớ lại để lần mở sau khỏi tải nữa
+        } catch (e) { failed = true; console.warn('Không tải được cuộc trò chuyện:', e && e.message); }
+        AI_OPENING = false; aiBusy = false;
+        if (sendBtn) sendBtn.disabled = false;
+        if (uid !== AI_UID) return;   // trong lúc chờ đã đổi tài khoản
+        if (failed) { aiRepaint(); return eduAlert('Không mở được cuộc trò chuyện, thử lại sau.', 'warning'); }
+    }
     AI_CUR = id; AI_HIST.length = 0;
-    (c.msgs || []).forEach(m => AI_HIST.push({ role: m.role === 'assistant' ? 'assistant' : 'user', content: String(m.content || '') }));
-    aiResetBox();
-    AI_HIST.forEach(m => aiBubble(m.role, m.content));
+    msgs.forEach(m => AI_HIST.push({ role: m.role === 'assistant' ? 'assistant' : 'user', content: String(m.content || '') }));
+    aiRepaint();
     aiRenderList();
 }
 async function aiSave() {
@@ -2863,7 +3136,11 @@ async function aiSave() {
         const first = (AI_HIST.find(m => m.role === 'user') || {}).content || 'Cuộc trò chuyện';
         const old = AI_LIST.find(x => x.id === id);
         const title = old ? old.title : first.replace(/\s+/g, ' ').slice(0, 60);
-        await aiCol().doc(id).set({ title, msgs, updatedAt: NOW() });
+        // Ghi nguyên tử 2 tài liệu: tiêu đề (nhẹ) + tin nhắn. Ghi đè tài liệu chính cũng bỏ luôn trường msgs của cuộc cũ (tự chuyển sang v:2).
+        const ref = aiCol().doc(id), batch = fbDb.batch();
+        batch.set(ref, { title, updatedAt: NOW(), v: 2 });
+        batch.set(ref.collection('data').doc('msgs'), { msgs, updatedAt: NOW() });
+        await batch.commit();
         AI_LIST = [{ id, title, msgs }].concat(AI_LIST.filter(x => x.id !== id)).slice(0, 30);
         aiRenderList();
     } catch (e) { console.warn('Không lưu được lịch sử AI:', e && e.message); }
@@ -2871,7 +3148,10 @@ async function aiSave() {
 async function aiDeleteChat(id) {
     if (aiBusy) return eduAlert('Trợ lý AI đang trả lời, bạn chờ một chút nhé.', 'warning');
     try {
-        await aiCol().doc(id).delete();
+        // Xóa cả tài liệu tin nhắn con (xóa tài liệu chính KHÔNG tự xóa tài liệu con); cuộc cũ không có tài liệu con thì lệnh xóa vô hại
+        const ref = aiCol().doc(id), batch = fbDb.batch();
+        batch.delete(ref.collection('data').doc('msgs')); batch.delete(ref);
+        await batch.commit();
         AI_LIST = AI_LIST.filter(x => x.id !== id);
         if (AI_CUR === id) { AI_CUR = null; AI_HIST.length = 0; aiResetBox(); }
         aiRenderList();
@@ -2881,8 +3161,9 @@ async function aiDeleteChat(id) {
 fbAuth.onAuthStateChanged(u => {
     const uid = u && !u.isAnonymous ? u.uid : '';
     if (uid === AI_UID) return;
-    AI_UID = uid; AI_CUR = null; AI_LIST = []; AI_HIST.length = 0; aiResetBox(); aiRenderList();
-    if (uid) aiLoadList();
+    AI_UID = uid; AI_CUR = null; AI_LIST = []; AI_LOADED = false; AI_HIST.length = 0; aiResetBox(); aiRenderList();
+    // Không tải lịch sử ngay lúc đăng nhập; chỉ tải khi mở tab Chat AI (nếu tab đang mở sẵn thì tải luôn)
+    if (uid && document.body.classList.contains('ai-tab-on')) aiEnsureList();
 });
 window.aiNewChat = aiNewChat; window.aiOpenChat = aiOpenChat; window.aiDeleteChat = aiDeleteChat;
 

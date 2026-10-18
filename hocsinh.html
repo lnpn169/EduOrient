@@ -15,6 +15,12 @@
     <link rel="icon" type="image/png" href="icon-192.png">
     <link rel="apple-touch-icon" href="icon-192.png">
     <link rel="manifest" href="manifest.webmanifest">
+    <!-- Kết nối sớm tới nơi tải Firebase SDK (www.gstatic.com) và SweetAlert2 / KaTeX (cdn.jsdelivr.net).
+         Mỗi nơi khai báo 2 dòng: thường + crossorigin (script có SRI/crossorigin dùng kết nối riêng, KaTeX thì không). -->
+    <link rel="preconnect" href="https://www.gstatic.com">
+    <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net">
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <meta name="theme-color" content="#1e293b">
     <!-- DARK MODE: áp dụng theme TRƯỚC khi vẽ trang (tránh nháy sáng) + hàm điều khiển. Khóa lưu: eduorient_theme = 'dark' | 'light' -->
     <script>
@@ -56,7 +62,7 @@
     window.addEventListener('storage', function (e) { if (e.key === KEY) { apply(); fire(); } });
 })();
 </script>
-<link rel="stylesheet" href="hocsinh.min.css?v=d2e2af1d88">
+<link rel="stylesheet" href="hocsinh.min.css?v=001e483cfa">
     <!-- ===== PHÂN TÍCH: SỬA DARK MODE (card câu hỏi, chữ, thanh tiến trình, nút 1-5, popup, view chuyên sâu). Nằm SAU hocsinh.min.css ===== -->
     <style id="pt-dark-fix">
         html.dark { color-scheme: dark; }
@@ -100,7 +106,6 @@
         html.dark #deep-card { background: #182238 !important; color: #f1f5f9; }
         html.dark #deep-bar { background: rgba(31,44,71,.96); color: #ffffff; }
         html.dark #asp-hint { background: rgba(59,130,246,.16) !important; color: #e0f2fe !important; }
-        html.dark #modal-ai-quiz div[style*="dashed"] { background: #1f2c47 !important; border-color: #6b7fa8 !important; }
         html.dark #modal-studentid p { color: #e2e8f0 !important; }
         html.dark [style*="background:var(--bg,#f8fafc)" i] { background: #2f3f5e !important; }
     </style>
@@ -210,14 +215,14 @@
     <!-- ===== Bước 10A: Orient New - Bảng tin & khung đăng bài ===== -->
     <!-- ===== Bước 10B: Thả tim & Bình luận ===== -->
     <!-- Thư viện CDN: Firebase (compat) & SweetAlert2 -->
-    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.14.5"></script>
-    <script src="edu-common.js?v=0ec7397c40"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js" integrity="sha384-AQ3POAMqIhwS81FrUH95ekxqBZHeP5tG2JfEL3+7GuTtfRLWnrRh32UxwzM+//A9" crossorigin="anonymous"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js" integrity="sha384-TnlRYaR4JYz/lpaGuaiU61PjNberSA4vjLjtF+oRC/IkohkJqnWxw5EmDSOt1vA1" crossorigin="anonymous"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js" integrity="sha384-qn4Jh88HhJA8dplNQyGjOh9OGI4izVhrfj/qIFgaKcdgOE06pXqIKGlsCILZcLAC" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.14.5" integrity="sha384-YB/DdIkloKoRpclWB8bNcYXWakt57USgtQPDzvnIDHYU0lasD5eWlXVo1S4ODukY" crossorigin="anonymous"></script>
+    <script src="edu-common.js?v=68473aee6f"></script>
     <!-- Tailwind: file CSS tĩnh build bằng CLI (thay cho cdn.tailwindcss.com chỉ dùng để thử nghiệm). Tắt preflight để không ảnh hưởng CSS cũ.
          Build: npx tailwindcss -c tailwind.hocsinh.config.js -i input.css -o hocsinh-tw.min.css --minify -->
-    <link rel="stylesheet" href="hocsinh-tw.min.css?v=8207c2b44a">
+    <link rel="stylesheet" href="hocsinh-tw.min.css?v=1f8ffafdee">
     <!-- ===== DESKTOP DASHBOARD (>= 1024px). Mobile (< 1024px) giữ nguyên ===== -->
 
 <!-- TĂNG TƯƠNG PHẢN DARK MODE: khối riêng, nằm SAU #dark-theme -->
@@ -294,35 +299,6 @@
                 <!-- Nội dung phân tích chi tiết sẽ được JS render -->
             </div>
             <button class="btn-outline" onclick="closeModal('modal-ho-so-huong-nghiep')">Đóng</button>
-        </div>
-    </div>
-
-    <!-- 4. MODAL TẠO ĐỀ BẰNG AI (MỚI) -->
-    <div id="modal-ai-quiz" class="fullscreen-overlay" style="display: none;">
-        <div class="modal-card">
-            <div class="modal-header">
-                <div class="modal-title">🤖 Tạo Đề Bài Tập Bằng AI</div>
-                <button class="modal-close" onclick="closeModal('modal-ai-quiz')">✕</button>
-            </div>
-            <div class="modal-body">
-                <p style="font-size: 13px; color: var(--text-sub); margin-bottom: 12px;">Đăng tải file tài liệu hoặc dán đoạn văn bản ôn tập, AI sẽ tự động trích xuất và tạo đề trắc nghiệm cho bạn!</p>
-                
-                <div style="border: 2px dashed #cbd5e1; padding: 15px; border-radius: 12px; text-align: center; margin-bottom: 12px; background: #f8fafc;">
-                    <span style="font-size: 24px;">📁</span>
-                    <p style="font-size: 12px; color: var(--text-sub); margin-top: 4px;">Chọn file Word, PDF hoặc Text</p>
-                    <input name="ai-file-input" type="file" id="ai-file-input" aria-label="Tải tệp nội dung bài học" accept=".txt,.doc,.docx,.pdf" style="margin-top: 8px; font-size: 12px;">
-                </div>
-
-                <div style="text-align: center; font-weight: bold; color: #94a3b8; font-size: 12px; margin: 8px 0;">HOẶC DÁN VĂN BẢN</div>
-                <textarea name="ai-text-input" aria-label="Dán nội dung bài học hoặc đoạn văn cần tạo câu hỏi vào đây..." id="ai-text-input" rows="4" placeholder="Dán nội dung bài học hoặc đoạn văn cần tạo câu hỏi vào đây..."></textarea>
-                
-                <button class="btn-primary" onclick="generateAIQuiz()">⚡ AI Tạo Đề Ngay</button>
-
-                <div id="ai-quiz-result" style="margin-top: 20px; display: none;">
-                    <div style="font-weight: 800; font-size: 15px; color: var(--primary); margin-bottom: 12px;">📝 Đề Trắc Nghiệm Tự Động:</div>
-                    <div id="quiz-questions-container"></div>
-                </div>
-            </div>
         </div>
     </div>
 
@@ -557,7 +533,7 @@
     </aside>
     <div class="app-header"><div class="top-title" id="top-title">Phân Tích</div>
         <div class="header-dropdown" id="header-level-badge">THPT <span>▼</span></div>
-        <img id="user-avatar" src="https://ui-avatars.com/api/?name=U&background=4361ee&color=fff" alt="Avatar" class="avatar-img" onclick="switchTab('tab-profile', document.getElementById('nav-profile'), false)">
+        <img id="user-avatar" src="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20fill%3D%22%234361ee%22%2F%3E%3Ctext%20x%3D%2232%22%20y%3D%2232%22%20dy%3D%22.35em%22%20text-anchor%3D%22middle%22%20font-family%3D%22Inter%2CArial%2Csans-serif%22%20font-weight%3D%22700%22%20font-size%3D%2227%22%20fill%3D%22%23fff%22%3EU%3C%2Ftext%3E%3C%2Fsvg%3E" alt="Avatar" class="avatar-img" onclick="switchTab('tab-profile', document.getElementById('nav-profile'), false)">
     </div>
 
     <!-- TAB 1: PHÂN TÍCH -->
@@ -707,7 +683,7 @@
             <div class="profile-mascot">🎓</div>
             <div class="profile-top-info">
                 <div class="profile-avatar-wrapper">
-                    <img id="profile-avatar-new" src="https://ui-avatars.com/api/?name=U&background=4361ee&color=fff" alt="Avatar">
+                    <img id="profile-avatar-new" src="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20fill%3D%22%234361ee%22%2F%3E%3Ctext%20x%3D%2232%22%20y%3D%2232%22%20dy%3D%22.35em%22%20text-anchor%3D%22middle%22%20font-family%3D%22Inter%2CArial%2Csans-serif%22%20font-weight%3D%22700%22%20font-size%3D%2227%22%20fill%3D%22%23fff%22%3EU%3C%2Ftext%3E%3C%2Fsvg%3E" alt="Avatar">
                 </div>
                 <div class="profile-basic-info">
                     <h3>HỒ SƠ CỦA BẠN</h3>
@@ -867,7 +843,7 @@
         </div>
     </nav>
 
-    <script src="hocsinh.min.js?v=32bedf603c"></script>
+    <script src="hocsinh.min.js?v=578627d08c"></script>
 <script>
 // Thanh báo mất mạng (hiện khi trình duyệt báo offline, tự ẩn khi có mạng lại)
 (function () {

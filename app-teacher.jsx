@@ -1,8 +1,299 @@
 // EduOrient — màn hình GIÁO VIÊN (TeacherApp). Chỉ tải khi đăng nhập bằng tài khoản giáo viên.
-import { ErrorBoundary, GDPT_SUBJECTS, PAGE_LOGIN, SCHOOL_DB, SchoolPicker, SubjectSelect, fbAuth, fbDb, fbErr, fbNow, fbSignOut, foldVN, goTo, readSchoolPick, safeAvatar } from './app-core.jsx';
+import { ErrorBoundary, GDPT_SUBJECTS, PAGE_LOGIN, SCHOOL_DB, SchoolPicker, SubjectSelect, fbAuth, fbDb, fbErr, fbNow, fbSignOut, foldVN, goTo, initialsAvatar, readSchoolPick, safeAvatar } from './app-core.jsx';
 import { ATT_STATUS, BxhScoreEditor, EMPTY_LIST, GroupSettingsModal, Icon, THEME_OPTS, avatarUrl, bxhBumpXp, clampScore, essayXpOf, keepList, keepMap, quizXpOf, subXp, wipeMsgs } from './app-shared.jsx';
 
         const { useState, useEffect, useRef, useMemo, useCallback, memo } = React;
+
+        // Hiển thị chữ có công thức toán ($...$, $$...$$): escape HTML rồi để KaTeX (edu-common.js) vẽ công thức.
+        // Dùng dangerouslySetInnerHTML với chuỗi đã escape nên React không tranh chấp với DOM do KaTeX tạo ra.
+        const escHtmlTx = (x) => String(x == null ? '' : x).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        const MathText = memo(function MathText({ text, className, style }) {
+            const ref = useRef(null);
+            const html = useMemo(() => escHtmlTx(text), [text]);
+            useEffect(() => { if (ref.current && window.eduTypeset) window.eduTypeset(ref.current); }, [html]);
+            return <span ref={ref} className={className} style={style} dangerouslySetInnerHTML={{ __html: html }} />;
+        });
+
+        // Cắt chuỗi cho dòng thu gọn nhưng KHÔNG cắt giữa một công thức $...$ (số dấu $ lẻ thì kéo dài tới dấu $ đóng)
+        const snipMath = (t, n) => {
+            const x = String(t || '').replace(/\s+/g, ' ').trim();
+            if (x.length <= n) return x;
+            let cut = n;
+            if ((x.slice(0, cut).match(/\$/g) || []).length % 2) { const j = x.indexOf('$', cut); cut = j < 0 ? x.length : Math.min(j + 1, n + 160); }
+            return x.slice(0, cut) + (cut < x.length ? '…' : '');
+        };
+
+        // Khung "Xem trước" dưới ô nhập: chỉ hiện khi có công thức
+        const MathPreview = ({ items }) => {
+            const rows = items.filter((x) => window.eduHasMath && window.eduHasMath(x.t));
+            if (!rows.length) return null;
+            return (
+                <div style={{ border: '1px dashed var(--eo-line2,#cbd5e1)', borderRadius: 10, padding: '6px 10px', fontSize: 13, color: 'var(--eo-text,#0f172a)' }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--eo-text3,#94a3b8)', marginBottom: 2 }}>XEM TRƯỚC</div>
+                    {rows.map((r) => <div key={r.k} style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{r.pre}<MathText text={r.t} /></div>)}
+                </div>
+            );
+        };
+
+        // ===== Chèn công thức bằng ô nhập trực quan (MathLive, chỉ tải khi bấm nút) =====
+        const MATHLIVE_BASE = 'https://cdn.jsdelivr.net/npm/mathlive@0.111.0/';
+        const loadMathLive = (() => {
+            let pending = null;
+            return () => {
+                if (window.customElements && customElements.get('math-field')) return Promise.resolve();
+                if (pending) return pending;
+                pending = new Promise((resolve, reject) => {
+                    const sc = document.createElement('script');
+                    sc.src = MATHLIVE_BASE + 'mathlive.min.js'; sc.async = true;
+                    sc.onload = () => {
+                        try {
+                            const ME = window.MathfieldElement || (window.MathLive && window.MathLive.MathfieldElement);
+                            if (ME) { ME.fontsDirectory = MATHLIVE_BASE + 'fonts'; ME.soundsDirectory = null; }
+                        } catch (e) {}
+                        customElements.whenDefined('math-field').then(resolve, reject);
+                    };
+                    sc.onerror = () => { pending = null; sc.remove(); reject(new Error('Không tải được bộ gõ công thức. Hãy kiểm tra mạng rồi thử lại.')); };
+                    document.head.appendChild(sc);
+                });
+                return pending;
+            };
+        })();
+        // Ô đang được chọn trong khung soạn câu hỏi (để nút "Chèn công thức" biết chèn vào đâu)
+        let FX_LAST = null;
+        const fxFocus = (i, kind, k) => () => { FX_LAST = { i, kind, k: k || 0 }; };
+        const FX_BTNS = [
+            ['a/b', '\\frac{#@}{#?}'], ['√', '\\sqrt{#@}'], ['ⁿ√', '\\sqrt[#?]{#@}'], ['x²', '#@^{2}'], ['xⁿ', '#@^{#?}'], ['xₙ', '#@_{#?}'],
+            ['∫', '\\int_{#?}^{#?}#?\\,dx'], ['∑', '\\sum_{#?}^{#?}#?'], ['lim', '\\lim_{x\\to #?}'], ['|x|', '\\left|#@\\right|'], ['hệ {', '\\begin{cases}#? \\\\ #?\\end{cases}'],
+            ['≤', '\\leq '], ['≥', '\\geq '], ['≠', '\\neq '], ['±', '\\pm '], ['π', '\\pi '], ['∞', '\\infty '], ['→', '\\to '], ['°', '^{\\circ}'], ['∈', '\\in '], ['ℝ', '\\mathbb{R}'], ['⃗v', '\\overrightarrow{#@}'], ['∠', '\\angle '], ['△', '\\triangle '],
+        ];
+        function FormulaModal({ onInsert, onClose }) {
+            const ref = useRef(null);
+            const [ready, setReady] = useState(false), [err, setErr] = useState('');
+            useEffect(() => { let off = false; loadMathLive().then(() => { if (!off) setReady(true); }).catch((e) => { if (!off) setErr(e.message); }); return () => { off = true; }; }, []);
+            // Tắt bàn phím ảo của MathLive (tự bật trên máy cảm ứng, và còn nằm lại sau khi đóng bảng): giáo viên dùng bàn phím thật + các nút bên dưới
+            const hideVK = () => { try { if (window.mathVirtualKeyboard) window.mathVirtualKeyboard.hide(); } catch (e) {} };
+            useEffect(() => {
+                if (!ready || !ref.current) return;
+                try { ref.current.mathVirtualKeyboardPolicy = 'manual'; } catch (e) {}
+                try { if (window.mathVirtualKeyboard) window.mathVirtualKeyboard.visible = false; } catch (e) {}
+                hideVK();
+                const tm = setTimeout(() => { try { ref.current.focus(); } catch (e) {} hideVK(); }, 60);
+                const tm2 = setTimeout(hideVK, 300);
+                return () => { clearTimeout(tm); clearTimeout(tm2); };
+            }, [ready]);
+            useEffect(() => hideVK, []);   // đóng bảng -> chắc chắn ẩn bàn phím ảo
+            useEffect(() => {
+                const h = (e) => { if (e.key === 'Escape') { e.stopPropagation(); onClose(); } };
+                window.addEventListener('keydown', h, true);
+                return () => window.removeEventListener('keydown', h, true);
+            }, []);
+            const put = (tpl) => { const mf = ref.current; if (!mf) return; try { mf.executeCommand(['insert', tpl, { selectionMode: 'placeholder', focus: true }]); } catch (e) { mf.insert && mf.insert(tpl); } mf.focus(); };
+            const submit = () => { const mf = ref.current; const tex = mf ? String(mf.value || '').trim() : ''; if (!tex) return onClose(); onInsert(tex); };
+            const btn = { padding: '5px 9px', borderRadius: 8, border: '1px solid var(--eo-line2,#cbd5e1)', background: 'var(--eo-surface,#fff)', color: 'var(--eo-text,#0f172a)', fontSize: 13, cursor: 'pointer' };
+            return (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,.6)', zIndex: 90, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 12 }} onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+                    <div style={{ background: 'var(--eo-surface,#fff)', color: 'var(--eo-text,#0f172a)', borderRadius: 16, width: '100%', maxWidth: 560, padding: 16, boxShadow: '0 20px 50px rgba(0,0,0,.35)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                            <b style={{ fontSize: 15 }}>Chèn công thức</b>
+                            <button type="button" onClick={onClose} aria-label="Đóng" style={{ ...btn, border: 0, fontSize: 16 }}>✕</button>
+                        </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 10 }}>
+                            {FX_BTNS.map(([lb, tpl]) => <button key={lb} type="button" style={btn} onMouseDown={(e) => e.preventDefault()} onClick={() => put(tpl)}>{lb}</button>)}
+                        </div>
+                        <style>{'math-field::part(virtual-keyboard-toggle){display:none}'}</style>
+                        {err ? <p style={{ color: '#ef4444', fontSize: 13 }}>{err}</p>
+                            : !ready ? <p style={{ fontSize: 13, opacity: .7 }}>Đang tải bộ gõ công thức…</p>
+                            : React.createElement('math-field', { ref, style: { width: '100%', fontSize: 24, padding: '8px 10px', borderRadius: 10, border: '1px solid var(--eo-line2,#cbd5e1)', background: '#fff', color: '#0f172a' }, 'math-virtual-keyboard-policy': 'manual', 'virtual-keyboard-mode': 'off' })}
+                        <p style={{ fontSize: 11, opacity: .65, margin: '8px 0 12px' }}>Bấm nút phía trên hoặc gõ trực tiếp (gõ "/" để tạo phân số, "^" để tạo số mũ, Tab để nhảy sang ô kế tiếp). Công thức sẽ chèn vào ô bạn đang soạn.</p>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                            <button type="button" style={btn} onClick={onClose}>Hủy</button>
+                            <button type="button" style={{ ...btn, background: '#f59e0b', borderColor: '#f59e0b', color: '#fff', fontWeight: 700 }} onClick={submit} disabled={!ready}>Chèn vào câu hỏi</button>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+        // Nút "ƒx Chèn công thức" của 1 câu hỏi: chèn $LaTeX$ vào ô đang chọn (câu hỏi / đáp án A-D / giải thích) tại vị trí con trỏ
+        function FormulaButton({ i, q, upd }) {
+            const [open, setOpen] = useState(false);
+            const sel = useRef({ s: null, e: null });
+            const target = () => (FX_LAST && FX_LAST.i === i ? FX_LAST : { kind: 'q', k: 0 });
+            const fieldId = (t) => t.kind === 'e' ? 'mcq-explain-' + i : t.kind === 'a' ? 'mcq-option-' + i + '-' + t.k : (q.kind === 'essay' ? 'essay-question-' : 'mcq-question-') + i;
+            const openIt = () => {
+                const t = target(), el = document.getElementById(fieldId(t));
+                sel.current = el && typeof el.selectionStart === 'number' ? { s: el.selectionStart, e: el.selectionEnd } : { s: null, e: null };
+                setOpen(true);
+            };
+            const insert = (tex) => {
+                const t = target();
+                const cur = String(t.kind === 'e' ? (q.e || '') : t.kind === 'a' ? ((q.a || [])[t.k] || '') : (q.q || ''));
+                let s0 = sel.current.s, e0 = sel.current.e;
+                if (s0 === null) { s0 = cur.length; e0 = cur.length; }
+                s0 = Math.min(s0, cur.length); e0 = Math.min(Math.max(e0, s0), cur.length);
+                const next = cur.slice(0, s0) + '$' + tex + '$' + cur.slice(e0);
+                if (t.kind === 'e') upd(i, { e: next });
+                else if (t.kind === 'a') upd(i, { a: (q.a || []).map((o, m) => m === t.k ? next : o) });
+                else upd(i, { q: next });
+                setOpen(false);
+            };
+            return (
+                <>
+                    <button type="button" onClick={openIt} className="text-[11px] font-semibold" style={{ color: '#d97706' }} title="Chèn công thức vào ô đang soạn">ƒx Chèn công thức</button>
+                    {open && <FormulaModal onInsert={insert} onClose={() => setOpen(false)} />}
+                </>
+            );
+        }
+
+        // ===== Dán đề trực tiếp + Tạo đề bằng AI (nhập vào cùng khung soạn câu hỏi với nhập đề từ Word) =====
+        const EDU_AI_URL = 'https://eduorient.iemmchyy.workers.dev';   // cùng Worker với chat AI của học sinh (đường /quiz chỉ dành cho giáo viên đã duyệt)
+
+        // Văn bản dán (từ web, Word, chat AI...) -> các dòng cho parseQuizLines. Bỏ ký hiệu markdown (**đậm**, #, gạch đầu dòng), đổi \( \) \[ \] thành $ $.
+        const linesFromPasted = (txt) => String(txt || '').replace(/\r\n?/g, '\n')
+            .replace(/\\\(([\s\S]+?)\\\)/g, (m, g) => '$' + g + '$').replace(/\\\[([\s\S]+?)\\\]/g, (m, g) => '$' + g + '$')
+            .split('\n')
+            .map((l) => l.replace(/\u00a0/g, ' ').replace(/\*\*/g, '').replace(/^\s*#{1,6}\s+/, '').replace(/^\s*>\s?/, '').replace(/^\s*[•·]\s+/, '').replace(/^\s*-\s+(?=\S)/, '').replace(/\s+$/, ''))
+            .filter((l) => l.trim())
+            .map((text) => ({ text, fl: text.split('').map((c) => ({ c, b: false, u: false, red: false })) }));
+
+        const fxBtn = { padding: '7px 14px', borderRadius: 10, border: '1px solid var(--eo-line2,#cbd5e1)', background: 'var(--eo-surface,#fff)', color: 'var(--eo-text,#0f172a)', fontSize: 13, fontWeight: 600, cursor: 'pointer' };
+        const fxInput = { width: '100%', padding: '8px 10px', borderRadius: 10, border: '1px solid var(--eo-line2,#cbd5e1)', background: 'var(--eo-surface,#fff)', color: 'var(--eo-text,#0f172a)', fontSize: 13, outline: 'none' };
+        function FxOverlay({ title, onClose, children }) {
+            useEffect(() => {
+                const h = (e) => { if (e.key === 'Escape') { e.stopPropagation(); onClose(); } };
+                window.addEventListener('keydown', h, true);
+                return () => window.removeEventListener('keydown', h, true);
+            }, []);
+            return (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,.6)', zIndex: 90, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 12 }}>
+                    <div style={{ background: 'var(--eo-surface,#fff)', color: 'var(--eo-text,#0f172a)', borderRadius: 16, width: '100%', maxWidth: 620, maxHeight: '92vh', overflowY: 'auto', padding: 16, boxShadow: '0 20px 50px rgba(0,0,0,.35)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                            <b style={{ fontSize: 15 }}>{title}</b>
+                            <button type="button" onClick={onClose} aria-label="Đóng" style={{ ...fxBtn, border: 0, fontSize: 16, padding: '4px 9px' }}>✕</button>
+                        </div>
+                        {children}
+                    </div>
+                </div>
+            );
+        }
+
+        // Nút "Dán đề trực tiếp": dán văn bản dạng "Câu 1. ... A. ... B. ..." rồi nhập bằng đúng bộ đọc của file Word
+        function PasteQuizBtn({ onParsed }) {
+            const [open, setOpen] = useState(false), [txt, setTxt] = useState('');
+            const run = () => {
+                let res;
+                try { res = parseQuizLines(linesFromPasted(txt)); } catch (err) { return eduAlert('Không đọc được nội dung đã dán.', { icon: 'error', title: 'Lỗi' }); }
+                if (!res.qs.length) return eduAlert('Mỗi câu cần bắt đầu bằng "Câu 1." (hoặc "1."), các đáp án bắt đầu bằng A. B. C. D. Hãy kiểm tra lại nội dung đã dán rồi thử lại.', { icon: 'warning', title: 'Không nhận diện được câu hỏi nào' });
+                setOpen(false); setTxt('');
+                onParsed(res, { label: 'từ văn bản đã dán', alertTitle: 'Dán đề' });
+            };
+            return (
+                <>
+                    <button type="button" onClick={() => setOpen(true)} className="flex items-center justify-center gap-2 py-2.5 border border-dashed border-sky-500 text-sky-700 text-xs font-bold rounded-xl cursor-pointer hover:bg-sky-50">
+                        <Icon name="clipboard-paste" className="w-4 h-4" />Dán đề trực tiếp
+                    </button>
+                    {open && (
+                        <FxOverlay title="Dán đề trực tiếp" onClose={() => setOpen(false)}>
+                            <textarea id="hw-paste-quiz" name="pasteQuiz" aria-label="Nội dung đề cần dán" rows={14} autoFocus value={txt} onChange={(e) => setTxt(e.target.value)}
+                                placeholder={'Câu 1. Đạo hàm của hàm số y = x^2 là:\nA. 2x\nB. x\nC. 2\nD. x^2\nĐáp án: A\n\nCâu 2. ...'}
+                                style={{ ...fxInput, resize: 'vertical', fontFamily: 'ui-monospace,Menlo,Consolas,monospace', lineHeight: 1.5 }} />
+                            <p style={{ fontSize: 11, opacity: .7, margin: '8px 0 12px' }}>Dán đề từ web, Word hoặc chat AI. Mỗi câu bắt đầu bằng <b>Câu 1.</b>, đáp án <b>A. B. C. D.</b>. Đáp án đúng nhận diện qua dòng <b>Đáp án: C</b> dưới câu, dấu <b>*</b> trước đáp án (*A.) hoặc bảng <b>ĐÁP ÁN</b> ở cuối (1.A 2.B ...). Công thức viết trong dấu <b>$...$</b>. Dòng <b>Giải thích:</b> được nhập thành phần giải thích.</p>
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                                <button type="button" style={fxBtn} onClick={() => setOpen(false)}>Hủy</button>
+                                <button type="button" style={{ ...fxBtn, background: '#0284c7', color: '#fff', borderColor: '#0284c7', opacity: txt.trim() ? 1 : .5 }} disabled={!txt.trim()} onClick={run}>Nhập đề</button>
+                            </div>
+                        </FxOverlay>
+                    )}
+                </>
+            );
+        }
+
+        // Trạng thái chờ khi AI soạn đề: vòng xoay + đồng hồ đếm giây + dòng chữ đổi theo giai đoạn + vài khung câu hỏi nhấp nháy
+        function AiWaitBox({ secs, count }) {
+            const step = secs < 8 ? 'Đang phân tích chủ đề…' : secs < 20 ? 'Đang soạn câu hỏi và đáp án…' : secs < 35 ? 'Đang viết lời giải cho từng câu…' : secs < 60 ? 'Sắp xong rồi, đang kiểm tra lại…' : 'Hơi lâu hơn thường lệ, vui lòng chờ thêm một chút…';
+            const bar = (w, h = 8, mb = 6) => ({ width: w, height: h, borderRadius: 6, background: 'var(--eo-line2,#cbd5e1)', marginBottom: mb });
+            return (
+                <div role="status" aria-live="polite" style={{ margin: '0 0 12px' }}>
+                    <style>{'@keyframes eoSpin{to{transform:rotate(360deg)}}@keyframes eoShimmer{0%,100%{opacity:.35}50%{opacity:.9}}@media (prefers-reduced-motion:reduce){.eo-spin,.eo-skel{animation:none!important}}'}</style>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                        <span className="eo-spin" style={{ width: 18, height: 18, borderRadius: '50%', border: '2.5px solid #ddd6fe', borderTopColor: '#7c3aed', animation: 'eoSpin .8s linear infinite', flex: 'none' }} />
+                        <span style={{ fontSize: 13, fontWeight: 600 }}>{step}</span>
+                        <span style={{ marginLeft: 'auto', fontSize: 12, opacity: .65, fontVariantNumeric: 'tabular-nums' }}>{secs} giây</span>
+                    </div>
+                    {[0, 1, 2].slice(0, Math.min(3, count)).map((k) => (
+                        <div key={k} className="eo-skel" style={{ border: '1px solid var(--eo-line,#e2e8f0)', borderRadius: 10, padding: '10px 12px', marginBottom: 8, animation: 'eoShimmer 1.6s ease-in-out infinite', animationDelay: (k * 0.25) + 's' }}>
+                            <div style={bar('72%', 10, 8)} />
+                            <div style={bar('40%')} /><div style={bar('48%')} /><div style={bar('36%', 8, 0)} />
+                        </div>
+                    ))}
+                    <p style={{ fontSize: 11, opacity: .65, margin: '4px 0 0' }}>Thường mất 20-40 giây. Bạn có thể bấm Hủy để dừng.</p>
+                </div>
+            );
+        }
+
+        // Nút "Tạo đề bằng AI": gọi Worker (/quiz) - chỉ giáo viên đã duyệt, có giới hạn lượt dùng. Giáo viên phải đọc lại vì AI có thể sai đáp án.
+        function AiQuizBtn({ onParsed }) {
+            const [open, setOpen] = useState(false), [topic, setTopic] = useState(''), [count, setCount] = useState(10), [level, setLevel] = useState('trung bình');
+            const [busy, setBusy] = useState(false), [err, setErr] = useState(''), [secs, setSecs] = useState(0);
+            const abortRef = useRef(null);
+            useEffect(() => { if (!busy) { setSecs(0); return; } const t0 = Date.now(); const id = setInterval(() => setSecs(Math.floor((Date.now() - t0) / 1000)), 1000); return () => clearInterval(id); }, [busy]);
+            const close = () => { if (abortRef.current) { try { abortRef.current.abort(); } catch (e) {} } setOpen(false); setBusy(false); setErr(''); };
+            const run = async () => {
+                const t = topic.replace(/\s+/g, ' ').trim();
+                if (t.length < 3) return setErr('Hãy nhập chủ đề cần ra đề, ví dụ: "Đạo hàm lớp 11".');
+                const cu = fbAuth.currentUser; if (!cu) return setErr('Bạn cần đăng nhập lại.');
+                setBusy(true); setErr('');
+                const ac = new AbortController(); abortRef.current = ac;
+                try {
+                    const token = await cu.getIdToken();
+                    const tm = setTimeout(() => ac.abort(), 90000);
+                    let res;
+                    try {
+                        res = await fetch(EDU_AI_URL + '/quiz', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token }, body: JSON.stringify({ topic: t, count, level }), signal: ac.signal });
+                    } finally { clearTimeout(tm); }
+                    const data = await res.json().catch(() => ({}));
+                    if (!res.ok) throw new Error(data.error || 'AI đang bận, bạn thử lại sau nhé.');
+                    const list = Array.isArray(data.questions) ? data.questions : [];
+                    if (!list.length) throw new Error('AI chưa soạn được câu nào. Bạn thử mô tả chủ đề cụ thể hơn nhé.');
+                    const out = { qs: list.map((x) => ({ kind: 'mcq', q: x.q, a: x.a, c: x.c, e: x.e || '', needCheck: false, pi: -1 })), noAnswer: [], incomplete: [], essays: 0, fromKey: 0, passages: [] };
+                    abortRef.current = null; setBusy(false); setOpen(false);
+                    onParsed(out, { label: 'do AI soạn (chủ đề: ' + t.slice(0, 60) + ')', title: 'Đề ' + t.slice(0, 70), alertTitle: 'Tạo đề bằng AI', note: 'AI có thể sai đáp án hoặc lời giải, hãy đọc lại từng câu trước khi đăng.' });
+                } catch (e) {
+                    setBusy(false);
+                    setErr(e && e.name === 'AbortError' ? 'AI phản hồi quá lâu. Bạn thử lại nhé.' : (e && e.message) || 'Không kết nối được AI, thử lại sau.');
+                }
+            };
+            return (
+                <>
+                    <button type="button" onClick={() => setOpen(true)} className="flex items-center justify-center gap-2 py-2.5 border border-dashed border-violet-500 text-violet-700 text-xs font-bold rounded-xl cursor-pointer hover:bg-violet-50">
+                        <Icon name="sparkles" className="w-4 h-4" />Tạo đề bằng AI
+                    </button>
+                    {open && (
+                        <FxOverlay title="Tạo đề trắc nghiệm bằng AI" onClose={close}>
+                            <label htmlFor="hw-ai-topic" style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 4 }}>Chủ đề / yêu cầu</label>
+                            <textarea id="hw-ai-topic" name="aiTopic" rows={3} autoFocus value={topic} disabled={busy} maxLength={600} onChange={(e) => setTopic(e.target.value)}
+                                placeholder="VD: Đạo hàm lớp 11 (quy tắc tính đạo hàm, đạo hàm hàm hợp)" style={{ ...fxInput, resize: 'vertical' }} />
+                            <div style={{ display: 'flex', gap: 10, margin: '10px 0' }}>
+                                <div style={{ flex: 1 }}>
+                                    <label htmlFor="hw-ai-count" style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 4 }}>Số câu</label>
+                                    <select id="hw-ai-count" name="aiCount" value={count} disabled={busy} onChange={(e) => setCount(+e.target.value)} style={fxInput}>{[5, 10, 15, 20].map((n) => <option key={n} value={n}>{n} câu</option>)}</select>
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                    <label htmlFor="hw-ai-level" style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 4 }}>Mức độ</label>
+                                    <select id="hw-ai-level" name="aiLevel" value={level} disabled={busy} onChange={(e) => setLevel(e.target.value)} style={fxInput}>{['dễ', 'trung bình', 'khó', 'nâng cao'].map((n) => <option key={n} value={n}>{n.charAt(0).toUpperCase() + n.slice(1)}</option>)}</select>
+                                </div>
+                            </div>
+                            {err && <p style={{ color: '#ef4444', fontSize: 13, margin: '0 0 8px' }}>{err}</p>}
+                            {busy ? <AiWaitBox secs={secs} count={count} />
+                                : <p style={{ fontSize: 11, opacity: .7, margin: '0 0 12px' }}>Đề do AI soạn được thêm vào bài của bạn để chỉnh sửa. AI có thể sai đáp án, hãy đọc lại từng câu trước khi đăng. Mỗi giáo viên tạo được một số lần giới hạn mỗi giờ.</p>}
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                                <button type="button" style={fxBtn} onClick={close}>Hủy</button>
+                                <button type="button" style={{ ...fxBtn, background: '#7c3aed', color: '#fff', borderColor: '#7c3aed', opacity: busy ? .6 : 1 }} disabled={busy} onClick={run}>{busy ? 'Đang soạn… ' + secs + 's' : 'Tạo đề'}</button>
+                            </div>
+                        </FxOverlay>
+                    )}
+                </>
+            );
+        }
 
         // Dọn dữ liệu đăng nhập cũ (tài khoản mẫu + mật khẩu thô) còn sót trong trình duyệt của người dùng
         try { localStorage.removeItem('eduorient_teachers'); } catch (e) {}
@@ -124,6 +415,104 @@ const gradeLabel10 = (s) => s === null || s === undefined ? '' : s >= 8 ? 'Giỏ
 const lastWordVN = (n) => { const p = String(n || '').trim().split(/\s+/); return p[p.length - 1] || ''; };
 const byNameVN = (a, b) => lastWordVN(a.name).localeCompare(lastWordVN(b.name), 'vi') || String(a.name || '').localeCompare(String(b.name || ''), 'vi'); // xếp theo TÊN (từ cuối)
 
+        // ===== Công thức Word (OMML, <m:oMath>) -> LaTeX =====
+        // Công thức được ghi thành $...$ trong nội dung câu hỏi / đáp án; khi hiển thị, KaTeX (edu-common.js) sẽ vẽ lại.
+        const OMML_SYM = {
+            '×': '\\times ', '÷': '\\div ', '±': '\\pm ', '∓': '\\mp ', '·': '\\cdot ', '⋅': '\\cdot ', '∙': '\\cdot ', '∘': '\\circ ', '°': '^\\circ ', '−': '-', '–': '-', '—': '-',
+            '≤': '\\leq ', '⩽': '\\leq ', '≥': '\\geq ', '⩾': '\\geq ', '≠': '\\neq ', '≈': '\\approx ', '≡': '\\equiv ', '∼': '\\sim ', '≅': '\\cong ', '∝': '\\propto ', '≪': '\\ll ', '≫': '\\gg ',
+            '∞': '\\infty ', '→': '\\to ', '←': '\\leftarrow ', '↔': '\\leftrightarrow ', '⇒': '\\Rightarrow ', '⇐': '\\Leftarrow ', '⇔': '\\Leftrightarrow ', '↦': '\\mapsto ',
+            '∈': '\\in ', '∉': '\\notin ', '∋': '\\ni ', '⊂': '\\subset ', '⊃': '\\supset ', '⊆': '\\subseteq ', '⊇': '\\supseteq ', '⊄': '\\not\\subset ', '∪': '\\cup ', '∩': '\\cap ', '∅': '\\emptyset ', '∖': '\\setminus ',
+            '∀': '\\forall ', '∃': '\\exists ', '∄': '\\nexists ', '∧': '\\wedge ', '∨': '\\vee ', '¬': '\\neg ', '∠': '\\angle ', '⊥': '\\perp ', '∥': '\\parallel ', '△': '\\triangle ', '∆': '\\Delta ', '∇': '\\nabla ', '∂': '\\partial ',
+            '∑': '\\sum ', '∏': '\\prod ', '∫': '\\int ', '∬': '\\iint ', '∭': '\\iiint ', '∮': '\\oint ', '√': '\\sqrt{} ', '…': '\\ldots ', '⋯': '\\cdots ', '⋮': '\\vdots ', '⋱': '\\ddots ', '′': "'", '″': "''",
+            'ℝ': '\\mathbb{R}', 'ℕ': '\\mathbb{N}', 'ℤ': '\\mathbb{Z}', 'ℚ': '\\mathbb{Q}', 'ℂ': '\\mathbb{C}', '⟨': '\\langle ', '⟩': '\\rangle ', '⌊': '\\lfloor ', '⌋': '\\rfloor ', '⌈': '\\lceil ', '⌉': '\\rceil ',
+            'α': '\\alpha ', 'β': '\\beta ', 'γ': '\\gamma ', 'δ': '\\delta ', 'ε': '\\epsilon ', 'ϵ': '\\epsilon ', 'ζ': '\\zeta ', 'η': '\\eta ', 'θ': '\\theta ', 'ϑ': '\\vartheta ', 'ι': '\\iota ', 'κ': '\\kappa ', 'λ': '\\lambda ',
+            'μ': '\\mu ', 'ν': '\\nu ', 'ξ': '\\xi ', 'π': '\\pi ', 'ρ': '\\rho ', 'σ': '\\sigma ', 'τ': '\\tau ', 'υ': '\\upsilon ', 'φ': '\\varphi ', 'ϕ': '\\phi ', 'χ': '\\chi ', 'ψ': '\\psi ', 'ω': '\\omega ',
+            'Γ': '\\Gamma ', 'Δ': '\\Delta ', 'Θ': '\\Theta ', 'Λ': '\\Lambda ', 'Ξ': '\\Xi ', 'Π': '\\Pi ', 'Σ': '\\Sigma ', 'Φ': '\\Phi ', 'Ψ': '\\Psi ', 'Ω': '\\Omega ',
+            '%': '\\%', '#': '\\#', '&': '\\&', '$': '\\$', '_': '\\_', '{': '\\{', '}': '\\}', ' ': ' ', ' ': ' ', ' ': ' ', ' ': ' ',
+        };
+        const OMML_FN = /^(?:sin|cos|tan|cot|sec|csc|arcsin|arccos|arctan|sinh|cosh|tanh|coth|log|ln|lg|lim|limsup|liminf|max|min|sup|inf|exp|det|gcd|deg|dim|ker|arg|mod)$/;
+        const OMML_DELIM = { '(': '(', ')': ')', '[': '[', ']': ']', '{': '\\{', '}': '\\}', '|': '|', '‖': '\\|', '⟨': '\\langle', '⟩': '\\rangle', '⌊': '\\lfloor', '⌋': '\\rfloor', '⌈': '\\lceil', '⌉': '\\rceil', '/': '/', '': '.' };
+        const OMML_ACC = { '̂': 'hat', '^': 'hat', '̃': 'tilde', '~': 'tilde', '́': 'acute', '̀': 'grave', '̇': 'dot', '̈': 'ddot', '⃗': 'vec', '→': 'vec', '̄': 'bar', '¯': 'bar', '̌': 'check', '̆': 'breve' };
+        function ommlToLatex(root) {
+            const kids = (el, n) => Array.prototype.filter.call(el.children, (c) => c.localName === n);
+            const kid = (el, n) => kids(el, n)[0] || null;
+            const pr = (el, prName) => kid(el, prName);
+            // Giá trị thuộc tính m:val của phần tử con trong khối thuộc tính (vd: <m:dPr><m:begChr m:val="["/>)
+            const pv = (el, prName, n) => { const p = pr(el, prName), e = p && kid(p, n); if (!e) return null; const v = e.getAttribute('m:val'); return v === null ? (e.getAttributeNS && e.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/math', 'val')) : v; };
+            const all = (el) => Array.prototype.map.call(el.children, conv).join('');
+            const grp = (el, n) => { const k = kid(el, n); const t = k ? all(k).trim() : ''; return t; };
+            const brace = (t) => '{' + t + '}';
+            const textRun = (r) => {
+                let t = ''; for (const c of r.children) if (c.localName === 't') t += c.textContent;
+                if (!t) return '';
+                const rp = kid(r, 'rPr'), plain = rp && ((kid(rp, 'nor')) || pvRun(rp, 'sty') === 'p');
+                if (rp && kid(rp, 'nor')) return '\\text{' + t.replace(/[\\{}$&#%_^~]/g, (c) => '\\' + c) + '}';
+                if (/^[A-Za-z]{2,}$/.test(t) && plain && !OMML_FN.test(t)) return '\\mathrm{' + t + '}';
+                // Tên hàm (sin, cos, lim, log...) -> \sin ...; ký hiệu Unicode -> lệnh LaTeX; còn lại giữ nguyên
+                return t.split(/([A-Za-z]{2,})/).map((w, i) => {
+                    if (i % 2) return OMML_FN.test(w) ? '\\' + w + ' ' : w;
+                    let out = ''; for (const ch of w) out += Object.prototype.hasOwnProperty.call(OMML_SYM, ch) ? OMML_SYM[ch] : ch;
+                    return out;
+                }).join('');
+            };
+            const pvRun = (rp, n) => { const e = kid(rp, n); return e ? e.getAttribute('m:val') : null; };
+            function conv(n) {
+                switch (n.localName) {
+                    case 'r': return textRun(n);
+                    case 'f': {
+                        const type = pv(n, 'fPr', 'type'), a = grp(n, 'num'), b = grp(n, 'den');
+                        if (type === 'noBar') return '\\binom' + brace(a) + brace(b);
+                        if (type === 'lin') return a + '/' + b;
+                        return '\\frac' + brace(a) + brace(b);
+                    }
+                    case 'sSup': return brace(grp(n, 'e')) + '^' + brace(grp(n, 'sup'));
+                    case 'sSub': return brace(grp(n, 'e')) + '_' + brace(grp(n, 'sub'));
+                    case 'sSubSup': return brace(grp(n, 'e')) + '_' + brace(grp(n, 'sub')) + '^' + brace(grp(n, 'sup'));
+                    case 'sPre': return '{}_' + brace(grp(n, 'sub')) + '^' + brace(grp(n, 'sup')) + brace(grp(n, 'e'));
+                    case 'rad': {
+                        const hide = pv(n, 'radPr', 'degHide'), deg = grp(n, 'deg'), e = grp(n, 'e');
+                        return (hide === '1' || hide === 'on' || hide === 'true' || !deg) ? '\\sqrt' + brace(e) : '\\sqrt[' + deg + ']' + brace(e);
+                    }
+                    case 'nary': {
+                        let chr = pv(n, 'naryPr', 'chr'); if (chr === null) chr = '∫';
+                        const op = OMML_SYM[chr] || chr || '';
+                        const sh = pv(n, 'naryPr', 'subHide'), ph = pv(n, 'naryPr', 'supHide'), on = (v) => v === '1' || v === 'on' || v === 'true';
+                        const sub = on(sh) ? '' : grp(n, 'sub'), sup = on(ph) ? '' : grp(n, 'sup');
+                        return op + (sub ? '_' + brace(sub) : '') + (sup ? '^' + brace(sup) : '') + ' ' + brace(grp(n, 'e'));
+                    }
+                    case 'd': {
+                        let b = pv(n, 'dPr', 'begChr'), e = pv(n, 'dPr', 'endChr'), s = pv(n, 'dPr', 'sepChr');
+                        if (b === null) b = '('; if (e === null) e = ')'; if (s === null) s = '|';
+                        const L = OMML_DELIM[b] !== undefined ? OMML_DELIM[b] : b, R = OMML_DELIM[e] !== undefined ? OMML_DELIM[e] : e;
+                        const sep = s === '|' ? '\\mid ' : (OMML_SYM[s] || s);
+                        const parts = kids(n, 'e').map((x) => all(x).trim());
+                        return '\\left' + L + ' ' + parts.join(' ' + sep + ' ') + ' \\right' + R;
+                    }
+                    case 'func': return grp(n, 'fName') + ' ' + grp(n, 'e');
+                    case 'acc': {
+                        let c = pv(n, 'accPr', 'chr'); if (c === null) c = '̂';
+                        return '\\' + (OMML_ACC[c] || 'hat') + brace(grp(n, 'e'));
+                    }
+                    case 'bar': return (pv(n, 'barPr', 'pos') === 'bot' ? '\\underline' : '\\overline') + brace(grp(n, 'e'));
+                    case 'limLow': {
+                        const b = grp(n, 'e'), l = grp(n, 'lim');
+                        return /^\\(?:lim|max|min|sup|inf|limsup|liminf)\s*$/.test(b) ? b + '_' + brace(l) : '\\underset' + brace(l) + brace(b);
+                    }
+                    case 'limUpp': return '\\overset' + brace(grp(n, 'lim')) + brace(grp(n, 'e'));
+                    case 'groupChr': {
+                        const c = pv(n, 'groupChrPr', 'chr'), pos = pv(n, 'groupChrPr', 'pos');
+                        return (c === '⏞' || pos === 'top' ? '\\overbrace' : '\\underbrace') + brace(grp(n, 'e'));
+                    }
+                    case 'eqArr': return '\\begin{aligned}' + kids(n, 'e').map((x) => all(x).trim().replace(/&/g, '')).join(' \\\\ ') + '\\end{aligned}';
+                    case 'm': return '\\begin{matrix}' + kids(n, 'mr').map((r) => kids(r, 'e').map((x) => all(x).trim()).join(' & ')).join(' \\\\ ') + '\\end{matrix}';
+                    case 'box': case 'borderBox': case 'phant': return grp(n, 'e');
+                    case 'e': case 'num': case 'den': case 'sup': case 'sub': case 'lim': case 'deg': case 'fName': case 'oMath': case 'oMathPara': return all(n);
+                    default: return '';   // các khối thuộc tính (rPr, fPr, ctrlPr...) và phần tử lạ
+                }
+            }
+            return all(root).replace(/\s+/g, ' ').trim();
+        }
+
 async function readDocxLines(buf) {
             const JSZip = await loadJSZip();
             let zip; try { zip = await JSZip.loadAsync(buf); } catch (e) { throw new Error('Không mở được file. Hãy chọn file Word đuôi .docx (file .doc cũ: mở bằng Word rồi Lưu thành .docx).'); }
@@ -150,6 +539,11 @@ async function readDocxLines(buf) {
                     for (const c of n.children) {
                         const ln = c.localName;
                         if (ln === 'pPr' || ln === 'rPr') continue;
+                        if (ln === 'oMath') {   // công thức Word (Equation) -> $LaTeX$
+                            let tex = ''; try { tex = ommlToLatex(c); } catch (e) {}
+                            if (tex) for (const ch of '$' + tex + '$') cur.push({ c: ch, b: false, u: false, red: false });
+                            continue;
+                        }
                         if (ln === 'r') {
                             const fl = flagsOf(c);
                             for (const t of c.children) {
@@ -566,7 +960,7 @@ async function readDocxLines(buf) {
                 const k = q.p;
                 if (typeof k !== 'number' || typeof psgs[k] !== 'string' || !psgs[k] || shownPsg.has(k)) return null;
                 shownPsg.add(k);
-                return (<div key={'psg' + k} className="mb-2 bg-amber-50 border border-amber-200 rounded-xl p-3"><p className="text-[11px] font-bold text-amber-700 mb-1">📖 Đoạn văn dùng chung</p><div className="text-xs text-slate-700 whitespace-pre-wrap break-words leading-relaxed">{psgs[k]}</div></div>);
+                return (<div key={'psg' + k} className="mb-2 bg-amber-50 border border-amber-200 rounded-xl p-3"><p className="text-[11px] font-bold text-amber-700 mb-1">📖 Đoạn văn dùng chung</p><div className="text-xs text-slate-700 whitespace-pre-wrap break-words leading-relaxed"><MathText text={psgs[k]} /></div></div>);
             };
             useEffect(() => {
                 const h = (e) => { if (e.key === 'Escape') { e.stopPropagation(); onClose(); } };
@@ -591,19 +985,19 @@ async function readDocxLines(buf) {
                                     <React.Fragment key={i}>
                                         {psgBox(q)}
                                         <div className="rounded-xl border p-3" style={{ background: tint(RGB[st], 0.08), borderColor: tint(RGB[st], 0.45) }}>
-                                            <p className="text-sm font-bold text-slate-800 whitespace-pre-wrap break-words">Câu {i + 1}: {q.q} {wrongTag(i)}</p>
+                                            <p className="text-sm font-bold text-slate-800 whitespace-pre-wrap break-words">Câu {i + 1}: <MathText text={q.q} /> {wrongTag(i)}</p>
                                             <div className="mt-2 space-y-1">
                                                 {(q.a || []).map((o, j) => {
                                                     const chosen = my[i] === j, right = j === q.c;
                                                     return (
                                                         <div key={j} className={'text-xs px-2.5 py-1.5 rounded-lg border ' + (right || chosen ? 'font-semibold' : 'bg-white border-slate-200 text-slate-600')} style={right ? { background: tint(RGB.ok, 0.22), borderColor: tint(RGB.ok, 0.7) } : chosen ? { background: tint(RGB.bad, 0.22), borderColor: tint(RGB.bad, 0.7) } : undefined}>
-                                                            {'ABCD'[j]}. {o}{right && ' ✓'}{chosen && !right && ' ✗ (HS chọn)'}{chosen && right && ' (HS chọn)'}
+                                                            {'ABCD'[j]}. <MathText text={o} />{right && ' ✓'}{chosen && !right && ' ✗ (HS chọn)'}{chosen && right && ' (HS chọn)'}
                                                         </div>
                                                     );
                                                 })}
                                             </div>
                                             {st === 'none' && <p className="text-[11px] font-bold text-amber-600 mt-1.5">Học sinh chưa trả lời câu này.</p>}
-                                            {q.e && <p className="text-[11px] text-slate-500 mt-1.5">💡 {q.e}</p>}
+                                            {q.e && <p className="text-[11px] text-slate-500 mt-1.5">💡 <MathText text={q.e} /></p>}
                                         </div>
                                     </React.Fragment>
                                 );
@@ -620,7 +1014,7 @@ async function readDocxLines(buf) {
                                         <div key={i}>
                                             {psgBox(q)}
                                             <div className="rounded-xl border p-3" style={{ background: tint(RGB.essay, 0.08), borderColor: tint(RGB.essay, 0.4) }}>
-                                                <p className="text-sm font-bold text-slate-800 whitespace-pre-wrap break-words">Câu {i + 1} (Tự luận){q.q ? ': ' + q.q : ''} {wrongTag(i)}</p>
+                                                <p className="text-sm font-bold text-slate-800 whitespace-pre-wrap break-words">Câu {i + 1} (Tự luận){q.q ? <>: <MathText text={q.q} /></> : ''} {wrongTag(i)}</p>
                                                 {(q.images || []).map((im, k) => <img key={k} src={im} alt="" className="w-full mt-2 rounded-lg border border-indigo-200" />)}
                                             </div>
                                         </div>
@@ -1161,7 +1555,7 @@ const gridCls = 'grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)
                             <div className="w-2/5 md:w-1/3 border-r border-slate-100 overflow-y-auto">
                                 {[...groupRooms, { id: 'class', name: 'Cả lớp' }, ...others].map((o) => { const l = last[o.id], unread = l && l.from !== user.id; return (
                                     <div key={o.id} onClick={() => setCur(o.id)} className={'flex items-center gap-2 px-3 py-2.5 cursor-pointer border-b border-slate-50 ' + (cur === o.id ? 'bg-amber-50' : 'hover:bg-slate-50')}>
-                                        <img src={o.isGroup ? 'https://ui-avatars.com/api/?name=' + encodeURIComponent(o.g.cls || 'L') + '&length=4&font-size=0.34&background=4361ee&color=fff&bold=true' : o.id === 'class' ? 'https://ui-avatars.com/api/?name=CL&background=f59e0b&color=fff' : avatarUrl(o)} className="w-9 h-9 rounded-full object-cover shrink-0" />
+                                        <img src={o.isGroup ? initialsAvatar(o.g.cls || 'L', '4361ee', 4, 0.34) : o.id === 'class' ? initialsAvatar('CL', 'f59e0b') : avatarUrl(o)} className="w-9 h-9 rounded-full object-cover shrink-0" />
                                         <div className="min-w-0 flex-1"><p className={'text-xs truncate ' + (unread ? 'font-extrabold' : 'font-semibold')}>{o.name}{o.role === 'teacher' ? ' (GV)' : ''}{o.isGroup && o.g.homeroomTeacherUid === user.id ? ' • GVCN' : ''}</p>
                                             <p className="text-[10px] text-slate-400 truncate">{l ? (l.from === user.id ? 'Bạn: ' : '') + l.text : 'Chưa có tin nhắn'}</p></div>
                                         {unread && <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0"></span>}
@@ -2471,28 +2865,33 @@ const gridCls = 'grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)
                                     const addQ = (kind, pid) => setAssignmentForm((f) => ({ ...f, qs: [...(f.qs.length === 1 && isBlankQ(f.qs[0]) ? [] : f.qs), { ...(kind === 'essay' ? { kind: 'essay', q: '', images: [] } : { kind: 'mcq', q: '', a: ['', '', '', ''], c: 0 }), ...(pid ? { pid } : {}) }] }));
                                     const delQ = (i) => { setAssignmentForm((f) => ({ ...f, qs: f.qs.filter((x, j) => j !== i) })); setQClosed((m) => { const n = {}; Object.keys(m).forEach((k) => { const kk = +k; if (kk < i) n[kk] = m[k]; else if (kk > i) n[kk - 1] = m[k]; }); return n; }); };
                                     const badge = { quiz: ['Đề trắc nghiệm', 'bg-amber-100 text-amber-700'], essay: ['Đề tự luận', 'bg-indigo-100 text-indigo-700'], mixed: ['Đề hỗn hợp (TN + TL)', 'bg-emerald-100 text-emerald-700'] }[detected];
+                                    // Thêm danh sách câu đã đọc được (từ Word / văn bản dán / AI) vào bài đang soạn. info: { label, title, alertTitle, note }
+                                    const applyParsed = (res, info) => {
+                                        const keep = qs.filter((x) => !isBlankQ(x)), room = 100 - keep.length, off = keep.length;
+                                        const stamp = Date.now(), cut = res.qs.slice(0, Math.max(0, room));
+                                        if (!cut.length) return eduAlert('Mỗi bài tối đa 100 câu, bài này đã đủ. Hãy xóa bớt câu rồi nhập lại.', { icon: 'warning', title: info.alertTitle || 'Nhập đề' });
+                                        const usedIdx = [...new Set(cut.map((x) => x.pi).filter((k) => k >= 0))].sort((a, b) => a - b);
+                                        const newPs = usedIdx.map((k) => ({ id: 'p' + stamp + '_' + k, text: res.passages[k] }));
+                                        const list = cut.map(({ pi, ...x }) => (pi >= 0 ? { ...x, pid: 'p' + stamp + '_' + pi } : x));
+                                        setAssignmentForm((f) => ({ ...f, title: f.title.trim() ? f.title : (info.title || ''), ps: [...(f.ps || []), ...newPs], qs: [...f.qs.filter((x) => !isBlankQ(x)), ...list] }));
+                                        const oldIdx = []; qs.forEach((x, i0) => { if (!isBlankQ(x)) oldIdx.push(i0); });
+                                        setQClosed((m) => { const n = {}; oldIdx.forEach((o, ni) => { if (m[o]) n[ni] = true; }); list.forEach((x, j) => { if (!x.needCheck && (x.kind === 'essay' || (x.a || []).every((o) => (o || '').trim()))) n[off + j] = true; }); return n; });
+                                        const lab = (arr) => arr.filter((n) => n <= list.length).map((n) => n + off).join(', ');
+                                        let msg = 'Đã nhập ' + list.length + ' câu ' + info.label + '.' + (newPs.length ? '\nNhận diện ' + newPs.length + ' đoạn văn dùng chung (xem mục "Đoạn văn" bên dưới, sửa được nếu cần).' : '');
+                                        if (res.qs.length > list.length) msg += '\nMỗi bài tối đa 100 câu nên ' + (res.qs.length - list.length) + ' câu cuối chưa được nhập.';
+                                        if (res.noAnswer.length) msg += '\nChưa nhận diện được đáp án đúng ở câu: ' + lab(res.noAnswer) + ' (đang tạm chọn A, được đánh dấu đỏ). Hãy chọn lại.';
+                                        if (res.incomplete.length) msg += '\nThiếu đáp án A-D ở câu: ' + lab(res.incomplete) + '. Hãy điền thêm trước khi đăng.';
+                                        if (res.essays) msg += '\n' + res.essays + ' câu không có đáp án A-D được nhập thành câu tự luận.';
+                                        msg += '\n' + (info.note || 'Hãy xem lại các câu bên dưới trước khi đăng.');
+                                        eduAlert(msg, { icon: res.noAnswer.length || res.incomplete.length || info.note ? 'warning' : 'success', title: info.alertTitle || 'Nhập đề' });
+                                    };
                                     const importDocx = async (e) => {
                                         const file = e.target.files[0]; e.target.value = ''; if (!file) return;
                                         if (!/\.docx$/i.test(file.name)) return eduAlert('Hãy chọn file Word đuôi .docx. File .doc cũ: mở bằng Word rồi chọn Lưu thành → .docx.', { icon: 'warning', title: 'Sai định dạng file' });
                                         let res;
                                         try { res = parseQuizLines(await readDocxLines(await file.arrayBuffer())); } catch (err) { return eduAlert(err.message || 'Không đọc được file Word này.', { icon: 'error', title: 'Không đọc được file' }); }
                                         if (!res.qs.length) return eduAlert('Mỗi câu cần bắt đầu bằng "Câu 1." (hoặc "1."), các đáp án bắt đầu bằng A. B. C. D. Hãy kiểm tra lại file rồi thử lại.', { icon: 'warning', title: 'Không nhận diện được câu hỏi nào' });
-                                        const keep = qs.filter((x) => !isBlankQ(x)), room = 100 - keep.length, off = keep.length;
-                                        const stamp = Date.now(), cut = res.qs.slice(0, Math.max(0, room));
-                                        const usedIdx = [...new Set(cut.map((x) => x.pi).filter((k) => k >= 0))].sort((a, b) => a - b);
-                                        const newPs = usedIdx.map((k) => ({ id: 'p' + stamp + '_' + k, text: res.passages[k] }));
-                                        const list = cut.map(({ pi, ...x }) => (pi >= 0 ? { ...x, pid: 'p' + stamp + '_' + pi } : x));
-                                        setAssignmentForm((f) => ({ ...f, title: f.title.trim() ? f.title : file.name.replace(/\.docx$/i, ''), ps: [...(f.ps || []), ...newPs], qs: [...f.qs.filter((x) => !isBlankQ(x)), ...list] }));
-                                        const oldIdx = []; qs.forEach((x, i0) => { if (!isBlankQ(x)) oldIdx.push(i0); });
-                                        setQClosed((m) => { const n = {}; oldIdx.forEach((o, ni) => { if (m[o]) n[ni] = true; }); list.forEach((x, j) => { if (!x.needCheck && (x.kind === 'essay' || (x.a || []).every((o) => (o || '').trim()))) n[off + j] = true; }); return n; });
-                                        const lab = (arr) => arr.filter((n) => n <= list.length).map((n) => n + off).join(', ');
-                                        let msg = 'Đã nhập ' + list.length + ' câu từ file "' + file.name + '".' + (newPs.length ? '\nNhận diện ' + newPs.length + ' đoạn văn dùng chung (xem mục "Đoạn văn" bên dưới, sửa được nếu cần).' : '');
-                                        if (res.qs.length > list.length) msg += '\nMỗi bài tối đa 100 câu nên ' + (res.qs.length - list.length) + ' câu cuối chưa được nhập.';
-                                        if (res.noAnswer.length) msg += '\nChưa nhận diện được đáp án đúng ở câu: ' + lab(res.noAnswer) + ' (đang tạm chọn A, được đánh dấu đỏ). Hãy chọn lại.';
-                                        if (res.incomplete.length) msg += '\nThiếu đáp án A-D ở câu: ' + lab(res.incomplete) + '. Hãy điền thêm trước khi đăng.';
-                                        if (res.essays) msg += '\n' + res.essays + ' câu không có đáp án A-D được nhập thành câu tự luận.';
-                                        msg += '\nHãy xem lại các câu bên dưới trước khi đăng.';
-                                        eduAlert(msg, { icon: res.noAnswer.length || res.incomplete.length ? 'warning' : 'success', title: 'Nhập đề từ Word' });
+                                        applyParsed(res, { label: 'từ file "' + file.name + '"', title: file.name.replace(/\.docx$/i, ''), alertTitle: 'Nhập đề từ Word' });
                                     };
                                     const setQCount = (raw) => {
                                         setQCountDraft(null);
@@ -2521,7 +2920,7 @@ const gridCls = 'grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)
                                         <button type="button" key={i} id={'q-card-' + i} onClick={() => setQClosed((m) => ({ ...m, [i]: false }))} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left', padding: '8px 12px', border: '1px solid var(--eo-line2,#e2e8f0)', background: 'var(--eo-surface,#fff)', borderRadius: 12, cursor: 'pointer', fontSize: 12 }}>
                                             <b style={{ color: 'var(--eo-text,#0f172a)', whiteSpace: 'nowrap' }}>Câu {i + 1}</b>
                                             <span style={{ fontFamily: 'monospace', color: 'var(--eo-text2,#475569)', whiteSpace: 'nowrap' }}>{isBlankQ(q) ? '• chưa nhập' : '• ' + (q.kind === 'essay' ? 'tự luận' : 'đáp án ' + ('ABCD'[q.c] || '?')) + ' • ✓'}</span>
-                                            <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--eo-text3,#94a3b8)' }}>{snip(q.q, 80)}</span>
+                                            <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--eo-text3,#94a3b8)' }}><MathText text={snipMath(q.q, 80)} /></span>
                                             <span style={{ color: '#6366f1', fontWeight: 600, whiteSpace: 'nowrap' }}>Mở ▾</span>
                                         </button>);
                                     const collapseBtn = (i) => <button type="button" onClick={() => setQClosed((m) => ({ ...m, [i]: true }))} className="text-[11px] text-slate-500 font-semibold">Thu gọn ▴</button>;
@@ -2530,9 +2929,10 @@ const gridCls = 'grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)
                                         return q.kind === 'essay' ? (
                                             <div key={i} id={'q-card-' + i} className="border border-indigo-200 bg-indigo-50/40 rounded-xl p-3 space-y-2">
                                                 <div className="flex justify-between items-center"><b className="text-xs text-slate-800">Câu {i + 1} <span className="text-indigo-600">(Tự luận)</span></b>
-                                                    <span style={{ display: 'flex', gap: 12 }}>{collapseBtn(i)}{qs.length > 1 && <button type="button" onClick={() => delQ(i)} className="text-[11px] text-red-500 font-semibold">Xóa câu</button>}</span></div>
+                                                    <span style={{ display: 'flex', gap: 12 }}><FormulaButton i={i} q={q} upd={upd} />{collapseBtn(i)}{qs.length > 1 && <button type="button" onClick={() => delQ(i)} className="text-[11px] text-red-500 font-semibold">Xóa câu</button>}</span></div>
                                                 {pSelect(q, i)}
-                                                <textarea id={`essay-question-${i}`} name={`question-${i}`} aria-label="Nội dung bài tự luận" rows="4" placeholder="Nội dung / yêu cầu bài tự luận (có thể bỏ trống nếu đã tải ảnh đề)..." value={q.q} onChange={(e) => upd(i, { q: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500" />
+                                                <textarea id={`essay-question-${i}`} name={`question-${i}`} aria-label="Nội dung bài tự luận" rows="4" placeholder="Nội dung / yêu cầu bài tự luận (có thể bỏ trống nếu đã tải ảnh đề)..." value={q.q} onFocus={fxFocus(i, 'q')} onChange={(e) => upd(i, { q: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500" />
+                                                <MathPreview items={[{ k: 'q', pre: '', t: q.q }]} />
                                                 {(q.images || []).length > 0 && <div className="grid grid-cols-3 gap-2">{q.images.map((im, k) => (
                                                     <div key={k} className="relative"><img src={im} alt="" className="w-full aspect-square object-cover rounded-lg border border-slate-200" />
                                                         <button type="button" onClick={() => upd(i, { images: q.images.filter((_, m) => m !== k) })} className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white rounded-full text-[11px] font-bold leading-5">×</button></div>))}</div>}
@@ -2550,19 +2950,21 @@ const gridCls = 'grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)
                                         ) : (
                                             <div key={i} id={'q-card-' + i} className={'border rounded-xl p-3 space-y-2 ' + (q.needCheck ? 'border-red-300 bg-red-50/40' : 'border-amber-200 bg-amber-50/40')}>
                                                 <div className="flex justify-between items-center"><b className="text-xs text-slate-800">Câu {i + 1}</b>
-                                                    <span style={{ display: 'flex', gap: 12 }}>{!q.needCheck && collapseBtn(i)}{qs.length > 1 && <button type="button" onClick={() => delQ(i)} className="text-[11px] text-red-500 font-semibold">Xóa câu</button>}</span></div>
+                                                    <span style={{ display: 'flex', gap: 12 }}><FormulaButton i={i} q={q} upd={upd} />{!q.needCheck && collapseBtn(i)}{qs.length > 1 && <button type="button" onClick={() => delQ(i)} className="text-[11px] text-red-500 font-semibold">Xóa câu</button>}</span></div>
                                                 {q.needCheck && <p className="text-[10px] font-semibold text-red-600 bg-red-50 rounded-lg px-2 py-1.5">⚠ Cần kiểm tra: chưa nhận diện được đáp án đúng hoặc thiếu đáp án. Hãy bấm nút tròn bên trái đáp án đúng.</p>}
                                                 {pSelect(q, i)}
-                                                <textarea id={`mcq-question-${i}`} name={`question-${i}`} aria-label="Nội dung câu hỏi" rows="2" placeholder="Nội dung câu hỏi..." value={q.q} onChange={(e) => upd(i, { q: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-amber-500" />
+                                                <textarea id={`mcq-question-${i}`} name={`question-${i}`} aria-label="Nội dung câu hỏi" rows="2" placeholder="Nội dung câu hỏi..." value={q.q} onFocus={fxFocus(i, 'q')} onChange={(e) => upd(i, { q: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-amber-500" />
+                                                <MathPreview items={[{ k: 'q', pre: '', t: q.q }]} />
                                                 <div className="eo-hw-opts">
                                                     {['A', 'B', 'C', 'D'].map((L, k) => (
                                                         <div key={k} className="flex items-center gap-2">
                                                             <input id={`mcq-correct-${i}-${k}`} aria-label="Đáp án đúng" type="radio" name={'ans' + i} checked={q.c === k} title="Đáp án đúng" className="accent-amber-600" onChange={() => upd(i, { c: k })} />
                                                             <span className="text-xs font-bold w-4">{L}</span>
-                                                            <input id={`mcq-option-${i}-${k}`} name={`option-${i}-${k}`} aria-label={`Đáp án ${L}`} type="text" placeholder={'Đáp án ' + L} value={q.a[k]} onChange={(e) => upd(i, { a: q.a.map((o, m) => m === k ? e.target.value : o) })} style={{ minWidth: 0 }} className="flex-1 px-3 py-2 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-amber-500" />
+                                                            <input id={`mcq-option-${i}-${k}`} name={`option-${i}-${k}`} aria-label={`Đáp án ${L}`} type="text" placeholder={'Đáp án ' + L} value={q.a[k]} onFocus={fxFocus(i, 'a', k)} onChange={(e) => upd(i, { a: q.a.map((o, m) => m === k ? e.target.value : o) })} style={{ minWidth: 0 }} className="flex-1 px-3 py-2 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-amber-500" />
                                                         </div>))}
                                                 </div>
-                                                <input id={`mcq-explain-${i}`} name={`explain-${i}`} aria-label="Giải thích đáp án" type="text" placeholder="Giải thích đáp án (không bắt buộc)" value={q.e || ''} onChange={(e) => upd(i, { e: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-amber-500" />
+                                                <input id={`mcq-explain-${i}`} name={`explain-${i}`} aria-label="Giải thích đáp án" type="text" placeholder="Giải thích đáp án (không bắt buộc)" value={q.e || ''} onFocus={fxFocus(i, 'e')} onChange={(e) => upd(i, { e: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-amber-500" />
+                                                <MathPreview items={[...['A', 'B', 'C', 'D'].map((L, k) => ({ k: 'o' + k, pre: L + '. ', t: q.a[k] })), { k: 'e', pre: '💡 ', t: q.e }]} />
                                                 <p className="text-[10px] text-slate-400">Bấm nút tròn bên trái để đánh dấu đáp án đúng.</p>
                                             </div>);
                                     };
@@ -2609,6 +3011,8 @@ const gridCls = 'grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)
                                                 <label onClick={() => { loadJSZip().catch(() => {}); }} className="flex items-center justify-center gap-2 py-2.5 border border-dashed border-emerald-500 text-emerald-700 text-xs font-bold rounded-xl cursor-pointer hover:bg-emerald-50">
                                                     <Icon name="file-up" className="w-4 h-4" />Nhập đề từ file Word (.docx)
                                                     <input id="hw-import-docx" name="docxFile" type="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" className="hidden" onChange={importDocx} /></label>
+                                                <PasteQuizBtn onParsed={applyParsed} />
+                                                <AiQuizBtn onParsed={applyParsed} />
                                                 <details className="text-[10px] text-slate-500 bg-slate-50 rounded-lg px-2 py-1.5"><summary className="cursor-pointer font-semibold text-slate-600">Cách soạn file Word để nhập tự động</summary>
                                                 <div className="mt-1 space-y-0.5"><p>• Mỗi câu bắt đầu bằng <b>Câu 1.</b> (hoặc <b>1.</b>), các đáp án bắt đầu bằng <b>A.</b> <b>B.</b> <b>C.</b> <b>D.</b> (mỗi đáp án 1 dòng hoặc cả 4 trên cùng 1 dòng).</p>
                                                     <p>• Đáp án đúng nhận diện bằng 1 trong các cách: <b>gạch chân</b> / <b>chữ đỏ</b> / <b>in đậm</b> đáp án đúng, thêm dấu <b>*</b> trước đáp án (*A.), dòng <b>Đáp án: C</b> dưới câu, hoặc <b>bảng ĐÁP ÁN</b> ở cuối đề (1.A 2.B ...).</p>

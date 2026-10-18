@@ -1,5 +1,5 @@
 // EduOrient — cổng PHỤ HUYNH (ParentPortal). Chỉ tải khi phụ huynh đăng nhập.
-import { fbAuth, fbDb, fbNow, safeAvatar } from './app-core.jsx';
+import { fbAuth, fbDb, fbNow, initialsAvatar, safeAvatar } from './app-core.jsx';
 import { ATT_STATUS, clampScore, subXp } from './app-shared.jsx';
 
         const { useState, useEffect, useRef, useMemo, useCallback, memo } = React;
@@ -104,7 +104,7 @@ import { ATT_STATUS, clampScore, subXp } from './app-shared.jsx';
         function ParentProfileCard({ student, prof, cover }) {
             const boxRef = useRef(null);
             const name = prof.name || student.name;
-            const avatar = safeAvatar(prof.avatar) || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(name || '?') + '&background=4361ee&color=fff&bold=true';
+            const avatar = safeAvatar(prof.avatar) || initialsAvatar(name, '4361ee');
             const sh = cover ? { textShadow: '0 1px 2px rgba(0,0,0,.85), 0 0 8px rgba(0,0,0,.45)' } : undefined;   // đổ bóng chữ cho dễ đọc, KHÔNG làm mờ ảnh
             const infoBox = cover ? { ...sh, background: 'rgba(15,23,42,.5)', borderRadius: 16, padding: '8px 14px' } : undefined;   // khung tối trong suốt sau thông tin để nổi bật trên ảnh sáng
             const dim = cover ? '' : ' opacity-80';

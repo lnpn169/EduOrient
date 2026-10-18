@@ -1,8 +1,8 @@
-const CACHE_NAME = 'eduorient-v20261013-1826';
+const CACHE_NAME = 'eduorient-v20261018-1211';
 
 // Cache riêng cho thư viện CDN: KHÔNG bị xóa mỗi lần deploy (update-sw.js chỉ đổi CACHE_NAME),
 // nhờ vậy người dùng không phải tải lại React/Firebase sau mỗi lần cập nhật.
-const CDN_CACHE = 'eduorient-cdn-v1';
+const CDN_CACHE = 'eduorient-cdn-v2';   // v2: làm mới cache CDN khi bật SRI (tránh còn bản "opaque" cũ không qua được kiểm tra integrity)
 
 // Cache riêng cho JS/CSS của app đã đóng dấu nội dung (?v=hash). Mỗi URL gắn với đúng 1 nội dung nên
 // dùng Cache First (mở app là có ngay, không chờ mạng). Chỉ giữ các URL còn nằm trong VERSIONED_ASSETS,
@@ -24,13 +24,13 @@ const APP_SHELL = [
 // JS/CSS của app kèm hash nội dung. DANH SÁCH NÀY DO update-sw.js TỰ GHI mỗi lần deploy.
 // <VERSIONED-ASSETS> (tự động ghi bởi update-sw.js - đừng sửa tay)
 const VERSIONED_ASSETS = [
-  '/app.min.js?v=fb0f6f7025',
-  '/tailwind.min.css?v=dae1862901',
-  '/edu-common.js?v=0ec7397c40',
+  '/app.min.js?v=bc04ea68c4',
+  '/tailwind.min.css?v=681b7a9784',
+  '/edu-common.js?v=68473aee6f',
   '/index.css?v=e58cb98fc0',
-  '/hocsinh.min.js?v=32bedf603c',
-  '/hocsinh.min.css?v=d2e2af1d88',
-  '/hocsinh-tw.min.css?v=8207c2b44a'
+  '/hocsinh.min.js?v=578627d08c',
+  '/hocsinh.min.css?v=001e483cfa',
+  '/hocsinh-tw.min.css?v=1f8ffafdee'
 ];
 // </VERSIONED-ASSETS>
 

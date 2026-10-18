@@ -386,18 +386,29 @@ service cloud.firestore {
       allow delete: if (signedIn() && resource.data.studentUid == request.auth.uid) || isAdmin();
     }
 
-    // Đồng hồ máy chủ (để đồng hồ đếm ngược đúng dù đồng hồ máy học sinh lệch)
-    // Lịch sử trò chuyện với Trợ lý AI: aiChats/{uid}/items/{id} = { title, msgs: [{role, content}], updatedAt }
+    // Lịch sử trò chuyện với Trợ lý AI:
+    //   aiChats/{uid}/items/{cid}            = { title, updatedAt, v:2 }   (danh sách bên cạnh; cuộc CŨ còn có thêm msgs: [{role, content}])
+    //   aiChats/{uid}/items/{cid}/data/msgs  = { msgs: [{role, content}], updatedAt }   (tin nhắn, chỉ tải khi mở cuộc đó)
     // Chỉ chính học sinh (tài khoản thật, không phải phiên ẩn danh) đọc / ghi / xóa lịch sử của mình.
     match /aiChats/{uid}/items/{cid} {
       allow read, delete: if signedIn() && request.auth.uid == uid;
       allow create, update: if signedIn() && request.auth.uid == uid
-        && request.resource.data.keys().hasOnly(['title', 'msgs', 'updatedAt'])
+        && request.resource.data.keys().hasOnly(['title', 'msgs', 'updatedAt', 'v'])
         && request.resource.data.title is string && request.resource.data.title.size() <= 80
-        && request.resource.data.msgs is list && request.resource.data.msgs.size() <= 40
+        && (!('msgs' in request.resource.data) || (request.resource.data.msgs is list && request.resource.data.msgs.size() <= 40))
+        && (!('v' in request.resource.data) || request.resource.data.v == 2)
         && request.resource.data.updatedAt == request.time;
+
+      match /data/{did} {
+        allow read, delete: if signedIn() && request.auth.uid == uid;
+        allow create, update: if signedIn() && request.auth.uid == uid && did == 'msgs'
+          && request.resource.data.keys().hasOnly(['msgs', 'updatedAt'])
+          && request.resource.data.msgs is list && request.resource.data.msgs.size() <= 40
+          && request.resource.data.updatedAt == request.time;
+      }
     }
 
+    // Đồng hồ máy chủ (để đồng hồ đếm ngược đúng dù đồng hồ máy học sinh lệch)
     match /clock/{uid} {
       allow read: if signedIn() && request.auth.uid == uid;
       allow write: if signedIn() && request.auth.uid == uid
