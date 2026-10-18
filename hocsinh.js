@@ -460,7 +460,7 @@ function soonFeature() { return eduAlert('Tính năng đang được phát tri�
             const rows = bxhRows(e => e.u === myUni);
             bxhMe('bxh-me-uni', rows); bxhPodium('bxh-podium-uni', rows);
             $('bxh-uni-count').innerText = '🎓 ' + (user.uniName || '') + ' • ' + rows.length + ' học sinh đăng ký';
-            $('bxh-uni-list').innerHTML = bxhListHtml(rows) || '<p style="font-size:13px;color:var(--text-sub)">Chưa có học sinh nào chọn nguyện vọng này.</p>';
+            $('bxh-uni-list').innerHTML = bxhListHtml(rows) || '<p style="font-size:13px;color:var(--text-sub)">Chưa có học sinh nào chọn nguyện vọng này.</p>'; bxhLazyAvatars('bxh-uni-list');
         }
         // ---- Tự xóa tài khoản: xác thực lại -> xóa Firestore -> xóa tài khoản đăng nhập -> đăng xuất ----
         async function selfDeleteAccount() {
@@ -1284,7 +1284,8 @@ function soonFeature() { return eduAlert('Tính năng đang được phát tri�
             return fbDb.collection('profiles').doc(ME.uid).set({ name: user.name, cls: user.schoolClass, level: user.level || 'THPT', role: 'student', avatar: safeAvatar(user.avatar),
                 targetSchoolId: user.targetSchoolId || null, targetSchoolName: user.targetSchoolName || null, uniId: user.uniId || null, uniName: user.uniName || null,
                 schoolChangeCharges: typeof user.schoolChangeCharges === 'number' ? user.schoolChangeCharges : CHANGE_MAX, lastSchoolChangeTime: Number(user.lastSchoolChangeTime) || 0,
-                majors: Array.isArray(user.pubMajors) ? user.pubMajors : [] })
+                majors: Array.isArray(user.pubMajors) ? user.pubMajors : [],
+                coverHidden: typeof user.coverHidden === 'boolean' ? user.coverHidden : !!(PROFILES[ME.uid] && PROFILES[ME.uid].coverHidden === true) })
                 .then(() => true)
                 .catch(e => { eduAlert('Không lưu được hồ sơ: ' + e.message, 'error'); return false; });
         }
@@ -1326,7 +1327,7 @@ function soonFeature() { return eduAlert('Tính năng đang được phát tri�
             need.forEach(u => PF_REQ.add(u));
             const A = firebase.firestore.FieldPath.documentId(), jobs = [];
             for (let i = 0; i < need.length; i += 30)
-                jobs.push(fbDb.collection('profiles').where(A, 'in', need.slice(i, i + 30)).get().then(s => s.forEach(d => { PROFILES[d.id] = d.data(); })).catch(() => {}));
+                { const batch = need.slice(i, i + 30); jobs.push(fbDb.collection('profiles').where(A, 'in', batch).get().then(s => s.forEach(d => { PROFILES[d.id] = d.data(); })).catch(() => { batch.forEach(u => PF_REQ.delete(u)); })); }   // lỗi mạng/tạm thời: bỏ đánh dấu để lần mở sau tự thử lại
             Promise.all(jobs).then(() => { clearTimeout(pfTimer); pfTimer = setTimeout(rerenderProfileViews, 150); });
         }
         function rerenderProfileViews() {
@@ -1456,7 +1457,7 @@ function processRegister() {
         function bxhPodium(id, rows) {   // bục top 3 (chỉ hiện trên desktop)
             const el = $(id); if (!el) return;
             if (!rows || !rows.length) { el.innerHTML = ''; return; }
-            const col = (r, n) => r ? '<div class="pd-col r' + n + '">' + (n === 1 ? '<div class="pd-crown">👑</div>' : '') + '<img src="' + esc(avatarOf(r.id, r.p.name)) + '"><div class="pd-name">' + esc(r.p.name) + '</div><div class="pd-xp">' + r.pts + ' XP</div><div class="pd-block">' + n + '</div></div>' : '<div class="pd-col"></div>';
+            const col = (r, n) => r ? '<div class="pd-col r' + n + '" style="cursor:pointer" onclick="openUserCard(\'' + esc(r.id) + '\')">' + (n === 1 ? '<div class="pd-crown">👑</div>' : '') + '<img src="' + esc(avatarOf(r.id, r.p.name)) + '"><div class="pd-name">' + esc(r.p.name) + '</div><div class="pd-xp">' + r.pts + ' XP</div><div class="pd-block">' + n + '</div></div>' : '<div class="pd-col"></div>';
             el.innerHTML = '<div class="bxh-podium-title">🏅 Top 3 xuất sắc</div><div class="pd-row">' + col(rows[1], 2) + col(rows[0], 1) + col(rows[2], 3) + '</div>';
         }
         function bxhMe(id, rows) {   // thẻ "Hạng của bạn" (chỉ hiện trên desktop)
@@ -1472,11 +1473,22 @@ function processRegister() {
             if (match(mine)) rows.push({ id: ME.uid, e: mine, pts: sumXp()[ME.uid] });
             return rows.map(r => ({ id: r.id, pts: r.pts, p: { name: r.e.n, cls: r.e.c, role: 'student', targetSchoolId: r.e.s, targetSchoolName: r.e.sn } })).sort((a, b) => b.pts - a.pts);
         }
+        // Tải avatar theo nhu cầu cho các dòng BXH đang hiện ra khi cuộn (trước đây chỉ top 10 có avatar, từ #11 trở đi luôn là chữ cái đầu)
+        let BXH_IO = null, BXH_IO_T = 0, BXH_IO_Q = new Set();
+        function bxhLazyAvatars(listId) {
+            const el = $(listId); if (!el || !('IntersectionObserver' in window)) return;
+            if (BXH_IO) BXH_IO.disconnect();
+            BXH_IO = new IntersectionObserver(es => {
+                es.forEach(e => { if (e.isIntersecting) { const u = e.target.getAttribute('data-uid'); if (u && !PROFILES[u]) BXH_IO_Q.add(u); BXH_IO.unobserve(e.target); } });
+                clearTimeout(BXH_IO_T); BXH_IO_T = setTimeout(() => { const q = [...BXH_IO_Q]; BXH_IO_Q.clear(); if (q.length) ensureProfiles(q); }, 250);
+            }, { root: el, rootMargin: '200px' });
+            el.querySelectorAll('[data-uid]').forEach(r => BXH_IO.observe(r));
+        }
         function bxhListHtml(rows) {
             ensureProfiles(rows.slice(0, 10).map(r => r.id));          // chỉ tải avatar cho top 10
             const mi = rows.findIndex(r => r.id === ME.uid);
-            const row = (r, i) => `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 6px;border-bottom:1px solid #f1f5f9;${r.id === ME.uid ? 'background:#eff6ff;border-radius:8px;' : ''}">
-                <div style="display:flex;align-items:center;gap:8px;"><b style="color:var(--primary)">#${i + 1}</b><img loading="lazy" decoding="async" src="${esc(avatarOf(r.id, r.p.name))}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;"><div>${esc(r.p.name)}<br><small style="color:var(--text-sub)">${esc(schoolNameOf(r.p) || 'Chưa chọn trường')}</small></div></div>
+            const row = (r, i) => `<div data-uid="${esc(r.id)}" style="display:flex;justify-content:space-between;align-items:center;padding:10px 6px;border-bottom:1px solid #f1f5f9;${r.id === ME.uid ? 'background:#eff6ff;border-radius:8px;' : ''}">
+                <div style="display:flex;align-items:center;gap:8px;"><b style="color:var(--primary)">#${i + 1}</b><div style="display:flex;align-items:center;gap:8px;cursor:pointer;" onclick="openUserCard('${esc(r.id)}')" title="Xem trang cá nhân"><img loading="lazy" decoding="async" src="${esc(avatarOf(r.id, r.p.name))}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;"><div>${esc(r.p.name)}<br><small style="color:var(--text-sub)">${esc(schoolNameOf(r.p) || 'Chưa chọn trường')}</small></div></div></div>
                 <b style="color:var(--primary)">${r.pts} XP</b></div>`;
             return rows.slice(0, 100).map(row).join('') + (mi >= 100 ? '<div style="text-align:center;color:#94a3b8">⋯</div>' + row(rows[mi], mi) : '');
         }
@@ -1485,7 +1497,7 @@ function processRegister() {
             renderUniBXH();
             const rows = bxhRows(e => !!user.targetSchoolId && e.s === user.targetSchoolId);   // cùng trường = cùng schoolId
             bxhMe('bxh-me-thpt', rows); bxhPodium('bxh-podium-thpt', rows);
-            $('bxh-list').innerHTML = bxhListHtml(rows) || '<p style="font-size:13px;color:var(--text-sub)">' + (user.targetSchoolName ? 'Chưa có học sinh nào trong trường của bạn.' : 'Hãy chọn trường để xem bảng xếp hạng.') + '</p>';
+            $('bxh-list').innerHTML = bxhListHtml(rows) || '<p style="font-size:13px;color:var(--text-sub)">' + (user.targetSchoolName ? 'Chưa có học sinh nào trong trường của bạn.' : 'Hãy chọn trường để xem bảng xếp hạng.') + '</p>'; bxhLazyAvatars('bxh-list');
         }
 
         // ---- Bài tập của giáo viên: đồng bộ, có giờ làm bài, lớp và hạn nộp ----
@@ -2352,7 +2364,7 @@ function processRegister() {
             return { html: esc(who + v.text), t: v.t };
         }
         function chatRowHtml(r) {
-            return `<div class="chat-friend-item${r.grp ? ' pin-group' : ''}" onclick="openChat('${r.id}')"><img loading="lazy" decoding="async" class="cl-av" src="${esc(r.avatar)}" alt=""><div class="cl-main"><div class="cl-top"><span class="cl-name">${esc(r.name)}</span><span class="cl-time">${r.t ? fmtShort(r.t) : ''}</span></div><div class="cl-prev">${r.tag ? `<span class="cl-tag${r.grp ? ' grp' : ''}">${esc(r.tag)}</span>` : ''}${r.prev}</div></div></div>`;
+            return `<div class="chat-friend-item${r.grp ? ' pin-group' : ''}" onclick="openChat('${r.id}')"><img loading="lazy" decoding="async" class="cl-av" src="${esc(r.avatar)}" alt=""${(!r.grp && r.id !== 'class') ? ` onclick="event.stopPropagation();openUserCard('${esc(r.id)}')"` : ''}><div class="cl-main"><div class="cl-top"><span class="cl-name">${esc(r.name)}</span><span class="cl-time">${r.t ? fmtShort(r.t) : ''}</span></div><div class="cl-prev">${r.tag ? `<span class="cl-tag${r.grp ? ' grp' : ''}">${esc(r.tag)}</span>` : ''}${r.prev}</div></div></div>`;
         }
         function renderChatList() {
             const box = $('friends-avatar-list'), note = $('chat-list-note');
@@ -2409,6 +2421,7 @@ function processRegister() {
             curChatId = id;
             const isClass = id === 'class';
             $('chat-head-av').src = isGroup ? groupAv(user.schoolClass) : isClass ? CLASS_AV : avatarOf(id, p.name);
+            $('chat-head-av').onclick = (isGroup || isClass) ? null : () => openUserCard(id); $('chat-head-av').style.cursor = (isGroup || isClass) ? '' : 'pointer';
             $('active-chat-name').innerText = isGroup ? MY_GROUP.name : isClass ? 'Phòng chung' : (p.name || '');
             $('active-chat-sub').innerText = isGroup ? groupSub() : isClass ? 'Phòng trò chuyện chung của mọi người'
                 : (p.role === 'teacher' ? 'Giáo viên' + (p.subject ? ' ' + p.subject : '') + (p.school ? ' • ' + p.school : '') : (p.cls ? 'Lớp ' + p.cls : 'Học sinh'));
@@ -2440,9 +2453,93 @@ function processRegister() {
                 const bubble = `<div class="chat-bubble ${mine ? 'mine' : 'other'}${newGroup ? '' : ' cont-up'}${endGroup ? '' : ' cont-down'}">${esc(m.text)}</div>`;
                 const del = delBtn(m);
                 if (mine) { html += `<div class="msg-row mine${newGroup ? ' first' : ''}"><div class="msg-col">${del ? `<div class="bubble-row">${del}${bubble}</div>` : bubble}</div></div>`; return; }
-                html += `<div class="msg-row other${newGroup ? ' first' : ''}"><img loading="lazy" decoding="async" class="msg-av${endGroup ? '' : ' ghost'}" src="${esc(avatarOf(m.from, m.name))}" alt=""><div class="msg-col">${isClass && newGroup ? `<div class="msg-name">${esc(m.name || '')}${badge(m.from)}</div>` : ''}${del ? `<div class="bubble-row">${bubble}${del}</div>` : bubble}</div></div>`;
+                html += `<div class="msg-row other${newGroup ? ' first' : ''}"><img loading="lazy" decoding="async" class="msg-av${endGroup ? '' : ' ghost'}" src="${esc(avatarOf(m.from, m.name))}" alt=""${endGroup ? ` onclick="openUserCard('${esc(m.from)}')" style="cursor:pointer"` : ''}><div class="msg-col">${isClass && newGroup ? `<div class="msg-name">${esc(m.name || '')}${badge(m.from)}</div>` : ''}${del ? `<div class="bubble-row">${bubble}${del}</div>` : bubble}</div></div>`;
             });
             return html;
+        }
+        // ===== THẺ TRANG CÁ NHÂN (bấm vào avatar ở BXH / danh sách chat / tin nhắn) =====
+        // Chỉ dùng dữ liệu công khai sẵn có (profiles + BXH). Tuân theo quy tắc nhắn tin: chỉ xem người CÙNG TRƯỜNG, giáo viên bật "Ẩn thông tin" thì không hiện.
+        // Công tắc "Chế độ riêng tư": mặc định TẮT (không có trường coverHidden = cho xem). BẬT = coverHidden:true -> người khác xem thẻ chỉ thấy avatar + tên, các thông tin còn lại hiện "Đã ẩn". Lưu coverHidden trong profiles/{uid}.
+        function syncCoverShare() {
+            const on = !!(user && user.coverHidden === true);
+            document.querySelectorAll('.cover-share-cb').forEach(c => { c.checked = on; });
+        }
+        function setCoverShare(on) {
+            if (!ME) return;
+            const prev = user.coverHidden === true; user.coverHidden = !!on; syncCoverShare();
+            fbDb.collection('profiles').doc(ME.uid).set({ coverHidden: !!on }, { merge: true })
+                .then(() => { if (typeof eduToast === 'function') eduToast(on ? 'Đã bật chế độ riêng tư: người khác chỉ thấy ảnh đại diện và tên của bạn.' : 'Đã tắt chế độ riêng tư.', 'success'); })
+                .catch(e => { user.coverHidden = prev; syncCoverShare(); eduAlert('Chưa lưu được cài đặt: ' + e.message, 'error'); });
+        }
+        let UC_ID = '';
+        const COVER_CACHE = {};   // uid -> dataURL ảnh bìa (chỉ nhớ lần tải THÀNH CÔNG, lỗi quyền thì lần sau thử lại)
+        const COVER_OK = c => (typeof c === 'string' && c.length < 700000 && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+\/=]+$/.test(c)) ? c : '';
+        function showUserCover(uid, c) {
+            if (UC_ID !== uid) return;
+            const b = $('uc-banner'); if (!b) return;
+            b.style.backgroundImage = c ? 'linear-gradient(rgba(15,23,42,.12), rgba(15,23,42,.28)), url("' + c + '")' : '';
+            b.classList.toggle('has-cover', !!c);
+        }
+        function loadUserCover(uid, teacher) {
+            showUserCover(uid, '');
+            if (teacher) return;
+            if (uid === ME.uid) return showUserCover(uid, COVER_OK(user.cover));
+            if (uid in COVER_CACHE) return showUserCover(uid, COVER_CACHE[uid]);
+            fbDb.collection('covers').doc(uid).get().then(d => { const c = d.exists ? COVER_OK((d.data() || {}).cover) : ''; COVER_CACHE[uid] = c; showUserCover(uid, c); }).catch(() => {});
+        }
+        function ucardAllowed(uid) {
+            if (!ME || !uid || window.EXAM_LOCKED) return null;
+            const p = PROFILES[uid] || liteProfile(uid);
+            if (!p) return null;
+            if (uid !== ME.uid) {
+                if (!inMySchool(p)) return null;
+                if (p.role === 'teacher' && p.isPrivate === true) return null;
+            }
+            return p;
+        }
+        function fillUserCard(uid) {
+            const p = ucardAllowed(uid); if (!p) return closeModal('modal-ucard');
+            const isMe = uid === ME.uid, teacher = p.role === 'teacher';
+            $('uc-av').src = isMe ? avatarOf(uid, user.name) : avatarOf(uid, p.name);
+            $('uc-name').innerText = (isMe ? user.name : p.name) || 'Người dùng';
+            let tag = teacher ? 'Giáo viên' + (p.subject ? ' ' + p.subject : '') : 'Học sinh', theme = teacher ? 't-teacher' : '';
+            if (MY_GROUP && uid === MY_GROUP.hr) { tag = 'GVCN'; theme = 't-hr'; } else if (MY_GROUP && MY_GROUP.mon && uid === MY_GROUP.mon) { tag = 'Lớp Trưởng'; theme = 't-mon'; }
+            const priv = !isMe && !teacher && p.coverHidden === true;   // đang bật chế độ riêng tư
+            $('uc-role').innerText = priv ? 'Đã ẩn' : tag;
+            $('uc-card').className = 'ucard' + (theme ? ' ' + theme : '');
+            const stats = [], rows = [];
+            if (priv) { let px = null; try { px = BXH[uid] ? bxhTotal(BXH[uid]) : null; } catch (e) {} stats.push(['Đã ẩn', 'Lớp'], [typeof px === 'number' ? String(px) : 'Đã ẩn', 'Điểm XP'], ['Đã ẩn', 'Hạng']); rows.push(['🏫 Trường', 'Đã ẩn']); }   // XP vẫn hiện vì BXH đã công khai
+            else if (!teacher) {
+                const c = isMe ? user.schoolClass : p.cls; if (c) stats.push([String(c), 'Lớp']);
+                try {
+                    const x = isMe ? sumXp()[ME.uid] : (BXH[uid] ? bxhTotal(BXH[uid]) : null);
+                    if (typeof x === 'number') stats.push([String(x), 'Điểm XP']);
+                    const rk = bxhRows(e => !!user.targetSchoolId && e.s === user.targetSchoolId), ri = rk.findIndex(r => r.id === uid);
+                    if (ri >= 0) stats.push([(ri < 3 ? ['🥇', '🥈', '🥉'][ri] + ' ' : '') + '#' + (ri + 1), 'Hạng']);
+                } catch (e) {}
+            }
+            $('uc-stats').innerHTML = stats.map(s => '<div class="uc-stat"><b>' + esc(s[0]) + '</b><small>' + esc(s[1]) + '</small></div>').join('');
+            const sn = teacher ? (p.school || '') : schoolNameOf(isMe ? { role: 'student', targetSchoolId: user.targetSchoolId, targetSchoolName: user.targetSchoolName } : p);
+            if (sn && !priv) rows.push(['🏫 Trường', sn]);
+            $('uc-rows').innerHTML = rows.map(r => '<div class="uc-row"><span>' + esc(r[0]) + '</span><b>' + esc(r[1]) + '</b></div>').join('');
+            $('uc-private').style.display = priv ? '' : 'none';   // bạn này bật "Chế độ riêng tư"
+            $('uc-chat').style.display = isMe ? 'none' : '';
+        }
+        function openUserCard(uid) {
+            if (!ucardAllowed(uid)) return;
+            UC_ID = uid; fillUserCard(uid);
+            { const pp = ucardAllowed(uid); loadUserCover(uid, !!pp && (pp.role === 'teacher' || (uid !== ME.uid && pp.coverHidden === true))); }
+            $('modal-ucard').style.display = 'flex';
+            if (uid !== ME.uid && !PROFILES[uid]) {   // chưa tải hồ sơ đầy đủ (avatar...) -> tải rồi vẽ lại thẻ nếu vẫn đang mở
+                ensureProfiles([uid]);
+                setTimeout(() => { if (UC_ID === uid && $('modal-ucard').style.display === 'flex') fillUserCard(uid); }, 800);
+            }
+        }
+        function ucardChat() {
+            const uid = UC_ID; if (!uid || !ucardAllowed(uid) || uid === ME.uid) return;
+            closeModal('modal-ucard');
+            if ($('modal-mxh').style.display !== 'flex') openNhanTin();
+            openChat(uid);
         }
         function sendChatMessage() { const i = $('chat-text-input'), t = i.value.trim(); if (!t || !curChatId) return;
             msgsRef(curChatId).add({ from: ME.uid, name: user.name, text: t.slice(0, 500), createdAt: NOW() }).then(() => i.value = '')
@@ -2719,6 +2816,7 @@ function saveEdit() {
             // 1) Chỉ nghe HỒ SƠ CỦA MÌNH (trước đây: cả collection profiles)
             fbDb.collection('profiles').doc(ME.uid).onSnapshot(d => {
                 if (d.exists) PROFILES[ME.uid] = d.data(); else delete PROFILES[ME.uid];
+                user.coverHidden = !!(d.exists && d.data().coverHidden === true); syncCoverShare();
                 onProfiles(); reconcileSelf();
             });
             fbDb.collection('privates').doc(ME.uid).onSnapshot(d => { const x = d.data() || {}; user.analysisData = x.analysis || null; if (user.analysisData) { renderPtResult(user.analysisData); cachePtResult(user.analysisData); } if (x.mbti) applyMbti(x.mbti); user.deepData = x.deep || null; user.cover = x.cover || ''; user.coverPos = x.coverPos || null; renderCover(); mirrorCoverIfNeeded(); if (typeof renderProfileDeep === 'function') renderProfileDeep(); });

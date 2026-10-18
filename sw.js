@@ -1,4 +1,4 @@
-const CACHE_NAME = 'eduorient-v20261018-1211';
+const CACHE_NAME = 'eduorient-v20261018-1259';
 
 // Cache riêng cho thư viện CDN: KHÔNG bị xóa mỗi lần deploy (update-sw.js chỉ đổi CACHE_NAME),
 // nhờ vậy người dùng không phải tải lại React/Firebase sau mỗi lần cập nhật.
@@ -28,8 +28,8 @@ const VERSIONED_ASSETS = [
   '/tailwind.min.css?v=681b7a9784',
   '/edu-common.js?v=68473aee6f',
   '/index.css?v=e58cb98fc0',
-  '/hocsinh.min.js?v=578627d08c',
-  '/hocsinh.min.css?v=001e483cfa',
+  '/hocsinh.min.js?v=f502c0ab35',
+  '/hocsinh.min.css?v=4a9e7e1899',
   '/hocsinh-tw.min.css?v=1f8ffafdee'
 ];
 // </VERSIONED-ASSETS>

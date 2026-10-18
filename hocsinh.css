@@ -1108,6 +1108,16 @@ html:not(.dark) #bxh-list > div:nth-child(3) > b, html:not(.dark) #bxh-uni-list 
 /* Dòng của chính mình: giữ viền tím */
 html:not(.dark) #bxh-list > div[style*="eff6ff"], html:not(.dark) #bxh-uni-list > div[style*="eff6ff"] { box-shadow: inset 0 0 0 2px #6366f1; }
 html:not(.dark) #bxh-list > div:nth-child(-n+3)[style*="eff6ff"], html:not(.dark) #bxh-uni-list > div:nth-child(-n+3)[style*="eff6ff"] { box-shadow: inset 0 0 0 2px #6366f1; }
+/* Giao diện SÁNG: top 1-2-3 phát sáng (halo) giống giao diện tối */
+html:not(.dark) #bxh-list > div:nth-child(1) > div > b:first-child, html:not(.dark) #bxh-uni-list > div:nth-child(1) > div > b:first-child { text-shadow: 0 0 10px rgba(250,204,21,.95), 0 0 22px rgba(234,179,8,.6); }
+html:not(.dark) #bxh-list > div:nth-child(2) > div > b:first-child, html:not(.dark) #bxh-uni-list > div:nth-child(2) > div > b:first-child { text-shadow: 0 0 10px rgba(148,163,184,.95), 0 0 20px rgba(100,116,139,.5); }
+html:not(.dark) #bxh-list > div:nth-child(3) > div > b:first-child, html:not(.dark) #bxh-uni-list > div:nth-child(3) > div > b:first-child { text-shadow: 0 0 10px rgba(251,146,60,.95), 0 0 20px rgba(249,115,22,.55); }
+html:not(.dark) #bxh-list > div:nth-child(1) > div > img, html:not(.dark) #bxh-uni-list > div:nth-child(1) > div > img { box-shadow: 0 0 0 3px #facc15, 0 0 16px 2px rgba(250,204,21,.85); }
+html:not(.dark) #bxh-list > div:nth-child(2) > div > img, html:not(.dark) #bxh-uni-list > div:nth-child(2) > div > img { box-shadow: 0 0 0 3px #94a3b8, 0 0 14px 2px rgba(148,163,184,.85); }
+html:not(.dark) #bxh-list > div:nth-child(3) > div > img, html:not(.dark) #bxh-uni-list > div:nth-child(3) > div > img { box-shadow: 0 0 0 3px #fb923c, 0 0 14px 2px rgba(251,146,60,.85); }
+html:not(.dark) #bxh-list > div:nth-child(1) > b, html:not(.dark) #bxh-uni-list > div:nth-child(1) > b { box-shadow: 0 0 0 2px #fff3a3, 0 0 18px rgba(250,204,21,.85); }
+html:not(.dark) #bxh-list > div:nth-child(2) > b, html:not(.dark) #bxh-uni-list > div:nth-child(2) > b { box-shadow: 0 0 0 2px #e2e8f0, 0 0 14px rgba(148,163,184,.8); }
+html:not(.dark) #bxh-list > div:nth-child(3) > b, html:not(.dark) #bxh-uni-list > div:nth-child(3) > b { box-shadow: 0 0 0 2px #ffd2a8, 0 0 14px rgba(251,146,60,.8); }
 
 /* ===== BXH DARK MODE: làm nổi bật số hạng (chỉ áp dụng cho bảng xếp hạng). Nằm SAU #dark-contrast nên luôn thắng ===== */
 html.dark #bxh-list > div, html.dark #bxh-uni-list > div { position: relative; }
@@ -1222,3 +1232,79 @@ html.dark .pt-pick-title{color:#fcd34d}
             body.ai-tab-on #tab-ai.active { display: flex; flex-direction: column; height: calc(100vh - var(--app-hdr, 70px)); height: calc(100dvh - var(--app-hdr, 70px)); padding-bottom: 24px; }
             body.ai-tab-on #tab-ai .ai-dash { flex: 1 1 auto; height: auto; min-height: 0; }
         }
+
+/* ===== Thẻ trang cá nhân (bấm avatar ở BXH / chat) ===== */
+#modal-ucard { z-index: 10001; }
+.ucard { --uc1: #4361ee; --uc2: #8b5cf6; position: relative; background: #fff; width: 90%; max-width: 360px; border-radius: 24px; text-align: center; overflow: hidden; padding: 0 22px 22px; box-shadow: 0 24px 50px -12px rgba(15,23,42,.45); animation: modalUp 0.25s ease; }
+.ucard.t-teacher { --uc1: #059669; --uc2: #0ea5e9; }
+.ucard.t-hr { --uc1: #ea580c; --uc2: #f59e0b; }
+.ucard.t-mon { --uc1: #d97706; --uc2: #facc15; }
+.ucard-banner { position: relative; height: 104px; margin: 0 -22px; background: linear-gradient(135deg, var(--uc1), var(--uc2)); overflow: hidden; }
+.ucard-banner span { position: absolute; border-radius: 50%; background: rgba(255,255,255,.18); }
+.ucard-banner .ub-c1 { width: 130px; height: 130px; right: -30px; top: -50px; }
+.ucard-banner .ub-c2 { width: 80px; height: 80px; left: -20px; bottom: -34px; background: rgba(255,255,255,.12); }
+.ucard-close { position: absolute; top: 10px; right: 12px; border: none; background: rgba(255,255,255,.25); color: #fff; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; font-size: 14px; backdrop-filter: blur(4px); }
+.ucard-avwrap { margin-top: -48px; position: relative; }
+.ucard-av { width: 96px; height: 96px; border-radius: 50%; object-fit: cover; border: 4px solid #fff; background: #e2e8f0; box-shadow: 0 0 0 3px rgba(67,97,238,.55), 0 8px 22px rgba(15,23,42,.35); }
+.ucard-name { margin-top: 10px; font-size: 20px; font-weight: 800; color: #0f172a; word-break: break-word; }
+.ucard-role { display: inline-block; margin-top: 6px; padding: 4px 14px; border-radius: 999px; background: linear-gradient(135deg, var(--uc1), var(--uc2)); color: #fff; font-size: 12px; font-weight: 700; }
+.ucard-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 8px; margin: 16px 0 4px; }
+.uc-stat { background: #f1f5f9; border-radius: 14px; padding: 10px 4px; }
+.uc-stat b { display: block; font-size: 16px; color: #0f172a; font-weight: 800; }
+.uc-stat small { display: block; margin-top: 2px; font-size: 11px; color: #64748b; }
+.ucard-rows { margin: 8px 0 0; text-align: left; }
+.uc-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; margin-top: 6px; background: #f8fafc; border-radius: 12px; font-size: 13px; color: #64748b; }
+.uc-row b { margin-left: auto; color: #0f172a; text-align: right; font-weight: 600; word-break: break-word; }
+.ucard-btn { display: block; width: 100%; margin-top: 16px; padding: 13px; border: none; border-radius: 14px; background: linear-gradient(135deg, var(--uc1), var(--uc2)); color: #fff; font-size: 15px; font-weight: 700; cursor: pointer; box-shadow: 0 8px 18px -6px rgba(67,97,238,.55); transition: transform .15s, filter .15s; }
+.ucard-btn:hover { filter: brightness(1.08); transform: translateY(-1px); }
+.ucard-btn:active { transform: scale(.98); }
+html.dark .ucard { background: #27354f; box-shadow: 0 24px 50px -12px rgba(0,0,0,.7); }
+html.dark .ucard-av { border-color: #27354f; background: #364869; }
+html.dark .ucard-name, html.dark .uc-stat b, html.dark .uc-row b { color: #f1f5f9; }
+html.dark .uc-stat, html.dark .uc-row { background: #1f2c45; }
+html.dark .uc-stat small, html.dark .uc-row { color: #94a3b8; }
+.ucard-banner { background-size: cover; background-position: center; }
+.ucard-banner.has-cover span { display: none; }
+
+/* ---- Giao diện tối: viền avatar sáng để không chìm vào ảnh bìa ---- */
+html.dark .ucard-av { border-color: #e2e8f0; box-shadow: 0 0 0 3px rgba(67,97,238,.55), 0 8px 22px rgba(0,0,0,.55); }
+html.dark .ucard-banner::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 46px; background: linear-gradient(to bottom, transparent, rgba(39,53,79,.85)); }
+.ucard-banner::after { pointer-events: none; }
+.uc-stat b { white-space: nowrap; }
+
+/* ---- Máy tính: thẻ rộng hơn, ảnh bìa cao, avatar bên trái kiểu trang cá nhân ---- */
+@media (min-width: 768px) {
+    .ucard { max-width: 500px; padding: 0 30px 28px; display: grid; grid-template-columns: auto 1fr; column-gap: 20px; text-align: left; border-radius: 26px; }
+    .ucard-banner { grid-column: 1 / -1; height: 168px; margin: 0 -30px; }
+    .ucard-banner .ub-c1 { width: 190px; height: 190px; right: -40px; top: -70px; }
+    .ucard-banner .ub-c2 { width: 110px; height: 110px; left: 24px; bottom: -50px; }
+    .ucard-close { top: 14px; right: 16px; width: 34px; height: 34px; }
+    .ucard-avwrap { grid-column: 1; grid-row: 2 / span 2; margin-top: -64px; }
+    .ucard-av { width: 128px; height: 128px; border-width: 5px; }
+    .ucard-name { grid-column: 2; grid-row: 2; align-self: end; margin-top: 14px; font-size: 24px; line-height: 1.2; }
+    .ucard-role { grid-column: 2; grid-row: 3; justify-self: start; align-self: start; margin-top: 8px; font-size: 13px; padding: 5px 16px; }
+    .ucard-stats, .ucard-rows, .ucard-btn { grid-column: 1 / -1; }
+    .ucard-stats { margin-top: 22px; gap: 12px; }
+    .uc-stat { padding: 14px 6px; border-radius: 16px; }
+    .uc-stat b { font-size: 20px; }
+    .uc-stat small { font-size: 12px; }
+    .uc-row { padding: 13px 16px; font-size: 14px; border-radius: 14px; }
+    .ucard-btn { margin-top: 20px; padding: 15px; font-size: 16px; border-radius: 16px; }
+}
+
+/* ---- Công tắc "Ảnh bìa với bạn cùng trường": máy tính = thẻ dưới lịch nề nếp; điện thoại/tablet = mục trong Cài đặt ---- */
+.cover-share-card { display: none; }
+.cover-share-item { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.cover-share-item .menu-item-left { flex: 1; min-width: 0; }
+@media (min-width: 1024px) {
+    .cover-share-card { display: block; }
+    .cover-share-item { display: none !important; }
+}
+
+/* ---- Nhãn khi bạn đó tắt chia sẻ ảnh bìa ---- */
+.ucard-banner .ucard-private { position: absolute; top: 12px; left: 14px; display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px; background: rgba(15,23,42,.45); color: #fff; font-size: 12px; font-weight: 600; backdrop-filter: blur(4px); z-index: 1; }
+@media (min-width: 768px) { .ucard-banner .ucard-private { top: 16px; left: 18px; font-size: 13px; } }
+
+/* Giao diện sáng: đáy ảnh bìa mờ dần sang trắng giống bản tối */
+.ucard-banner::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 46px; background: linear-gradient(to bottom, transparent, rgba(255,255,255,.8)); }
+html.dark .ucard-banner::after { background: linear-gradient(to bottom, transparent, rgba(39,53,79,.85)); }

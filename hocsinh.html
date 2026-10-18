@@ -62,7 +62,7 @@
     window.addEventListener('storage', function (e) { if (e.key === KEY) { apply(); fire(); } });
 })();
 </script>
-<link rel="stylesheet" href="hocsinh.min.css?v=001e483cfa">
+<link rel="stylesheet" href="hocsinh.min.css?v=4a9e7e1899">
     <!-- ===== PHÂN TÍCH: SỬA DARK MODE (card câu hỏi, chữ, thanh tiến trình, nút 1-5, popup, view chuyên sâu). Nằm SAU hocsinh.min.css ===== -->
     <style id="pt-dark-fix">
         html.dark { color-scheme: dark; }
@@ -724,6 +724,12 @@
             <div class="att-legend" style="font-size:10px;color:#94a3b8;margin-top:8px;">Ô xanh nhạt: lớp đủ (mặc định). <span style="color:#d97706">■</span> Đi muộn &nbsp;<span style="color:#0284c7">■</span> Vắng có phép &nbsp;<span style="color:#dc2626">■</span> Vắng không phép &nbsp;<span style="color:#9333ea">■</span> Ngày nghỉ</div>
             <div id="att-list" style="margin-top:8px;font-size:12px;"></div>
         </div>
+        <div id="cover-share-card" class="card cover-share-card" style="max-width:420px;width:100%;margin-left:auto;margin-right:auto;box-sizing:border-box;">
+            <div style="display:flex;align-items:center;gap:14px;">
+                <div style="flex:1;min-width:0;"><div class="card-title" style="margin:0;">🔒 Chế độ riêng tư</div><p style="font-size:12px;color:var(--text-sub);margin-top:4px;line-height:1.45;">Bật: người khác khi xem trang cá nhân chỉ thấy ảnh đại diện và tên của bạn, các thông tin còn lại hiện "Đã ẩn". Tắt: hiển thị bình thường.</p></div>
+                <label class="switch"><input type="checkbox" class="cover-share-cb" onchange="setCoverShare(this.checked)" aria-label="Bật chế độ riêng tư"><span class="slider"></span></label>
+            </div>
+        </div>
         </div><div class="prof-right"><div class="menu-section ms-short">
             <div class="menu-section-title">Học tập & cộng đồng</div>
             <div class="menu-section-desc">Công cụ định hướng và tương tác học tập</div>
@@ -796,6 +802,13 @@
                 </div>
                 <div class="menu-item-arrow">❯</div>
             </div>
+            <div class="menu-item cover-share-item">
+                <div class="menu-item-left">
+                    <div class="menu-item-icon" style="color:#0ea5e9;background:#e0f2fe;">🖼️</div>
+                    <div class="menu-item-text"><h4>Chế độ riêng tư</h4><p>Bật: người khác chỉ thấy ảnh đại diện và tên, thông tin còn lại hiện "Đã ẩn"</p></div>
+                </div>
+                <label class="switch"><input type="checkbox" class="cover-share-cb" onchange="setCoverShare(this.checked)" aria-label="Bật chế độ riêng tư"><span class="slider"></span></label>
+            </div>
             <div class="menu-item danger-solid" style="border-color: #fee2e2;" onclick="selfDeleteAccount()">
                 <div class="menu-item-left">
                     <div class="menu-item-icon" style="color: #ef4444; background: #fef2f2;">🗑️</div>
@@ -843,7 +856,7 @@
         </div>
     </nav>
 
-    <script src="hocsinh.min.js?v=578627d08c"></script>
+    <script src="hocsinh.min.js?v=f502c0ab35"></script>
 <script>
 // Thanh báo mất mạng (hiện khi trình duyệt báo offline, tự ẩn khi có mạng lại)
 (function () {
@@ -862,5 +875,17 @@
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', render); else render();
 })();
 </script>
+<div id="modal-ucard" class="fullscreen-overlay" style="display:none;" role="dialog" aria-modal="true" aria-label="Trang cá nhân" onclick="if(event.target===this)closeModal('modal-ucard')">
+    <div class="ucard" id="uc-card">
+        <div class="ucard-banner" id="uc-banner"><span class="ub-c1"></span><span class="ub-c2"></span><div class="ucard-private" id="uc-private" style="display:none;">🔒 Bạn này đang để chế độ riêng tư</div></div>
+        <button type="button" class="ucard-close" aria-label="Đóng" onclick="closeModal('modal-ucard')">✕</button>
+        <div class="ucard-avwrap"><img id="uc-av" class="ucard-av" alt=""></div>
+        <div id="uc-name" class="ucard-name"></div>
+        <div id="uc-role" class="ucard-role"></div>
+        <div id="uc-stats" class="ucard-stats"></div>
+        <div id="uc-rows" class="ucard-rows"></div>
+        <button type="button" id="uc-chat" class="ucard-btn" onclick="ucardChat()">💬 Nhắn tin</button>
+    </div>
+</div>
 </body>
 </html>
