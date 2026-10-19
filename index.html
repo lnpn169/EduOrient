@@ -68,7 +68,7 @@
     <link rel="stylesheet" href="tailwind.min.css?v=681b7a9784">
 
     <!-- CSS riêng của app -->
-<link rel="stylesheet" href="index.css?v=e58cb98fc0">
+<link rel="stylesheet" href="index.css?v=de5d85684f">
 
     <!-- Thư viện CDN: React (production), SweetAlert2.
          Lucide: đã bỏ (icon là SVG nội tuyến trong app.jsx). JSZip: chỉ tải khi giáo viên bấm "Nhập đề từ file Word (.docx)". -->
@@ -76,7 +76,7 @@
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js" integrity="sha384-bm7MnzvK++ykSwVJ2tynSE5TRdN+xL418osEVF2DE/L/gfWHj91J2Sphe582B1Bh" crossorigin="anonymous"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/sweetalert2@11.14.5" integrity="sha384-YB/DdIkloKoRpclWB8bNcYXWakt57USgtQPDzvnIDHYU0lasD5eWlXVo1S4ODukY" crossorigin="anonymous"></script>
 
-    <script src="edu-common.js?v=68473aee6f"></script>
+    <script src="edu-common.js?v=840d9bcdce"></script>
     <!-- TĂNG TƯƠNG PHẢN DARK MODE: khối riêng, nằm SAU #dark-theme nên không bị mất khi sinh lại khối đó -->
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col antialiased">
@@ -86,7 +86,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js" integrity="sha384-TnlRYaR4JYz/lpaGuaiU61PjNberSA4vjLjtF+oRC/IkohkJqnWxw5EmDSOt1vA1" crossorigin="anonymous"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js" integrity="sha384-qn4Jh88HhJA8dplNQyGjOh9OGI4izVhrfj/qIFgaKcdgOE06pXqIKGlsCILZcLAC" crossorigin="anonymous"></script>
     <!-- type="module": bắt buộc để esbuild --splitting hoạt động; các chunk Giáo viên / Quản trị / Phụ huynh tự tải khi cần -->
-    <script type="module" src="app.min.js?v=bc04ea68c4"></script>
+    <script type="module" src="app.min.js?v=21aeaa69e4"></script>
 <script>
   // Có bản mới: nếu người dùng đang ở tab khác thì tải lại âm thầm; nếu đang dùng thì hiện thanh "Cập nhật" (không làm mất dữ liệu đang nhập).
   if ('serviceWorker' in navigator) {

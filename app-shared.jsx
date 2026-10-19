@@ -1,5 +1,6 @@
 // EduOrient — code dùng chung cho các màn hình tải theo nhu cầu (Giáo viên / Quản trị / Phụ huynh). KHÔNG nằm trong gói tải ban đầu.
 import { fbAuth, fbDb, fbErr, fbNow, initialsAvatar, safeAvatar } from './app-core.jsx';
+import { Icon } from './app-icons.jsx';
 
         const { useState, useEffect, useRef, useMemo, useCallback, memo } = React;
 
@@ -27,47 +28,6 @@ import { fbAuth, fbDb, fbErr, fbNow, initialsAvatar, safeAvatar } from './app-co
             return same ? pv : out;
         };
 
-
-        // Icon: SVG nội tuyến (inline) — KHÔNG cần tải thư viện Lucide đầy đủ nữa.
-        // Bảng dưới chỉ chứa 25 icon thực sự được dùng (nguồn: Lucide, 24x24, nét 2px).
-        // Muốn thêm icon mới: mở lucide.dev, chọn icon, copy phần ruột bên trong thẻ <svg> vào bảng này.
-        const ICON_SVG = {
-            'alert-circle': '<circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/>',
-            'check-circle-2': '<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>',
-            'chevron-left': '<path d="m15 18-6-6 6-6"/>',
-            'chevron-right': '<path d="m9 18 6-6-6-6"/>',
-            'clipboard-edit': '<rect width="8" height="4" x="8" y="2" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-5.5"/><path d="M4 13.5V6a2 2 0 0 1 2-2h2"/><path d="M13.378 15.626a1 1 0 1 0-3.004-3.004l-5.01 5.012a2 2 0 0 0-.506.854l-.837 2.87a.5.5 0 0 0 .62.62l2.87-.837a2 2 0 0 0 .854-.506z"/>',
-            'compass': '<path d="m16.24 7.76-1.804 5.411a2 2 0 0 1-1.265 1.265L7.76 16.24l1.804-5.411a2 2 0 0 1 1.265-1.265z"/><circle cx="12" cy="12" r="10"/>',
-            'file-badge': '<path d="M12 22h6a2 2 0 0 0 2-2V7l-5-5H6a2 2 0 0 0-2 2v3"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M5 17a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path d="M7 16.5 8 22l-3-1-3 1 1-5.5"/>',
-            'clipboard-paste': '<path d=\"M15 2H9a1 1 0 0 0-1 1v2c0 .6.4 1 1 1h6c.6 0 1-.4 1-1V3c0-.6-.4-1-1-1Z\"/><path d=\"M8 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2\"/><path d=\"M16 4h2a2 2 0 0 1 2 2v2\"/><path d=\"M11 14h10\"/><path d=\"m17 10 4 4-4 4\"/>',
-            'sparkles': '<path d=\"M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z\"/><path d=\"M20 3v4\"/><path d=\"M22 5h-4\"/><path d=\"M4 17v2\"/><path d=\"M5 18H3\"/>',
-            'file-up': '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M12 12v6"/><path d="m15 15-3-3-3 3"/>',
-            'graduation-cap': '<path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z"/><path d="M22 10v6"/><path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5"/>',
-            'image-plus': '<path d="M16 5h6"/><path d="M19 2v6"/><path d="M21 11.5V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7.5"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/><circle cx="9" cy="9" r="2"/>',
-            'key-round': '<path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/>',
-            'log-in': '<path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" x2="3" y1="12" y2="12"/>',
-            'log-out': '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/>',
-            'maximize': '<path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/>',
-            'refresh-cw': '<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>',
-            'rotate-cw': '<path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/>',
-            'save': '<path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/>',
-            'search': '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
-            'shield-check': '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/>',
-            'trophy': '<path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>',
-            'upload-cloud': '<path d="M12 13v8"/><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="m8 17 4-4 4 4"/>',
-            'user': '<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
-            'x': '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
-            'zoom-in': '<circle cx="11" cy="11" r="8"/><line x1="21" x2="16.65" y1="21" y2="16.65"/><line x1="11" x2="11" y1="8" y2="14"/><line x1="8" x2="14" y1="11" y2="11"/>',
-            'zoom-out': '<circle cx="11" cy="11" r="8"/><line x1="21" x2="16.65" y1="21" y2="16.65"/><line x1="8" x2="14" y1="11" y2="11"/>',
-        };
-
-        const Icon = memo(({ name, className = "w-4 h-4" }) => (
-            <span className="inline-flex items-center justify-center shrink-0">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={'lucide lucide-' + name + ' ' + className}
-                    dangerouslySetInnerHTML={{ __html: ICON_SVG[name] || '' }} />
-            </span>
-        ));
 
         // Cộng/trừ XP gốc của học sinh trong bxh/summary (atomic). Lỗi thì bỏ qua: học sinh sẽ tự chữa lại khi mở app.
         const bxhBumpXp = (uid, delta) => (!uid || !delta) ? Promise.resolve()
@@ -213,7 +173,7 @@ import { fbAuth, fbDb, fbErr, fbNow, initialsAvatar, safeAvatar } from './app-co
                     }
                     step = 'cập nhật nhóm';
                     await fbDb.collection('groups').doc(group.id).update({ members: F.arrayUnion(d.id) });
-                    setEmail(''); setAddMsg({ t: 'ok', s: '✅ Đã thêm ' + nm + ' vào nhóm.' });
+                    setEmail(''); setAddMsg({ t: 'ok', s: 'Đã thêm ' + nm + ' vào nhóm.' });
                     eduAlert('Đã thêm ' + nm + ' vào nhóm.', 'success');
                 } catch (err) {
                     console.error("Lỗi chi tiết:", err);
@@ -234,13 +194,13 @@ import { fbAuth, fbDb, fbErr, fbNow, initialsAvatar, safeAvatar } from './app-co
                 <div className="fixed inset-0 bg-slate-900/60 z-[60] flex items-center justify-center p-3" onClick={onClose}>
                     <div className="bg-white rounded-2xl w-full max-w-md max-h-[85vh] flex flex-col shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
-                            <h3 className="font-bold text-slate-900 text-sm truncate">⚙️ {group.name || 'Nhóm lớp'}</h3>
-                            <button onClick={onClose} className="text-slate-400 text-lg ml-2">✕</button>
+                            <h3 className="font-bold text-slate-900 text-sm truncate"><Icon name="cog" className="ic-inline" /> {group.name || 'Nhóm lớp'}</h3>
+                            <button onClick={onClose} className="text-slate-400 text-lg ml-2"><Icon name="close" className="ic-inline" /></button>
                         </div>
                         <div className="overflow-y-auto p-4">
                             <p className="text-[11px] text-slate-500 mb-3">{canManage ? (isAdmin ? 'Bạn đang quản lý nhóm với quyền Quản trị viên: ' : 'Bạn là GVCN của nhóm này: ') + 'thêm học sinh bằng email, xóa thành viên, xóa lịch sử chat và phong 1 học sinh làm Lớp Trưởng (tối đa 1 người; muốn xóa Lớp Trưởng khỏi nhóm, hãy bãi nhiệm trước). Học sinh có nhãn "Đang ẩn" đã tự ẩn mình khỏi danh sách của các bạn, nhưng bạn vẫn thấy đầy đủ.' : 'Bạn đang xem danh sách thành viên nhóm. Chỉ Admin, GVCN và Lớp Trưởng mới quản lý được nhóm.'}</p>
                             {canManage && <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 mb-3">
-                                <p className="text-xs font-bold text-slate-700 mb-1">➕ Thêm học sinh vào nhóm bằng Email</p>
+                                <p className="text-xs font-bold text-slate-700 mb-1"><Icon name="plus" className="ic-inline" /> Thêm học sinh vào nhóm bằng Email</p>
                                 <p className="text-[10px] text-slate-500 mb-2">Nhập email tài khoản học sinh (cũng thêm được giáo viên bộ môn đã được duyệt).</p>
                                 <div className="flex gap-2">
                                     <input id="add-student-email" name="studentEmail" aria-label="Email học sinh" type="email" value={email} onChange={(e) => { setEmail(e.target.value); setAddMsg(null); }} onKeyDown={(e) => e.key === 'Enter' && addByEmail()} placeholder="Nhập Email học sinh..." className="flex-1 min-w-0 px-3 py-2 border border-slate-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-amber-500" />
@@ -248,7 +208,7 @@ import { fbAuth, fbDb, fbErr, fbNow, initialsAvatar, safeAvatar } from './app-co
                                 </div>
                                 {addMsg && <p className={'text-[11px] mt-2 ' + (addMsg.t === 'err' ? 'text-red-600' : 'text-emerald-700')}>{addMsg.s}</p>}
                             </div>}
-                            {canManage && <button disabled={!!busy} onClick={wipeAll} className="w-full mb-3 px-3 py-2 rounded-xl bg-red-50 text-red-600 text-xs font-bold">{busy === 'wipe' ? 'Đang xóa...' : '🗑️ Xóa toàn bộ lịch sử tin nhắn nhóm'}</button>}
+                            {canManage && <button disabled={!!busy} onClick={wipeAll} className="w-full mb-3 px-3 py-2 rounded-xl bg-red-50 text-red-600 text-xs font-bold">{busy === 'wipe' ? 'Đang xóa...' : 'Xóa toàn bộ lịch sử tin nhắn nhóm'}</button>}
                             <p className="text-xs font-bold text-slate-700 mb-1">Thành viên ({rows.length})</p>
                             {rows.map((m) => {
                                 const student = !m.teacher;
@@ -434,7 +394,7 @@ import { fbAuth, fbDb, fbErr, fbNow, initialsAvatar, safeAvatar } from './app-co
                     {/* Danh sách học sinh đã được chỉnh điểm (adjustXp ≠ 0) */}
                     <div className="border border-amber-100 bg-amber-50/40 rounded-xl p-3">
                         <button type="button" onClick={() => setShowEdited(!showEdited)} aria-expanded={showEdited} className="w-full flex items-center justify-between text-left">
-                            <span className="text-sm font-bold text-slate-800">✎ Học sinh đã được chỉnh điểm <span className="ml-1 px-2 py-0.5 rounded-full bg-amber-500 text-white text-[11px]">{editedList.length}</span></span>
+                            <span className="text-sm font-bold text-slate-800"><Icon name="pencil" className="ic-inline" /> Học sinh đã được chỉnh điểm <span className="ml-1 px-2 py-0.5 rounded-full bg-amber-500 text-white text-[11px]">{editedList.length}</span></span>
                             <span className="text-[11px] font-semibold text-slate-500">{showEdited ? 'Thu gọn' : 'Mở ra'}</span>
                         </button>
                         {showEdited && (editedList.length === 0
@@ -460,7 +420,7 @@ import { fbAuth, fbDb, fbErr, fbNow, initialsAvatar, safeAvatar } from './app-co
         }
 
 
-        const THEME_OPTS = [['system', '🖥️', 'Mặc định'], ['dark', '🌙', 'Tối'], ['light', '☀️', 'Sáng']];
+        const THEME_OPTS = [['system', 'monitor', 'Mặc định'], ['dark', 'weather-night', 'Tối'], ['light', 'white-balance-sunny', 'Sáng']];
 
         const GroupSettingsModal = memo(GroupSettingsModalImpl);
 

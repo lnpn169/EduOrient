@@ -308,3 +308,36 @@
         /* ===== MODAL GIAO BÀI (giáo viên): biến màu cho dark mode ===== */
         html.dark { --eo-surface:#27354f; --eo-line:#3a4b6e; --eo-line2:#566a92; --eo-text:#ffffff; --eo-text2:#e2e8f0; --eo-text3:#bcc7da; --eo-ind-line:rgb(99 102 241 / 0.45); --eo-ind-bg:rgb(99 102 241 / 0.12); --eo-sec-bg:#2b3a57; --eo-chip:#364869; --eo-chip-h:#42557b; --eo-chip-on:#fcd34d; }
         html.dark .eo-hw-modal { background:#27354f !important; }
+
+/* ===== Icon SVG (app-icons.jsx): icon thay emoji, cao bằng chữ đang đứng cạnh, đổi màu theo chữ ===== */
+.mdi-icon { fill: currentColor; }
+.ic-inline { width: 1.1em; height: 1.1em; }
+.mdi-wrap { vertical-align: -0.18em; }
+
+/* ===== EduOrient — ICON NHIỀU MÀU (các màn React) =====
+ * <Icon> vẽ nhiều <path>, mỗi phần fill:var(--ic-keep, <màu>) (xem ICON_PARTS trong app-icons.jsx).
+ * Trong vùng chữ trắng (nút nền màu) hoặc chữ đã có màu trạng thái (text-red-*, text-emerald-*...) thì --ic-keep:currentColor -> đơn sắc như cũ.
+ * Muốn một vùng KHÔNG tô màu: thêm class "no-ic-color" vào phần tử cha. */
+[class*="text-white"] svg.mdi-icon,
+[class*="text-red-"] svg.mdi-icon,
+[class*="text-rose-"] svg.mdi-icon,
+[class*="text-pink-"] svg.mdi-icon,
+[class*="text-orange-"] svg.mdi-icon,
+[class*="text-amber-"] svg.mdi-icon,
+[class*="text-yellow-"] svg.mdi-icon,
+[class*="text-lime-"] svg.mdi-icon,
+[class*="text-green-"] svg.mdi-icon,
+[class*="text-emerald-"] svg.mdi-icon,
+[class*="text-teal-"] svg.mdi-icon,
+[class*="text-cyan-"] svg.mdi-icon,
+[class*="text-sky-"] svg.mdi-icon,
+[class*="text-blue-"] svg.mdi-icon,
+[class*="text-indigo-"] svg.mdi-icon,
+[class*="text-violet-"] svg.mdi-icon,
+[class*="text-purple-"] svg.mdi-icon,
+[class*="text-fuchsia-"] svg.mdi-icon,
+[style*="color:#fff" i] svg.mdi-icon,
+[style*="color: #fff" i] svg.mdi-icon,
+[style*="color:white" i] svg.mdi-icon,
+[style*="color: white" i] svg.mdi-icon,
+.no-ic-color svg.mdi-icon { --ic-keep: currentColor; }

@@ -1,11 +1,20 @@
 // EduOrient — phần LÕI dùng ngay ở trang đăng nhập (Firebase, hằng số, AuthGate, các bộ chọn trường/môn...). Được tải cùng app.jsx.
 const { useState, useEffect, useRef, useMemo, useCallback, memo } = React;
 
+        // Icon rút gọn cho màn hình đăng nhập (chỉ vài icon cần dùng, để gói tải đầu không phải kéo cả bộ app-icons). Cùng nguồn Material Design Icons.
+        const CORE_ICONS = { alert: "M13 14h-2V9h2m0 9h-2v-2h2M1 21h22L12 2z", close: "M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z", 'close-circle': "M12 2c5.53 0 10 4.47 10 10s-4.47 10-10 10S2 17.53 2 12 6.47 2 12 2m3.59 5L12 10.59 8.41 7 7 8.41 10.59 12 7 15.59 8.41 17 12 13.41 15.59 17 17 15.59 13.41 12 17 8.41z", magnify: "M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5" };
+        const CoreIcon = ({ name, className = 'ic-inline' }) => (
+            <span className="inline-flex items-center justify-center shrink-0 mdi-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className={'mdi-icon ' + className}><path d={CORE_ICONS[name] || ''} /></svg></span>
+        );
+
 // ================= FIREBASE =================
 // Đăng nhập Google dùng REDIRECT: authDomain phải TRÙNG domain đang phục vụ trang (trình duyệt chặn storage bên thứ ba).
 // Firebase Hosting tự phục vụ /__/auth/handler trên mọi domain của nó (web.app, firebaseapp.com, domain riêng). Chạy local thì dùng domain mặc định.
 const AUTH_DOMAIN = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname) ? 'eduorient-d06c2.firebaseapp.com' : location.hostname;
-firebase.initializeApp({
+// Môi trường: điền FB_STAGING (config project Firebase thử nghiệm) thì localhost và <project-thử-nghiệm>.web.app dùng project đó; còn lại luôn dùng project thật.
+const FB_STAGING = null;   // dán đối tượng config của project thử nghiệm vào đây (xem HUONG-DAN-STAGING.md)
+const FB_USE_STG = !!FB_STAGING && (/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname) || location.hostname.indexOf(FB_STAGING.projectId) === 0);
+firebase.initializeApp(FB_USE_STG ? { ...FB_STAGING, authDomain: location.hostname.indexOf('localhost') === 0 || location.hostname === '127.0.0.1' ? FB_STAGING.authDomain : location.hostname } : {
   apiKey: "AIzaSyDO6B0BHBJkKZ_xiose_q_hv6yqf2l7NHQ",
   authDomain: AUTH_DOMAIN,
   projectId: "eduorient-d06c2",
@@ -161,17 +170,17 @@ function SchoolPicker({ value, onChange, inp, accent }) {
   const row = 'w-full flex items-center justify-between gap-3 px-3 py-2.5 text-sm text-left rounded-lg transition-colors ';
   return (<>
     <div className="relative" ref={wrap}>
-      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm pointer-events-none" aria-hidden="true">🔍</span>
+      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm pointer-events-none" aria-hidden="true"><CoreIcon name="magnify" className="ic-inline" /></span>
       <input id="school-search" name="schoolSearch" aria-label="Tìm trường công tác" ref={inputRef} type="text" role="combobox" aria-expanded={isSchoolOpen} aria-autocomplete="list" autoComplete="off"
         className={inp + ' bg-white !pl-10 !pr-9'} placeholder="Nhập tên trường hoặc tỉnh/thành..."
         value={schoolSearch} onChange={onType} onClick={() => setIsSchoolOpen(true)} onFocus={() => setIsSchoolOpen(true)} onKeyDown={onKey} />
       {(schoolSearch || value.school || value.province) && (
         <button type="button" onClick={clearAll} aria-label="Xóa lựa chọn trường"
-          className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full text-xs text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center">✕</button>
+          className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full text-xs text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center"><CoreIcon name="close" className="ic-inline" /></button>
       )}
       {isSchoolOpen && (
         <div ref={listRef} role="listbox" className="absolute left-0 right-0 top-full mt-1 z-30 bg-white border border-slate-200 rounded-xl shadow-xl p-1.5 max-h-64 overflow-y-auto">
-          {!shown.length && <p className="px-3 py-3 text-xs text-slate-400 text-center">❌ Không tìm thấy trường phù hợp</p>}
+          {!shown.length && <p className="px-3 py-3 text-xs text-slate-400 text-center"><CoreIcon name="close-circle" className="ic-inline" /> Không tìm thấy trường phù hợp</p>}
           {items.map((it, i) => {
             const isActive = i === active;
             if (it.type === 'school') {
@@ -604,14 +613,14 @@ class ErrorBoundary extends React.Component {
     const msg = String((this.state.err && this.state.err.message) || this.state.err);
     if (this.props.inline) return (
       <div className="bg-red-50 border border-red-200 rounded-2xl p-4 my-3 text-sm text-red-700">
-        <p className="font-bold">⚠️ Phần này gặp lỗi khi hiển thị.</p>
+        <p className="font-bold"><CoreIcon name="alert" className="ic-inline" /> Phần này gặp lỗi khi hiển thị.</p>
         <p className="text-xs mt-1 break-words">{msg}</p>
         <button onClick={() => this.setState({ err: null })} className="mt-2 px-3 py-1.5 rounded-lg bg-red-600 text-white text-xs font-bold">Thử lại</button>
       </div>);
     return (
       <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50">
         <div className="max-w-md w-full bg-white rounded-3xl shadow-lg p-6 text-center">
-          <div className="text-4xl mb-2">⚠️</div>
+          <div className="text-4xl mb-2"><CoreIcon name="alert" className="ic-inline" /></div>
           <h1 className="font-extrabold text-lg text-slate-800">Ứng dụng gặp sự cố</h1>
           <p className="text-sm text-slate-500 mt-1">Đã có lỗi khi hiển thị trang. Bạn hãy thử tải lại; nếu vẫn lỗi hãy báo cho quản trị viên.</p>
           <p className="text-[11px] text-red-500 mt-3 break-words">{msg}</p>

@@ -102,7 +102,7 @@
             if (!el || !el.textContent || !window.eduHasMath(el.textContent)) return Promise.resolve();
             return load().then(function () {
                 if (el.isConnected === false) return;
-                window.renderMathInElement(el, { delimiters: DELIMS, throwOnError: false, ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'] });
+                window.renderMathInElement(el, { delimiters: DELIMS, throwOnError: false, strict: 'ignore', ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'] });
             }).catch(function () { /* mất mạng: giữ nguyên dạng chữ */ });
         };
     })();

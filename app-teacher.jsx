@@ -95,7 +95,7 @@ import { ATT_STATUS, BxhScoreEditor, EMPTY_LIST, GroupSettingsModal, Icon, THEME
                     <div style={{ background: 'var(--eo-surface,#fff)', color: 'var(--eo-text,#0f172a)', borderRadius: 16, width: '100%', maxWidth: 560, padding: 16, boxShadow: '0 20px 50px rgba(0,0,0,.35)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                             <b style={{ fontSize: 15 }}>Chèn công thức</b>
-                            <button type="button" onClick={onClose} aria-label="Đóng" style={{ ...btn, border: 0, fontSize: 16 }}>✕</button>
+                            <button type="button" onClick={onClose} aria-label="Đóng" style={{ ...btn, border: 0, fontSize: 16 }}><Icon name="close" className="ic-inline" /></button>
                         </div>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 10 }}>
                             {FX_BTNS.map(([lb, tpl]) => <button key={lb} type="button" style={btn} onMouseDown={(e) => e.preventDefault()} onClick={() => put(tpl)}>{lb}</button>)}
@@ -168,7 +168,7 @@ import { ATT_STATUS, BxhScoreEditor, EMPTY_LIST, GroupSettingsModal, Icon, THEME
                     <div style={{ background: 'var(--eo-surface,#fff)', color: 'var(--eo-text,#0f172a)', borderRadius: 16, width: '100%', maxWidth: 620, maxHeight: '92vh', overflowY: 'auto', padding: 16, boxShadow: '0 20px 50px rgba(0,0,0,.35)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                             <b style={{ fontSize: 15 }}>{title}</b>
-                            <button type="button" onClick={onClose} aria-label="Đóng" style={{ ...fxBtn, border: 0, fontSize: 16, padding: '4px 9px' }}>✕</button>
+                            <button type="button" onClick={onClose} aria-label="Đóng" style={{ ...fxBtn, border: 0, fontSize: 16, padding: '4px 9px' }}><Icon name="close" className="ic-inline" /></button>
                         </div>
                         {children}
                     </div>
@@ -761,7 +761,7 @@ async function readDocxLines(buf) {
             return (
                 <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                     <div className="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto p-6 space-y-3 shadow-2xl">
-                        <div className="flex justify-between items-center"><h3 className="font-bold text-slate-900">Sửa bài tập</h3><button onClick={onClose} className="text-slate-400 text-lg">✕</button></div>
+                        <div className="flex justify-between items-center"><h3 className="font-bold text-slate-900">Sửa bài tập</h3><button onClick={onClose} className="text-slate-400 text-lg"><Icon name="close" className="ic-inline" /></button></div>
                         <input id="edit-hw-title" name="title" aria-label="Tiêu đề" className={inp} value={v.title} onChange={(e) => setV({ ...v, title: e.target.value })} placeholder="Tiêu đề" />
                         <textarea id="edit-hw-description" name="description" aria-label="Mô tả / hướng dẫn" rows="2" className={inp} value={v.description} onChange={(e) => setV({ ...v, description: e.target.value })} placeholder="Mô tả / hướng dẫn" />
                         <div><label className="block text-xs font-bold text-slate-700 mb-1">Thời gian làm bài (phút, 5–180)</label>
@@ -902,7 +902,7 @@ async function readDocxLines(buf) {
                         <div className="lg:w-80 shrink-0 max-h-[45%] lg:max-h-none border-t lg:border-t-0 lg:border-l border-slate-200 p-4 space-y-3 overflow-y-auto">
                             <div className="flex justify-between items-start gap-2">
                                 <div className="min-w-0"><h3 className="font-bold text-slate-900 text-sm break-words">{row.name}</h3><p className="text-xs text-slate-500 break-words">Lớp {row.cls} • {hw.title}</p></div>
-                                <button type="button" onClick={onClose} className="text-slate-400 text-lg" aria-label="Đóng">✕</button>
+                                <button type="button" onClick={onClose} className="text-slate-400 text-lg" aria-label="Đóng"><Icon name="close" className="ic-inline" /></button>
                             </div>
                             {hw.type === 'mixed' && (row.mcqScore !== undefined || !row.graded) && (
                                 <p className="text-[11px] bg-slate-50 rounded-lg px-2 py-1.5 text-slate-600">Trắc nghiệm (tự chấm): <b>{row.mcqScore !== undefined ? row.mcqScore : row.score}/{row.total}</b></p>
@@ -960,7 +960,7 @@ async function readDocxLines(buf) {
                 const k = q.p;
                 if (typeof k !== 'number' || typeof psgs[k] !== 'string' || !psgs[k] || shownPsg.has(k)) return null;
                 shownPsg.add(k);
-                return (<div key={'psg' + k} className="mb-2 bg-amber-50 border border-amber-200 rounded-xl p-3"><p className="text-[11px] font-bold text-amber-700 mb-1">📖 Đoạn văn dùng chung</p><div className="text-xs text-slate-700 whitespace-pre-wrap break-words leading-relaxed"><MathText text={psgs[k]} /></div></div>);
+                return (<div key={'psg' + k} className="mb-2 bg-amber-50 border border-amber-200 rounded-xl p-3"><p className="text-[11px] font-bold text-amber-700 mb-1"><Icon name="book-open-variant" className="ic-inline" /> Đoạn văn dùng chung</p><div className="text-xs text-slate-700 whitespace-pre-wrap break-words leading-relaxed"><MathText text={psgs[k]} /></div></div>);
             };
             useEffect(() => {
                 const h = (e) => { if (e.key === 'Escape') { e.stopPropagation(); onClose(); } };
@@ -975,7 +975,7 @@ async function readDocxLines(buf) {
                                 <h4 className="font-bold text-slate-900 truncate">{row.name} <span className="text-xs font-normal text-slate-400">• {row.cls}</span></h4>
                                 <p className="text-xs text-slate-500 mt-0.5">Trắc nghiệm: <b className="text-emerald-700">{okN}/{mcq.length}</b> đúng{noneN > 0 && <> • <span className="text-amber-600">{noneN} câu bỏ trống</span></>}{essayQs.length > 0 && <> • {essayQs.length} câu tự luận</>}</p>
                             </div>
-                            <button type="button" onClick={onClose} className="shrink-0 w-9 h-9 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 text-lg" aria-label="Đóng">✕</button>
+                            <button type="button" onClick={onClose} className="shrink-0 w-9 h-9 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 text-lg" aria-label="Đóng"><Icon name="close" className="ic-inline" /></button>
                         </div>
                         <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar px-4 sm:px-6 py-4 space-y-3">
                             {mcq.length > 0 && <p className="text-xs font-bold text-slate-700">Phần trắc nghiệm ({mcq.length} câu)</p>}
@@ -997,7 +997,7 @@ async function readDocxLines(buf) {
                                                 })}
                                             </div>
                                             {st === 'none' && <p className="text-[11px] font-bold text-amber-600 mt-1.5">Học sinh chưa trả lời câu này.</p>}
-                                            {q.e && <p className="text-[11px] text-slate-500 mt-1.5">💡 <MathText text={q.e} /></p>}
+                                            {q.e && <p className="text-[11px] text-slate-500 mt-1.5"><Icon name="lightbulb-on" className="ic-inline" /> <MathText text={q.e} /></p>}
                                         </div>
                                     </React.Fragment>
                                 );
@@ -1007,7 +1007,7 @@ async function readDocxLines(buf) {
                                     <div className="flex items-center justify-between gap-2">
                                         <p className="text-xs font-bold text-slate-700">Phần tự luận ({essayQs.length} câu)</p>
                                         {hasPh
-                                            ? <button type="button" onClick={onOpenPhotos} className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-lg">📷 Xem {photoCountOf(row)} ảnh bài làm{canGrade ? ' & chấm' : ''}</button>
+                                            ? <button type="button" onClick={onOpenPhotos} className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-lg"><Icon name="camera" className="ic-inline" /> Xem {photoCountOf(row)} ảnh bài làm{canGrade ? ' & chấm' : ''}</button>
                                             : <span className="text-[11px] text-slate-400">Học sinh không có ảnh bài làm</span>}
                                     </div>
                                     {essayQs.map(({ q, i }) => (
@@ -1203,7 +1203,7 @@ const gridCls = 'grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)
                     {timeout
                         ? <span className="text-[10px] font-bold bg-red-50 text-red-600 px-1.5 py-0.5 rounded">Quá hạn 3p (0đ)</span>
                         : <span className="text-[10px] font-bold bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded">Đã nộp</span>}
-                    {!timeout && n > 0 && <span className="text-[10px] font-bold text-indigo-600">📷 {n} ảnh</span>}
+                    {!timeout && n > 0 && <span className="text-[10px] font-bold text-indigo-600"><Icon name="camera" className="ic-inline" /> {n} ảnh</span>}
                     {!timeout && essay && r.graded && <span className="text-[10px] font-bold text-emerald-600">• Đã chấm</span>}
                     {!timeout && r.auto && <span className="text-[10px] text-slate-400">• tự nộp</span>}
                     {!timeout && (hw.questions || []).length > 0 && <span role="button" tabIndex={0} onClick={(e) => { e.stopPropagation(); setDetailUid(r.uid); }} onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); setDetailUid(r.uid); } }} className="text-[10px] font-bold bg-orange-500 hover:bg-orange-600 text-white px-2 py-0.5 rounded cursor-pointer">Xem chi tiết</span>}
@@ -1222,7 +1222,7 @@ const gridCls = 'grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)
                                 </div>
                                 <div className="shrink-0 flex items-center gap-2">
 <button type="button" onClick={exportExcel} disabled={exporting || rows.length === 0} className="h-9 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold disabled:opacity-50">{exporting ? 'Đang xuất...' : '⬇ Xuất Excel'}</button>
-<button type="button" onClick={onClose} className="w-9 h-9 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 text-lg" aria-label="Đóng">✕</button>
+<button type="button" onClick={onClose} className="w-9 h-9 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 text-lg" aria-label="Đóng"><Icon name="close" className="ic-inline" /></button>
 </div>
                             </div>
                             <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
@@ -1348,7 +1348,7 @@ const gridCls = 'grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)
                 <div className="fixed inset-0 z-[100] bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="gate-title">
                     <div className="bg-white rounded-2xl max-w-sm w-full p-6 space-y-3 shadow-2xl max-h-[90vh] overflow-y-auto">
                         <div className="text-center space-y-1">
-                            <div className="text-3xl">🏫</div>
+                            <div className="text-3xl"><Icon name="domain" className="ic-inline" /></div>
                             <h3 id="gate-title" className="font-bold text-slate-900">Cập nhật thông tin công tác</h3>
                             <p className="text-xs text-slate-500">Xin chào {user.name}. Tài khoản của bạn chưa có thông tin trường công tác / môn giảng dạy. Vui lòng chọn để tiếp tục sử dụng EduOrient.</p>
                         </div>
@@ -1399,7 +1399,7 @@ const gridCls = 'grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)
             const shell = (title, body, opts = {}) => (
                 <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4">
                     <div className={'bg-white rounded-2xl w-full shadow-2xl max-h-[92vh] flex flex-col overflow-hidden ' + (opts.wide ? 'max-w-sm md:max-w-3xl' : 'max-w-sm')}>
-                        <div className="shrink-0 flex justify-between items-center px-5 md:px-6 py-3.5 border-b border-slate-100"><h3 className="font-bold text-slate-900">{title}</h3><button type="button" onClick={() => setOpen(null)} className="w-8 h-8 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 text-lg" aria-label="Đóng">✕</button></div>
+                        <div className="shrink-0 flex justify-between items-center px-5 md:px-6 py-3.5 border-b border-slate-100"><h3 className="font-bold text-slate-900">{title}</h3><button type="button" onClick={() => setOpen(null)} className="w-8 h-8 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 text-lg" aria-label="Đóng"><Icon name="close" className="ic-inline" /></button></div>
                         <div className="flex-1 min-h-0 overflow-y-auto px-5 md:px-6 py-4 space-y-3">{body}</div>
                         {opts.footer && <div className="shrink-0 px-5 md:px-6 py-3 border-t border-slate-100 bg-slate-50/60">{opts.footer}</div>}
                     </div>
@@ -1410,7 +1410,7 @@ const gridCls = 'grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)
                         <div className="space-y-3 min-w-0">
                             <div className="flex items-center gap-4">
                                 <img src={avatarUrl(f)} className="w-20 h-20 rounded-full object-cover border-2 border-amber-500 shrink-0" />
-                                <label className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-amber-300 text-xs font-bold text-amber-700 hover:bg-amber-50 cursor-pointer">📷 Đổi ảnh đại diện<input id="avatar-upload" name="avatar" type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files[0] && resizeImg(e.target.files[0], 160, (d) => setF((x) => ({ ...x, avatar: d })))} /></label>
+                                <label className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-amber-300 text-xs font-bold text-amber-700 hover:bg-amber-50 cursor-pointer"><Icon name="camera" className="ic-inline" /> Đổi ảnh đại diện<input id="avatar-upload" name="avatar" type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files[0] && resizeImg(e.target.files[0], 160, (d) => setF((x) => ({ ...x, avatar: d })))} /></label>
                             </div>
                             <label className="block"><span className="text-[11px] font-bold text-slate-500 uppercase">Họ và tên</span>
                                 <input id="profile-name" name="name" autoComplete="name" className={inp + ' mt-1'} placeholder="Tên giáo viên" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></label>
@@ -1425,7 +1425,7 @@ const gridCls = 'grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)
                                     <input id="profile-private" name="isPrivate" type="checkbox" className="sr-only peer" checked={f.isPrivate} onChange={(e) => setF({ ...f, isPrivate: e.target.checked })} />
                                     <span className="relative mt-0.5 w-10 h-6 shrink-0 rounded-full bg-slate-300 transition peer-checked:bg-amber-600 peer-focus-visible:ring-2 peer-focus-visible:ring-amber-500 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:w-5 after:h-5 after:rounded-full after:bg-white after:shadow after:transition-transform peer-checked:after:translate-x-4"></span>
                                     <span className="min-w-0">
-                                        <b className="block text-xs text-slate-700">🔒 Ẩn khỏi danh sách tìm kiếm</b>
+                                        <b className="block text-xs text-slate-700"><Icon name="lock" className="ic-inline" /> Ẩn khỏi danh sách tìm kiếm</b>
                                         <span className="block text-[11px] text-slate-400 mt-0.5">Khi bật, hồ sơ của bạn không xuất hiện trong danh sách bạn bè / nhắn tin của học sinh và giáo viên khác. Quản trị viên vẫn xem được tài khoản này và có thể bật/tắt chế độ ẩn này.</span>
                                     </span>
                                 </label>
@@ -1433,7 +1433,7 @@ const gridCls = 'grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)
                             <div className="rounded-xl border border-slate-200 p-3 space-y-2">
                                 <b className="text-xs text-slate-700">Ảnh thẻ giáo viên (để xác minh)</b>
                                 {card ? <img src={card} className="w-full h-36 md:h-40 object-cover rounded-xl border border-slate-200" /> : <p className="text-[11px] text-slate-400">Chưa tải ảnh thẻ.</p>}
-                                <label className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-amber-300 text-xs font-bold text-amber-700 hover:bg-amber-50 cursor-pointer">📷 {card ? 'Đổi ảnh thẻ' : 'Tải ảnh thẻ'}<input id="card-upload" name="cardImage" type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files[0] && resizeFit(e.target.files[0], 720, (d) => { setCard(d); setCardDirty(true); })} /></label>
+                                <label className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-amber-300 text-xs font-bold text-amber-700 hover:bg-amber-50 cursor-pointer"><Icon name="camera" className="ic-inline" /> {card ? 'Đổi ảnh thẻ' : 'Tải ảnh thẻ'}<input id="card-upload" name="cardImage" type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files[0] && resizeFit(e.target.files[0], 720, (d) => { setCard(d); setCardDirty(true); })} /></label>
                                 <p className="text-[10px] text-slate-400">Chỉ quản trị viên xem được ảnh thẻ, học sinh không thấy.</p>
                             </div>
                         </div>
@@ -1528,7 +1528,7 @@ const gridCls = 'grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)
                             <h3 className="font-bold text-slate-900">Orient New</h3>
                             <div className="flex items-center gap-2">
                                 {[['feed', 'Bảng tin'], ['chat', 'Tin nhắn']].map(([k, l]) => (<button key={k} onClick={() => setTab(k)} className={'px-3 py-1.5 rounded-lg text-xs font-bold ' + (tab === k ? 'bg-amber-600 text-white' : 'bg-slate-100 text-slate-600')}>{l}</button>))}
-                                <button onClick={onClose} className="text-slate-400 text-lg ml-2">✕</button>
+                                <button onClick={onClose} className="text-slate-400 text-lg ml-2"><Icon name="close" className="ic-inline" /></button>
                             </div>
                         </div>
                         {tab === 'feed' && (<div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50">
@@ -1545,8 +1545,8 @@ const gridCls = 'grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)
                                 </div>
                                 <p className="text-sm text-slate-800 whitespace-pre-wrap break-words">{p.content}</p>
                                 <div className="flex gap-4 text-xs text-slate-500">
-                                    <button onClick={() => like(p)} className={(p.likes || []).includes(user.id) ? 'text-red-500 font-bold' : ''}>{(p.likes || []).includes(user.id) ? '❤️' : '🤍'} {(p.likes || []).length} Thích</button>
-                                    <button onClick={() => comment(p)}>💬 Bình luận ({(p.comments || []).length})</button>
+                                    <button onClick={() => like(p)} className={(p.likes || []).includes(user.id) ? 'text-red-500 font-bold' : ''}><Icon name={(p.likes || []).includes(user.id) ? 'heart' : 'heart-outline'} className="ic-inline" /> {(p.likes || []).length} Thích</button>
+                                    <button onClick={() => comment(p)}><Icon name="chat" className="ic-inline" /> Bình luận ({(p.comments || []).length})</button>
                                 </div>
                                 {(p.comments || []).map((c, i) => (<p key={i} className="text-xs bg-slate-50 rounded-lg px-2 py-1"><b>{c.name}:</b> {c.text}</p>))}
                             </div>))}
@@ -1563,10 +1563,10 @@ const gridCls = 'grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)
                             </div>
                             <div className="flex-1 flex flex-col min-w-0">
                                 <div className="px-3 py-2 border-b border-slate-100 text-sm font-bold flex items-center justify-between gap-2">
-                                    <span className="truncate">💬 {curName}{isHR && <span className="ml-2 px-1.5 py-0.5 rounded-md bg-rose-600 text-white text-[9px] font-extrabold align-middle">GVCN</span>}</span>
+                                    <span className="truncate"><Icon name="chat" className="ic-inline" /> {curName}{isHR && <span className="ml-2 px-1.5 py-0.5 rounded-md bg-rose-600 text-white text-[9px] font-extrabold align-middle">GVCN</span>}</span>
                                     <div className="flex items-center gap-1.5 shrink-0">
-                                        {canClear && <button onClick={clearChat} title="Xóa lịch sử tin nhắn" className="px-2.5 py-1 rounded-lg bg-red-50 text-red-600 text-[11px] font-bold">🗑️ Xóa lịch sử</button>}
-                                        {curGroup && <button onClick={() => setShowGroup(true)} className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 text-[11px] font-bold">⚙️ Quản lý nhóm</button>}
+                                        {canClear && <button onClick={clearChat} title="Xóa lịch sử tin nhắn" className="px-2.5 py-1 rounded-lg bg-red-50 text-red-600 text-[11px] font-bold"><Icon name="delete" className="ic-inline" /> Xóa lịch sử</button>}
+                                        {curGroup && <button onClick={() => setShowGroup(true)} className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 text-[11px] font-bold"><Icon name="cog" className="ic-inline" /> Quản lý nhóm</button>}
                                     </div>
                                 </div>
                                 <div ref={bodyRef} className="flex-1 overflow-y-auto p-3 space-y-2 bg-slate-50">
@@ -1575,7 +1575,7 @@ const gridCls = 'grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)
                                         const mine = m.from === user.id;
                                         const tag = curGroup ? (m.from === curGroup.homeroomTeacherUid ? 'GVCN' : (curGroup.monitorUid && m.from === curGroup.monitorUid) ? 'Lớp Trưởng' : '') : '';
                                         const canDel = !!curGroup && !!m.id && (isHR || mine);   // GVCN xóa mọi tin vi phạm; ai cũng xóa được tin của chính mình
-                                        const del = canDel ? <button onClick={() => delMsg(m)} title="Xóa tin nhắn" className="shrink-0 px-1 text-sm opacity-60 hover:opacity-100">🗑️</button> : null;
+                                        const del = canDel ? <button onClick={() => delMsg(m)} title="Xóa tin nhắn" className="shrink-0 px-1 text-sm opacity-60 hover:opacity-100"><Icon name="delete" className="ic-inline" /></button> : null;
                                         return (<div key={m.id || i} className={'flex items-center gap-1 ' + (mine ? 'justify-end' : '')}>
                                             {mine && del}
                                             <div className={'max-w-[80%] px-3 py-2 rounded-2xl text-xs break-words ' + (mine ? 'bg-amber-600 text-white' : 'bg-white border border-slate-200')}>
@@ -1712,10 +1712,10 @@ const gridCls = 'grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)
                     <div className="bg-white w-[95%] max-w-lg max-h-[90vh] overflow-y-auto overscroll-contain rounded-2xl shadow-2xl p-4 space-y-2.5 sm:space-y-3">
                         <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0">
-                                <h3 className="text-sm sm:text-base font-extrabold text-slate-800">📅 Lịch Điểm Danh &amp; Nề Nếp</h3>
+                                <h3 className="text-sm sm:text-base font-extrabold text-slate-800"><Icon name="calendar-month" className="ic-inline" /> Lịch Điểm Danh &amp; Nề Nếp</h3>
                                 <p className="text-[10px] sm:text-[11px] text-slate-500 leading-snug">Mặc định mọi ngày là <b>Lớp đủ</b>. Chỉ nhấp vào ngày có học sinh đi muộn / vắng để ghi nhận.</p>
                             </div>
-                            <button type="button" onClick={onClose} aria-label="Đóng" className="w-7 h-7 sm:w-8 sm:h-8 shrink-0 rounded-full bg-slate-100 text-slate-600 font-bold">✕</button>
+                            <button type="button" onClick={onClose} aria-label="Đóng" className="w-7 h-7 sm:w-8 sm:h-8 shrink-0 rounded-full bg-slate-100 text-slate-600 font-bold"><Icon name="close" className="ic-inline" /></button>
                         </div>
 
                         {classList.length === 0 ? <p className="text-sm text-slate-500 bg-slate-50 rounded-xl p-3 text-center">Chưa có lớp nào (học sinh cùng trường chưa khai báo lớp).</p> : <>
@@ -1770,7 +1770,7 @@ const gridCls = 'grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)
                                     </div>
 
                                     {dayOff
-                                        ? <div className="text-xs text-purple-700 bg-purple-100 border border-purple-200 rounded-lg p-2.5 font-semibold leading-snug">🏖️ Ngày nghỉ — lớp không đi học. Danh sách vắng / đi muộn của ngày này đã được khóa. Phụ huynh sẽ thấy ngày này màu tím trong Báo cáo.</div>
+                                        ? <div className="text-xs text-purple-700 bg-purple-100 border border-purple-200 rounded-lg p-2.5 font-semibold leading-snug"><Icon name="beach" className="ic-inline" /> Ngày nghỉ — lớp không đi học. Danh sách vắng / đi muộn của ngày này đã được khóa. Phụ huynh sẽ thấy ngày này màu tím trong Báo cáo.</div>
                                         : <>
                                     {Object.keys(draft).length === 0
                                         ? <p className="text-xs text-emerald-700 bg-emerald-50 rounded-lg p-2 font-semibold">✔ Lớp đủ — chưa có học sinh nào đi muộn / vắng.</p>
@@ -1779,9 +1779,9 @@ const gridCls = 'grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)
                                                 <div className="min-w-0 flex-1">
                                                     <p className="text-xs sm:text-sm font-semibold text-slate-800 truncate">{nameOf(uid)}</p>
                                                     <span className={'inline-block text-[11px] font-bold px-2 py-0.5 rounded-full ' + ATT_STATUS[draft[uid].status].cell}>{ATT_STATUS[draft[uid].status].label}</span>
-                                                    {draft[uid].note ? <p className="text-xs text-slate-500 mt-0.5 break-words">📝 {draft[uid].note}</p> : null}
+                                                    {draft[uid].note ? <p className="text-xs text-slate-500 mt-0.5 break-words"><Icon name="note-edit" className="ic-inline" /> {draft[uid].note}</p> : null}
                                                 </div>
-                                                <button type="button" onClick={() => removeEntry(uid)} aria-label="Bỏ ghi nhận" className="shrink-0 text-red-500 text-sm px-1">🗑</button>
+                                                <button type="button" onClick={() => removeEntry(uid)} aria-label="Bỏ ghi nhận" className="shrink-0 text-red-500 text-sm px-1"><Icon name="delete" className="ic-inline" /></button>
                                             </div>))}</div>}
 
                                     <div className="space-y-2 bg-white rounded-xl border border-slate-100 p-2 sm:p-2.5">
@@ -1992,7 +1992,7 @@ const gridCls = 'grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)
                     <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[85vh] overflow-y-auto p-4 space-y-3" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-between gap-2">
                             <h3 className="font-bold text-slate-800 text-base break-words min-w-0">{title}</h3>
-                            <button type="button" onClick={onClose} className="shrink-0 w-9 h-9 rounded-full bg-slate-100 text-slate-600 font-bold" aria-label="Đóng">✕</button>
+                            <button type="button" onClick={onClose} className="shrink-0 w-9 h-9 rounded-full bg-slate-100 text-slate-600 font-bold" aria-label="Đóng"><Icon name="close" className="ic-inline" /></button>
                         </div>
                         {children}
                     </div>
@@ -2192,9 +2192,9 @@ const gridCls = 'grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)
 
 
         // ===================== GIAO DIỆN GIÁO VIÊN MỚI (từ gvien.html) — component thuần hiển thị =====================
-        const TD_EMOJI = { plus:"＋", shield:"🛡️", ok:"✔", cal:"📅", clock:"⏱", q:"❓", users:"👥", chart:"📊", link:"🔗", bull:"📣", trophy:"🏆", star:"⭐", chat:"💬", pen:"✏️", lock:"🔒", eye:"👁", file:"📝", user:"👤", calok:"🗓", edit:"✎", trash:"🗑", school:"🏫", out:"🚪" };
+        const TD_ICON = {"plus": "plus", "shield": "shield-check", "ok": "check", "cal": "calendar-month", "clock": "timer-outline", "q": "help-circle", "users": "account-group", "chart": "chart-box", "link": "link-variant", "bull": "bullhorn", "trophy": "trophy", "star": "star", "chat": "chat", "pen": "pencil", "lock": "lock", "eye": "eye", "file": "note-edit", "user": "account", "calok": "calendar-month", "edit": "pencil", "trash": "delete", "school": "domain", "out": "logout"};
 
-        const TdIc = memo(({ n, c = "" }) => <span className={"inline-block text-center " + c}>{TD_EMOJI[n]}</span>);
+        const TdIc = memo(({ n, c = "" }) => <span className={"inline-block text-center " + c}><Icon name={TD_ICON[n]} className="ic-inline" /></span>);
 
         const TdStat = memo(({ icon, label, value, color }) => (
             <div className="bg-white rounded-2xl p-2 sm:p-3 text-center shadow-sm border border-slate-100 min-w-0">
@@ -2231,7 +2231,7 @@ const gridCls = 'grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)
                     <div className="tm-bar" role="radiogroup" aria-label="Chế độ giao diện">
                         {THEME_OPTS.map(([k, ic, lb]) => (
                             <button key={k} type="button" role="radio" aria-checked={mode === k} onClick={() => pick(k)} className={'tm-opt touch' + (mode === k ? ' on' : '')}>
-                                <span>{ic}</span><span>{lb}</span>
+                                <span><Icon name={ic} className="ic-inline" /></span><span>{lb}</span>
                             </button>
                         ))}
                     </div>
@@ -2464,7 +2464,7 @@ const gridCls = 'grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)
             // Sao chép thông báo bài tập (để dán vào nhóm lớp) - thật sự copy vào clipboard
             const copyHwNotice = useCallback((hw) => {
                 const link = (window.location.origin && window.location.origin !== 'null') ? window.location.origin + window.location.pathname : window.location.href;
-                const text = '📚 Bài tập mới: ' + hw.title + '\nMôn: ' + hw.subject + ' • ' + hw.totalQuestions + ' câu • ' + hw.duration + '\nHạn nộp: ' + hw.deadlineText + '\nLớp: ' + hw.classesText + '\nVào EduOrient để làm bài: ' + link;
+                const text = 'Bài tập mới: ' + hw.title + '\nMôn: ' + hw.subject + ' • ' + hw.totalQuestions + ' câu • ' + hw.duration + '\nHạn nộp: ' + hw.deadlineText + '\nLớp: ' + hw.classesText + '\nVào EduOrient để làm bài: ' + link;
                 const ok = () => eduToast('Đã sao chép thông báo bài tập', 'success');
                 const fallback = () => { try { const t = document.createElement('textarea'); t.value = text; t.style.position = 'fixed'; t.style.opacity = '0'; document.body.appendChild(t); t.select(); document.execCommand('copy'); document.body.removeChild(t); ok(); } catch (e) { eduAlert('Không sao chép được, hãy thử lại.', 'error'); } };
                 if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(ok, fallback); else fallback();
@@ -2732,7 +2732,7 @@ const gridCls = 'grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)
                                     <div>
                                         <span className="bg-white/20 text-xs px-2.5 py-0.5 rounded-full font-bold">Học Sinh Lớp {user.class}</span>
                                         <h1 className="text-2xl font-black mt-1">Xin chào, {user.name}!</h1>
-                                        <p className="text-xs text-indigo-100 mt-0.5">🎯 Nguyện vọng trường: {user.targetSchool}</p>
+                                        <p className="text-xs text-indigo-100 mt-0.5"><Icon name="bullseye-arrow" className="ic-inline" /> Nguyện vọng trường: {user.targetSchool}</p>
                                     </div>
                                     <div className="text-right">
                                         <div className="text-2xl font-black text-amber-300">{user.xp || 320} XP</div>
@@ -2746,13 +2746,13 @@ const gridCls = 'grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)
                                         onClick={() => setStudentTab('assignments')}
                                         className={`flex-1 py-2.5 rounded-lg text-xs font-bold transition ${studentTab === 'assignments' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-600'}`}
                                     >
-                                        📝 Bài Tập Từ Giáo Viên
+                                        <Icon name="note-edit" className="ic-inline" /> Bài Tập Từ Giáo Viên
                                     </button>
                                     <button 
                                         onClick={() => setStudentTab('leaderboard')}
                                         className={`flex-1 py-2.5 rounded-lg text-xs font-bold transition ${studentTab === 'leaderboard' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-600'}`}
                                     >
-                                        🏆 Bảng Xếp Hạng & Lớp Học
+                                        <Icon name="trophy" className="ic-inline" /> Bảng Xếp Hạng & Lớp Học
                                     </button>
                                 </div>
 
@@ -2951,7 +2951,7 @@ const gridCls = 'grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)
                                             <div key={i} id={'q-card-' + i} className={'border rounded-xl p-3 space-y-2 ' + (q.needCheck ? 'border-red-300 bg-red-50/40' : 'border-amber-200 bg-amber-50/40')}>
                                                 <div className="flex justify-between items-center"><b className="text-xs text-slate-800">Câu {i + 1}</b>
                                                     <span style={{ display: 'flex', gap: 12 }}><FormulaButton i={i} q={q} upd={upd} />{!q.needCheck && collapseBtn(i)}{qs.length > 1 && <button type="button" onClick={() => delQ(i)} className="text-[11px] text-red-500 font-semibold">Xóa câu</button>}</span></div>
-                                                {q.needCheck && <p className="text-[10px] font-semibold text-red-600 bg-red-50 rounded-lg px-2 py-1.5">⚠ Cần kiểm tra: chưa nhận diện được đáp án đúng hoặc thiếu đáp án. Hãy bấm nút tròn bên trái đáp án đúng.</p>}
+                                                {q.needCheck && <p className="text-[10px] font-semibold text-red-600 bg-red-50 rounded-lg px-2 py-1.5"><Icon name="alert" className="ic-inline" /> Cần kiểm tra: chưa nhận diện được đáp án đúng hoặc thiếu đáp án. Hãy bấm nút tròn bên trái đáp án đúng.</p>}
                                                 {pSelect(q, i)}
                                                 <textarea id={`mcq-question-${i}`} name={`question-${i}`} aria-label="Nội dung câu hỏi" rows="2" placeholder="Nội dung câu hỏi..." value={q.q} onFocus={fxFocus(i, 'q')} onChange={(e) => upd(i, { q: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-amber-500" />
                                                 <MathPreview items={[{ k: 'q', pre: '', t: q.q }]} />
@@ -2964,7 +2964,7 @@ const gridCls = 'grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)
                                                         </div>))}
                                                 </div>
                                                 <input id={`mcq-explain-${i}`} name={`explain-${i}`} aria-label="Giải thích đáp án" type="text" placeholder="Giải thích đáp án (không bắt buộc)" value={q.e || ''} onFocus={fxFocus(i, 'e')} onChange={(e) => upd(i, { e: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-amber-500" />
-                                                <MathPreview items={[...['A', 'B', 'C', 'D'].map((L, k) => ({ k: 'o' + k, pre: L + '. ', t: q.a[k] })), { k: 'e', pre: '💡 ', t: q.e }]} />
+                                                <MathPreview items={[...['A', 'B', 'C', 'D'].map((L, k) => ({ k: 'o' + k, pre: L + '. ', t: q.a[k] })), { k: 'e', pre: '', t: q.e }]} />
                                                 <p className="text-[10px] text-slate-400">Bấm nút tròn bên trái để đánh dấu đáp án đúng.</p>
                                             </div>);
                                     };

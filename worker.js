@@ -84,6 +84,21 @@ Giải thích dễ hiểu, từng bước, bằng tiếng Việt. Gợi ý hư�
 Không làm hộ bài kiểm tra đang diễn ra; từ chối nội dung không phù hợp lứa tuổi.
 Công thức toán/lý/hóa viết bằng LaTeX: trong dòng dùng $...$, công thức riêng một dòng dùng $$...$$. Không dùng đường kẻ ngang "---".`;
 
+// Chế độ trả lời do học sinh chọn (client gửi body.mode). Chỉ nhận đúng 2 giá trị này, còn lại bỏ qua.
+const MODE_ADDON = {
+  guide: `\n\nCHẾ ĐỘ GỢI MỞ TỪNG BƯỚC (học sinh đang bật): KHÔNG đưa đáp án hay lời giải hoàn chỉnh ngay.
+- Mỗi lượt chỉ làm MỘT bước: nêu ngắn gọn ý chính của bước đó rồi đặt đúng 1 câu hỏi dẫn dắt để học sinh tự nghĩ (ví dụ "Em thử nhìn xem đề cho gì?", "Bài này liên quan công thức nào?").
+- Học sinh trả lời đúng: khen ngắn gọn rồi sang bước kế. Trả lời sai: không nói thẳng đáp án, gợi ý nhẹ hơn hoặc hỏi lại từ ý đã đúng.
+- Nếu học sinh nói không biết 2 lần liên tiếp, hoặc nói rõ muốn xem đáp án, thì giải thích bước đó đầy đủ rồi tiếp tục gợi mở bước sau.
+- Câu hỏi chỉ là kiến thức/định nghĩa đơn giản (không phải bài cần giải) thì trả lời bình thường, ngắn gọn.`,
+  simple: `\n\nYÊU CẦU LẦN NÀY: học sinh chưa hiểu, hãy giải thích LẠI nội dung trả lời gần nhất theo cách dễ hiểu hơn.
+- Dùng từ ngữ đời thường, câu ngắn, tránh thuật ngữ; nếu buộc phải dùng thuật ngữ thì giải nghĩa ngay.
+- Dùng một ví dụ hoặc hình ảnh so sánh gần gũi với học sinh.
+- Chia thành các ý ngắn, tối đa khoảng 150 từ, và cuối cùng hỏi học sinh đã rõ chưa.
+- Không nhắc lại nguyên văn câu trả lời trước.`,
+};
+const systemFor = (mode) => SYSTEM + (Object.prototype.hasOwnProperty.call(MODE_ADDON, mode) ? MODE_ADDON[mode] : '');
+
 // ---- Xác thực thẻ Firebase (có cache khóa công khai) ----
 const b64uToBytes = (s) => {
   s = s.replace(/-/g, '+').replace(/_/g, '/');
@@ -341,7 +356,7 @@ async function ssePump(st) {
   return { texts: sseFeed(st, r.value, false), done: false };
 }
 // Mở luồng tới Gemini và đọc cho tới khi có mẩu chữ đầu tiên. Trả về { status, st, first } khi thành công.
-async function streamOpen(env, model, msgs, think, firstMs) {
+async function streamOpen(env, model, msgs, think, firstMs, system) {
   const ctl = new AbortController();
   const st = { ctl, rd: null, dec: new TextDecoder(), buf: '', finish: '', blocked: false, timer: 0 };
   st.arm = (ms) => { clearTimeout(st.timer); st.timer = setTimeout(() => ctl.abort(), ms); };
@@ -354,7 +369,7 @@ async function streamOpen(env, model, msgs, think, firstMs) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY },
         body: JSON.stringify({
-          systemInstruction: { parts: [{ text: SYSTEM }] },
+          systemInstruction: { parts: [{ text: system || SYSTEM }] },
           contents: msgs,
           generationConfig: { maxOutputTokens: MAX_OUTPUT_TOKENS, ...(think ? { thinkingConfig: thinkCfg(model) } : {}) },
         }),
@@ -375,7 +390,7 @@ async function streamOpen(env, model, msgs, think, firstMs) {
   }
 }
 
-async function handleStream(env, ctx, msgs, user, json, cors, onOk) {
+async function handleStream(env, ctx, msgs, user, json, cors, onOk, system) {
   const t0 = Date.now(), deadline = t0 + TOTAL_BUDGET_MS;
   let order = MODELS.filter((m) => !isCool(m));
   if (!order.length) order = MODELS.slice();
@@ -389,10 +404,10 @@ async function handleStream(env, ctx, msgs, user, json, cors, onOk) {
       const left = deadline - Date.now();
       if (left < 2500) break;
       const ms = Math.min(TRY_TIMEOUT_MS[MODELS.indexOf(model)] || 10000, left);
-      let r = await streamOpen(env, model, msgs, !NO_THINK.has(model), ms);
+      let r = await streamOpen(env, model, msgs, !NO_THINK.has(model), ms, system);
       if (r.status === 400 && !NO_THINK.has(model) && /think/i.test(r.text || '')) {
         NO_THINK.add(model);
-        r = await streamOpen(env, model, msgs, false, ms);
+        r = await streamOpen(env, model, msgs, false, ms, system);
       }
       lastStatus = r.status;
       if (r.status === 200 && r.first) { st = r.st; first = r.first; usedModel = model; break; }
@@ -498,7 +513,8 @@ export default {
     const wait = await limited(env, user.sub);
     if (wait > 0) return json({ error: 'Bạn hỏi hơi nhanh, đợi khoảng ' + wait + ' giây rồi hỏi tiếp nhé.' }, 429, { 'Retry-After': String(wait) });
 
-    if (body.stream === true) return handleStream(env, ctx, msgs, user, json, cors, onOk);   // chạy chữ thật (client mới)
+    const system = systemFor(body.mode);   // 'guide' | 'simple' | (khác) -> SYSTEM gốc
+    if (body.stream === true) return handleStream(env, ctx, msgs, user, json, cors, onOk, system);   // chạy chữ thật (client mới)
 
     // ---- Chuỗi model với ngân sách thời gian ----
     const t0 = Date.now();
@@ -515,7 +531,7 @@ export default {
         const left = deadline - Date.now();
         if (left < 2500) break;
         const idx = MODELS.indexOf(model);
-        const r = await callModel(env, model, msgs, Math.min(TRY_TIMEOUT_MS[idx] || 10000, left));
+        const r = await callModel(env, model, msgs, Math.min(TRY_TIMEOUT_MS[idx] || 10000, left), { system });
         lastStatus = r.status;
         if (r.status === 200) {
           const p = parseReply(r.text);

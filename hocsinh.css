@@ -1308,3 +1308,131 @@ html.dark .ucard-banner::after { content: ""; position: absolute; left: 0; right
 /* Giao diện sáng: đáy ảnh bìa mờ dần sang trắng giống bản tối */
 .ucard-banner::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 46px; background: linear-gradient(to bottom, transparent, rgba(255,255,255,.8)); }
 html.dark .ucard-banner::after { background: linear-gradient(to bottom, transparent, rgba(39,53,79,.85)); }
+
+
+/* =====================================================================
+   TAB TÀI KHOẢN: banner Cửa hàng thú cưng nổi bật + gọn lại bản laptop
+   ===================================================================== */
+.shop-cta { position: relative; overflow: hidden; width: 100%; box-sizing: border-box; display: flex; align-items: center; gap: 12px; margin-top: 16px; padding: 14px 16px; border: 0; border-radius: 16px; background: linear-gradient(120deg, #f59e0b 0%, #ec4899 55%, #8b5cf6 100%); color: #fff; font: inherit; text-align: left; cursor: pointer; box-shadow: 0 8px 22px rgba(236, 72, 153, .35); transition: transform .15s ease, box-shadow .15s ease; -webkit-tap-highlight-color: transparent; }
+.shop-cta::after { content: ""; position: absolute; top: 0; left: -60%; width: 40%; height: 100%; background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .38), transparent); transform: skewX(-20deg); animation: shopShine 3.6s ease-in-out infinite; pointer-events: none; }
+@keyframes shopShine { 0%, 55% { left: -60%; } 100% { left: 130%; } }
+.shop-cta:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(236, 72, 153, .45); }
+.shop-cta:active { transform: scale(.985); }
+.shop-cta:focus-visible { outline: 3px solid #fff; outline-offset: -4px; }
+.shop-cta-ic { flex: 0 0 auto; width: 46px; height: 46px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 24px; background: rgba(255, 255, 255, .22); }
+.shop-cta-tx { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; line-height: 1.3; }
+.shop-cta-tx b { font-size: 16px; font-weight: 800; color: #fff; }
+.shop-cta-tx small { font-size: 12px; color: rgba(255, 255, 255, .92); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.shop-cta-bal { flex: 0 0 auto; padding: 6px 12px; border-radius: 999px; background: rgba(0, 0, 0, .28); font-size: 13px; white-space: nowrap; color: #fff; }
+.shop-cta-go { flex: 0 0 auto; font-size: 26px; line-height: 1; opacity: .9; }
+@media (max-width: 480px) {
+    .shop-cta { padding: 12px 12px; gap: 10px; }
+    .shop-cta-ic { width: 40px; height: 40px; font-size: 21px; }
+    .shop-cta-tx b { font-size: 15px; }
+    .shop-cta-tx small { display: none; }
+    .shop-cta-go { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .shop-cta::after { animation: none; display: none; } .shop-cta { transition: none; } }
+
+/* Laptop >= 1024px: bỏ các phần trùng với Sidebar (ngọn lửa chuỗi, thanh XP hôm nay, thú cưng, giao diện) và gom nút riêng tư/nguy hiểm cho gọn */
+@media (min-width: 1024px) {
+    #tab-profile .pet-mission,
+    #tab-profile .pet-pill-streak,
+    #tab-profile .restore-row:not(:has(button)) { display: none !important; }
+
+    /* Công tắc riêng tư: bỏ thẻ rời bên trái, đưa vào nhóm "Tài khoản & bảo mật" (đỡ dài cột trái, cột phải đỡ trống) */
+    #tab-profile .cover-share-card { display: none !important; }
+    #tab-profile .prof-right .cover-share-item { display: flex !important; flex-direction: row !important; align-items: center !important; justify-content: space-between !important; grid-column: 1 / -1 !important; }
+    #tab-profile .prof-right .cover-share-item .menu-item-left { flex-direction: row !important; align-items: center !important; gap: 14px; flex: 1; min-width: 0; }
+
+    /* Thứ tự nhóm bảo mật: Đổi mật khẩu | Tạo OTP | Riêng tư (cả hàng) | Đăng xuất | Xóa tài khoản */
+    #tab-profile .prof-right .ms-set > .menu-section-title { order: 0; }
+    #tab-profile .prof-right .ms-set > .menu-item[onclick*="openPw"] { order: 1; }
+    #tab-profile .prof-right .ms-set > .otp-item { order: 2; }
+    #tab-profile .prof-right .ms-set > .cover-share-item { order: 3; }
+    #tab-profile .prof-right .ms-set > .danger-outline { order: 4; }
+    #tab-profile .prof-right .ms-set > .danger-solid { order: 5; }
+
+    /* Xóa tài khoản: bỏ khối đỏ chói, dùng viền đỏ nhạt như nút Đăng xuất */
+    #tab-profile .prof-right .menu-item.danger-solid { background: rgba(239, 68, 68, .08) !important; border: 1px solid rgba(239, 68, 68, .45) !important; box-shadow: none !important; }
+    #tab-profile .prof-right .menu-item.danger-solid:hover { background: rgba(239, 68, 68, .16) !important; }
+    #tab-profile .prof-right .menu-item.danger-solid h4 { color: #ef4444 !important; }
+    #tab-profile .prof-right .menu-item.danger-solid p { color: var(--text-sub) !important; }
+    #tab-profile .prof-right .menu-item.danger-solid .menu-item-icon { background: rgba(239, 68, 68, .14) !important; color: #ef4444 !important; }
+}
+
+
+/* ---- Ảnh bìa thẻ hồ sơ: vẽ bằng lớp ::before (biến --uc-cover) để có thể mờ dần khi ảnh về trễ ---- */
+.ucard-banner.has-cover::before { content: ""; position: absolute; inset: 0; background: var(--uc-cover) center / cover no-repeat; pointer-events: none; }
+.ucard-banner.cover-fade::before { animation: ucCoverIn .35s ease-out both; }
+@keyframes ucCoverIn { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .ucard-banner.cover-fade::before { animation: none; } }
+
+/* Laptop: hai cột cao bằng nhau - thẻ cuối mỗi cột (.prof-fill, do script đánh dấu) giãn ra lấp phần chênh */
+@media (min-width: 1024px) {
+    #tab-profile .prof-grid > .prof-left > .prof-fill { flex: 1 1 auto !important; }
+    #tab-profile .prof-grid > .prof-right > .menu-section.prof-fill { flex: 1 1 auto !important; grid-template-rows: auto repeat(3, 1fr) !important; }
+}
+
+/* ---- Thú cưng vẽ bằng SVG ---- */
+.pa-eyes { transform-box: fill-box; transform-origin: center; animation: paBlink 4.5s infinite; }
+@keyframes paBlink { 0%, 94%, 100% { transform: scaleY(1); } 97% { transform: scaleY(.1); } }
+.pa-tail { transform-origin: 140px 170px; animation: paSway 2.6s ease-in-out infinite; }
+@keyframes paSway { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(8deg); } }
+.pa-tw { animation: paTw 2.4s ease-in-out infinite; }
+@keyframes paTw { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
+.side-pet .sp-emo.pa { width: 46px; font-size: 0; line-height: 0; }
+.m-ps-card .mp-emo.pa { width: 40px; font-size: 0; line-height: 0; }
+@media (prefers-reduced-motion: reduce) { .pa-eyes, .pa-tail, .pa-tw { animation: none; } }
+
+/* ===== Icon SVG (edu-icons.js): thay emoji để toàn bộ icon cùng một phong cách, tự đổi màu theo chữ (currentColor) ===== */
+svg.ic { width: 1.15em; height: 1.15em; fill: currentColor; vertical-align: -0.2em; flex: none; display: inline-block; overflow: visible; }
+.nav-icon .ic, .center-btn .ic, .side-item .si .ic, .menu-item-icon .ic, .tm-ic .ic, .fab-chat .ic,
+.modal-close .ic, .profile-mascot .ic, .shop-cta-ic .ic, .stat-ic .ic, .ais-ic .ic, .ucard-close .ic { width: 1em; height: 1em; vertical-align: middle; }
+.nav-icon { display: flex; justify-content: center; }
+.modal-close { display: inline-flex; align-items: center; justify-content: center; }
+
+/* ===== EduOrient — ICON NHIỀU MÀU (trang học sinh) =====
+ * Mỗi icon trong edu-icons.js gồm nhiều phần, mỗi phần có màu riêng: fill:var(--ic-keep, <màu>).
+ * Ở những chỗ icon nằm trên nút/nền màu (chữ trắng), mục nav đang chọn/khóa, hoặc ico('x', màu) có màu riêng
+ * thì đặt --ic-keep:currentColor để icon đơn sắc theo chữ như trước.
+ * Muốn một vùng KHÔNG tô màu: thêm class "no-ic-color" vào phần tử cha. */
+.btn-primary svg.ic,
+.header-dropdown svg.ic,
+.center-btn svg.ic,
+.fab-chat svg.ic,
+.profile-card-blue svg.ic,
+.profile-cover-actions button svg.ic,
+.cover-ed-row button.primary svg.ic,
+.cl-tag.grp svg.ic,
+.mi-tag.t svg.ic,
+.role-badge svg.ic,
+.chat-bubble.mine svg.ic,
+.chat-send svg.ic,
+.h-dot.on svg.ic,
+.cmt-send svg.ic,
+.pd-block svg.ic,
+.bxh-me svg.ic,
+.menu-item.danger-solid svg.ic,
+.hwn-btn.done svg.ic,
+.hwn-btn.ok svg.ic,
+.hwn-btn.bad svg.ic,
+.prof-subtabs button.on svg.ic,
+.tm-opt.on svg.ic,
+.ucard-close svg.ic,
+.ucard-role svg.ic,
+.ucard-btn svg.ic,
+.ucard-banner .ucard-private svg.ic,
+.shop-cta svg.ic,
+.no-ic-color svg.ic,
+[style*="color:#fff" i] svg.ic,
+[style*="color: #fff" i] svg.ic,
+[style*="color:white" i] svg.ic,
+[style*="color: white" i] svg.ic,
+svg.ic[style*="color"] { --ic-keep: currentColor; }
+
+/* ===== Icon to & rõ hơn trong ô menu / sidebar; ô nền chế độ tối trung tính để icon nhiều màu nổi bật ===== */
+.menu-item-icon svg.ic { width: 1.3em; height: 1.3em; }
+.side-item .si svg.ic { width: 1.2em; height: 1.2em; }
+html.dark .menu-item-icon { background: rgba(255,255,255,.10) !important; }
+html.dark .menu-item-icon svg.ic, html.dark .side-item .si svg.ic, html.dark .nav-icon svg.ic { filter: drop-shadow(0 1px 1.5px rgba(0,0,0,.35)); }

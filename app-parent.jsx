@@ -1,13 +1,13 @@
 // EduOrient — cổng PHỤ HUYNH (ParentPortal). Chỉ tải khi phụ huynh đăng nhập.
 import { fbAuth, fbDb, fbNow, initialsAvatar, safeAvatar } from './app-core.jsx';
-import { ATT_STATUS, clampScore, subXp } from './app-shared.jsx';
+import { ATT_STATUS, Icon, clampScore, subXp } from './app-shared.jsx';
 
         const { useState, useEffect, useRef, useMemo, useCallback, memo } = React;
 
 
         const ParentBadge = ({ icon, text, cover }) => (
             <div className={'inline-flex items-start gap-2 px-3.5 py-2 rounded-2xl text-xs font-medium max-w-full ' + (cover ? '' : 'bg-white/15 backdrop-blur')} style={cover ? { background: 'rgba(15,23,42,.45)' } : undefined}>
-                <span className="shrink-0">{icon}</span><span className="min-w-0 break-words">{text}</span>
+                <span className="shrink-0"><Icon name={icon} className="ic-inline" /></span><span className="min-w-0 break-words">{text}</span>
             </div>
         );
 
@@ -33,15 +33,15 @@ import { ATT_STATUS, clampScore, subXp } from './app-shared.jsx';
             return (
                 <div style={{ position: 'absolute', right: 12, bottom: 12, zIndex: 10 }}>
                     <div className="hidden md:flex gap-1 p-1 rounded-2xl shadow-lg" style={{ background: box }} role="group" aria-label="Giao diện">
-                        {[['system', 'Mặc định', '🖥️'], ['dark', 'Tối', '🌙'], ['light', 'Sáng', '☀️']].map(([k, l, ic]) => (
+                        {[['system', 'Mặc định', 'monitor'], ['dark', 'Tối', 'weather-night'], ['light', 'Sáng', 'white-balance-sunny']].map(([k, l, ic]) => (
                             <button key={k} type="button" onClick={() => set(k)} aria-pressed={mode === k}
                                 style={{ width: 66, padding: '6px 0', borderRadius: 12, border: 0, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, fontSize: 11, fontWeight: 700, lineHeight: 1.2, background: mode === k ? '#4f46e5' : 'transparent', color: mode === k ? '#fff' : (dark ? '#cbd5e1' : '#475569') }}>
-                                <span style={{ fontSize: 16 }}>{ic}</span>{l}
+                                <span style={{ fontSize: 16 }}><Icon name={ic} className="ic-inline" /></span>{l}
                             </button>))}
                     </div>
                     <button type="button" role="switch" aria-checked={dark} aria-label="Chế độ tối" onClick={() => set(dark ? 'light' : 'dark')} className="md:hidden shadow-lg"
                         style={{ position: 'relative', width: 54, height: 30, borderRadius: 15, border: 0, cursor: 'pointer', padding: 0, background: dark ? '#4f46e5' : 'rgba(255,255,255,.94)' }}>
-                        <span style={{ position: 'absolute', top: 3, left: dark ? 27 : 3, width: 24, height: 24, borderRadius: 12, background: dark ? '#fff' : '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, transition: 'left .18s' }}>{dark ? '🌙' : '☀️'}</span>
+                        <span style={{ position: 'absolute', top: 3, left: dark ? 27 : 3, width: 24, height: 24, borderRadius: 12, background: dark ? '#fff' : '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, transition: 'left .18s' }}>{dark ? <Icon name="weather-night" className="ic-inline" /> : <Icon name="white-balance-sunny" className="ic-inline" />}</span>
                     </button>
                 </div>
             );
@@ -111,20 +111,20 @@ import { ATT_STATUS, clampScore, subXp } from './app-shared.jsx';
             return (
                 <div ref={boxRef} className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-600 via-indigo-700 to-violet-800 text-white shadow-xl p-5">
                     <style>{'.pp-badges{padding-right:64px}@media(min-width:768px){.pp-badges{padding-right:236px}}'}</style>
-                    {cover ? <ParentCoverImage cover={cover} boxRef={boxRef} /> : <div className="absolute -right-4 -bottom-6 text-[110px] opacity-10 -rotate-12 pointer-events-none select-none">🎓</div>}
+                    {cover ? <ParentCoverImage cover={cover} boxRef={boxRef} /> : <div className="absolute -right-4 -bottom-6 text-[110px] opacity-10 -rotate-12 pointer-events-none select-none"><Icon name="school" className="ic-inline" /></div>}
                     <ParentThemeControl />
                     <div className="relative flex items-center gap-4 mb-4">
                         <img src={avatar} alt="" className="w-[70px] h-[70px] rounded-full object-cover border-[3px] border-white/40 shrink-0" />
                         <div className="min-w-0" style={infoBox}>
                             <p className={'text-[11px] font-bold uppercase tracking-wide' + dim}>Hồ sơ học sinh</p>
                             <h2 className="text-2xl font-extrabold leading-tight break-words">{name}</h2>
-                            <p className="text-sm font-bold mt-0.5">🆔 Mã HS: <span className="tracking-wide select-all">{student.studentId}</span></p>
-                            <p className={'text-[13px] break-all' + dim}>✉ {student.email}</p>
+                            <p className="text-sm font-bold mt-0.5"><Icon name="card-account-details" className="ic-inline" /> Mã HS: <span className="tracking-wide select-all">{student.studentId}</span></p>
+                            <p className={'text-[13px] break-all' + dim}><Icon name="email" className="ic-inline" /> {student.email}</p>
                         </div>
                     </div>
                     <div className="relative flex flex-wrap gap-2 items-start pp-badges" style={sh}>
-                        <ParentBadge cover={!!cover} icon="🎓" text={prof.cls ? (prof.level || 'THPT') + ' • Lớp ' + prof.cls : 'Chưa cập nhật lớp'} />
-                        <ParentBadge cover={!!cover} icon="🏫" text={prof.targetSchoolName || 'Chưa chọn trường'} />
+                        <ParentBadge cover={!!cover} icon="school" text={prof.cls ? (prof.level || 'THPT') + ' • Lớp ' + prof.cls : 'Chưa cập nhật lớp'} />
+                        <ParentBadge cover={!!cover} icon="domain" text={prof.targetSchoolName || 'Chưa chọn trường'} />
                     </div>
                 </div>
             );
@@ -137,7 +137,7 @@ import { ATT_STATUS, clampScore, subXp } from './app-shared.jsx';
             const majors = Array.isArray(prof.majors) ? prof.majors.filter(Boolean) : [];
             return (
                 <div className="bg-white rounded-2xl shadow-sm p-4 space-y-3">
-                    <h2 className="font-bold text-slate-900 text-sm">🎯 Định hướng của học sinh</h2>
+                    <h2 className="font-bold text-slate-900 text-sm"><Icon name="bullseye-arrow" className="ic-inline" /> Định hướng của học sinh</h2>
                     <div className="bg-indigo-50 rounded-xl p-3">
                         <p className="text-[11px] font-bold text-indigo-500 uppercase mb-0.5">Nguyện vọng Đại học</p>
                         <p className="text-sm font-bold text-slate-800 break-words">{uni || 'Học sinh chưa chọn nguyện vọng'}</p>
@@ -160,7 +160,7 @@ import { ATT_STATUS, clampScore, subXp } from './app-shared.jsx';
                 <div className="bg-white rounded-2xl shadow-sm p-4 space-y-3">
                     <h2 className="font-bold text-slate-900 text-sm">Đánh giá &amp; Thứ hạng</h2>
                     <div className="bg-slate-50 rounded-xl p-3">
-                        <p className="text-[11px] font-bold text-slate-500 uppercase mb-1">📝 Đánh giá năng lực của Giáo viên</p>
+                        <p className="text-[11px] font-bold text-slate-500 uppercase mb-1"><Icon name="note-edit" className="ic-inline" /> Đánh giá năng lực của Giáo viên</p>
                         {ev && ev.text
                             ? <><p className="text-sm text-slate-700 whitespace-pre-wrap break-words">{ev.text}</p>{ev.teacherName ? <p className="text-[11px] text-slate-400 mt-1">— {ev.teacherName}</p> : null}</>
                             : <p className="text-sm text-slate-400">Giáo viên chưa có đánh giá cho học sinh này.</p>}
@@ -244,14 +244,14 @@ import { ATT_STATUS, clampScore, subXp } from './app-shared.jsx';
                                     <span className="text-sm font-black text-slate-800">{loading ? '…' : mcount[k]}</span>
                                 </div>))}
                         </div>
-                        <p className="text-[11px] text-slate-400 mt-2.5 leading-snug">💡 Ngày giáo viên không ghi nhận vắng / đi muộn mặc định tính là <b className="text-emerald-600">Có mặt</b>. Chủ nhật không tính buổi học.</p>
+                        <p className="text-[11px] text-slate-400 mt-2.5 leading-snug"><Icon name="lightbulb-on" className="ic-inline" /> Ngày giáo viên không ghi nhận vắng / đi muộn mặc định tính là <b className="text-emerald-600">Có mặt</b>. Chủ nhật không tính buổi học.</p>
                     </div>
                     {!loading && monthRows.length > 0 && (
                         <div className="mt-3 space-y-1.5">
                             <p className="text-[11px] font-bold text-slate-500 uppercase">Chi tiết tháng {ym.m + 1}</p>
                             {monthRows.map((k) => (
                                 <div key={k} className={'rounded-lg px-2.5 py-1.5 text-xs ' + ATT_STATUS[all[k]].cell}>
-                                    <b>{k.split('-').reverse().join('/')}</b> • {ATT_STATUS[all[k]].label}{(notes || {})[k] ? <span className="block font-normal opacity-90 break-words">📝 {notes[k]}</span> : null}
+                                    <b>{k.split('-').reverse().join('/')}</b> • {ATT_STATUS[all[k]].label}{(notes || {})[k] ? <span className="block font-normal opacity-90 break-words"><Icon name="note-edit" className="ic-inline" /> {notes[k]}</span> : null}
                                 </div>))}
                         </div>)}
                     {!loading && !hasData && <p className="text-xs text-slate-400 mt-3 text-center">Chưa có ghi nhận vắng / đi muộn nào của học sinh này.</p>}
@@ -300,7 +300,7 @@ import { ATT_STATUS, clampScore, subXp } from './app-shared.jsx';
                         <span className={'px-2 py-0.5 rounded-full text-[10px] font-bold ' + KIND[kind(r.sub)][1]}>{KIND[kind(r.sub)][0]}</span>
                         {r.at ? <span className="text-[11px] text-slate-400">Nộp {new Date(r.at).toLocaleDateString('vi-VN')}</span> : null}
                     </div>
-                    {r.sub.feedback ? <p className="text-xs text-slate-600 mt-1.5 bg-slate-50 rounded-lg p-2">💬 {r.sub.feedback}</p> : null}
+                    {r.sub.feedback ? <p className="text-xs text-slate-600 mt-1.5 bg-slate-50 rounded-lg p-2"><Icon name="chat" className="ic-inline" /> {r.sub.feedback}</p> : null}
                 </div>
             );
             return (
@@ -320,7 +320,7 @@ import { ATT_STATUS, clampScore, subXp } from './app-shared.jsx';
                             <div className="bg-slate-50 w-full sm:max-w-lg max-h-[88vh] flex flex-col rounded-t-3xl sm:rounded-3xl shadow-xl" onClick={(e) => e.stopPropagation()}>
                                 <div className="p-4 pb-2 flex items-center justify-between">
                                     <h3 className="font-extrabold text-slate-900">Tất cả bài tập <span className="text-xs font-semibold text-slate-400">({list.length})</span></h3>
-                                    <button type="button" onClick={() => setOpen(false)} aria-label="Đóng" className="w-8 h-8 rounded-full bg-slate-200 text-slate-600 font-bold">✕</button>
+                                    <button type="button" onClick={() => setOpen(false)} aria-label="Đóng" className="w-8 h-8 rounded-full bg-slate-200 text-slate-600 font-bold"><Icon name="close" className="ic-inline" /></button>
                                 </div>
                                 <div className="px-4 pb-2 flex gap-1.5 overflow-x-auto">
                                     {[['all', 'Tất cả'], ['graded', 'Đã chấm'], ['pending', 'Chờ chấm'], ['late', 'Hết giờ']].map(([k, l]) => (

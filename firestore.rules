@@ -130,13 +130,31 @@ service cloud.firestore {
     }
 
     // ===== BXH tổng hợp: bxh/summary = { users: { uid: {...} } } =====
+    // Ngày hiện tại theo giờ Việt Nam (số ngày từ 1/1/1970, cùng công thức vnDay() ở hocsinh.js), tính bằng GIỜ MÁY CHỦ
+    function vnToday() { return math.floor((request.time.toMillis() + 25200000) / 86400000); }
+    // CHỐNG GIAN LẬN XP: học sinh tự ghi XP của mình nên không được tăng quá XP_DAILY_CAP mỗi ngày (giờ VN).
+    // xd = ngày VN của lần tăng gần nhất, xg = tổng XP đã tăng trong ngày xd. Giảm XP thì luôn được (không hoàn lại hạn mức).
+    // Hạn mức 3000 XP/ngày = rộng hơn nhiều so với mức học thật (vd 10 bài x 20 câu x 5 XP = 1000). Đổi số này thì đổi cả XP_DAILY_CAP trong hocsinh.js.
     function selfOnlyEntry() {
       let me = request.auth.uid;
       let oldE = resource.data.get('users', {}).get(me, {});
       let newE = request.resource.data.users[me];
+      let grow = newE.xp - oldE.get('xp', 0);
+      let today = vnToday();
+      let usedToday = oldE.get('xd', -1) == today ? oldE.get('xg', 0) : 0;
       return request.resource.data.users.diff(resource.data.get('users', {})).affectedKeys().hasOnly([me])
-        && newE.keys().hasOnly(['n','c','s','sn','u','un','xp','d','adj'])
-        && newE.xp is number && newE.xp >= 0 && newE.xp <= 10000000
+        && newE.keys().hasOnly(['n','c','s','sn','u','un','xp','d','adj','wk','wx','xd','xg'])
+        && newE.xp is number && newE.xp >= 0 && newE.xp <= 1000000
+        && (!('d' in newE) || (newE.d is number && newE.d >= 0 && newE.d <= 100000))
+        // XP tăng: phải ghi đúng ngày hôm nay + cộng dồn trong ngày, tổng không quá 3000. XP không tăng: xd, xg giữ nguyên
+        && (grow > 0
+              ? (newE.get('xd', -1) == today && newE.get('xg', 0) == usedToday + grow && newE.get('xg', 0) <= 3000)
+              : (newE.get('xd', -1) == oldE.get('xd', -1) && newE.get('xg', 0) == oldE.get('xg', 0)))
+        // XP tuần cho BXH tuần: wk = ngày bắt đầu tuần (số ngày từ 1/1/1970), wx = XP trong tuần. Chỉ kiểm khi giá trị THAY ĐỔI (để dữ liệu cũ không bị chặn oan)
+        && (!('wk' in newE) || (newE.wk is number && newE.wk >= 0 && newE.wk <= 100000))
+        && (!('wx' in newE) || (newE.wx is number && newE.wx >= 0 && newE.wx <= 10000000))
+        && (newE.get('wk', -1) == oldE.get('wk', -1) || (newE.wk <= today && newE.wk >= today - 7))
+        && (newE.get('wx', 0) == oldE.get('wx', 0) || (newE.wx <= newE.xp && newE.wx <= 21000))
         && newE.get('adj', 0) == oldE.get('adj', 0); // học sinh KHÔNG được tự sửa adj
     }
     match /bxh/{doc} {
