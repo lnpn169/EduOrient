@@ -399,6 +399,11 @@
             /* Sidebar 220px */
             .dash-sidebar { display: flex; flex-direction: column; position: fixed; top: 0; left: 0; bottom: 0; width: 220px; background: #fff; border-right: 1px solid var(--border); padding: 20px 14px; z-index: 1001; }
             .side-logo { display: flex; align-items: center; gap: 10px; padding: 4px 10px 22px; font-size: 21px; font-weight: 800; color: var(--primary); letter-spacing: -.3px; }
+            .side-logo > span:first-child { display: inline-flex; }
+            .side-logo img { width: 34px; height: 34px; }
+            .logo-d { display: none; }
+            html.dark .logo-l { display: none; }
+            html.dark .logo-d { display: inline-block; }
             .side-nav { display: flex; flex-direction: column; gap: 6px; }
             .side-item { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 12px; font-size: 14px; font-weight: 600; color: #64748b; cursor: pointer; transition: .15s; user-select: none; }
             .side-item:hover { background: #f1f5f9; }
@@ -1397,42 +1402,162 @@ svg.ic { width: 1.15em; height: 1.15em; fill: currentColor; vertical-align: -0.2
  * Ở những chỗ icon nằm trên nút/nền màu (chữ trắng), mục nav đang chọn/khóa, hoặc ico('x', màu) có màu riêng
  * thì đặt --ic-keep:currentColor để icon đơn sắc theo chữ như trước.
  * Muốn một vùng KHÔNG tô màu: thêm class "no-ic-color" vào phần tử cha. */
+.chat-bubble.mine svg.ic,
+.chat-send svg.ic,
+.h-dot.on svg.ic,
+.cmt-send svg.ic,
+.menu-item.danger-solid svg.ic,
+.hwn-btn.done svg.ic,
+.hwn-btn.ok svg.ic,
+.hwn-btn.bad svg.ic,
+.ucard-close svg.ic,
+.no-ic-color svg.ic,
+svg.ic[style*="color"] { --ic-keep: currentColor; }
+/* Thẻ hồ sơ (nền tối/ảnh bìa) và chip XP của nút cửa hàng: cho icon hiện đủ màu */
+/* Icon nhiều màu nằm trên nền màu đặc / nền ảnh: thêm viền sáng mảnh để vẫn rõ */
 .btn-primary svg.ic,
 .header-dropdown svg.ic,
 .center-btn svg.ic,
 .fab-chat svg.ic,
-.profile-card-blue svg.ic,
 .profile-cover-actions button svg.ic,
 .cover-ed-row button.primary svg.ic,
 .cl-tag.grp svg.ic,
 .mi-tag.t svg.ic,
 .role-badge svg.ic,
-.chat-bubble.mine svg.ic,
-.chat-send svg.ic,
-.h-dot.on svg.ic,
-.cmt-send svg.ic,
 .pd-block svg.ic,
 .bxh-me svg.ic,
-.menu-item.danger-solid svg.ic,
-.hwn-btn.done svg.ic,
-.hwn-btn.ok svg.ic,
-.hwn-btn.bad svg.ic,
 .prof-subtabs button.on svg.ic,
 .tm-opt.on svg.ic,
-.ucard-close svg.ic,
 .ucard-role svg.ic,
 .ucard-btn svg.ic,
 .ucard-banner .ucard-private svg.ic,
 .shop-cta svg.ic,
-.no-ic-color svg.ic,
 [style*="color:#fff" i] svg.ic,
 [style*="color: #fff" i] svg.ic,
 [style*="color:white" i] svg.ic,
-[style*="color: white" i] svg.ic,
-svg.ic[style*="color"] { --ic-keep: currentColor; }
+[style*="color: white" i] svg.ic { filter: drop-shadow(0 0 1px rgba(255,255,255,.9)); }
 
 /* ===== Icon to & rõ hơn trong ô menu / sidebar; ô nền chế độ tối trung tính để icon nhiều màu nổi bật ===== */
 .menu-item-icon svg.ic { width: 1.3em; height: 1.3em; }
 .side-item .si svg.ic { width: 1.2em; height: 1.2em; }
 html.dark .menu-item-icon { background: rgba(255,255,255,.10) !important; }
 html.dark .menu-item-icon svg.ic, html.dark .side-item .si svg.ic, html.dark .nav-icon svg.ic { filter: drop-shadow(0 1px 1.5px rgba(0,0,0,.35)); }
+
+/* ===== TAB ĐỊNH HƯỚNG (dh-*) ===== */
+.dh-steps { display: flex; gap: 8px; margin-bottom: 14px; }
+.dh-stp { flex: 1; text-align: center; padding: 10px 6px; border-radius: 12px; border: 1.5px solid var(--border); background: var(--card-bg); color: var(--text-sub); font-size: 13px; font-weight: 600; cursor: pointer; }
+.dh-stp.on { border-color: var(--primary); color: var(--primary); }
+.dh-stp span { display: block; font-weight: 400; font-size: 11px; }
+.dh-qp { font-size: 13px; color: var(--text-sub); margin-bottom: 6px; }
+.dh-opts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+.dh-opt { padding: 13px 6px; border-radius: 12px; border: 1.5px solid var(--border); background: var(--card-bg); color: var(--text-main); font-size: 14px; font-weight: 600; cursor: pointer; }
+.dh-opt:hover, .dh-opt.on { border-color: var(--primary); color: var(--primary); }
+.dh-lnk { background: none; border: 0; color: var(--primary); font-size: 13px; font-weight: 600; cursor: pointer; padding: 6px 0; }
+.dh-row2 { display: flex; gap: 16px; margin-top: 8px; flex-wrap: wrap; }
+.dh-row { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: center; padding: 12px 0; border-top: 1px solid var(--border); }
+.dh-row:first-of-type { border-top: 0; }
+.dh-why { grid-column: 1 / 3; font-size: 13px; color: var(--text-sub); line-height: 1.5; }
+.dh-sm, .dh-sv { border: 1.5px solid var(--primary); background: none; color: var(--primary); border-radius: 10px; padding: 6px 12px; font-size: 13px; font-weight: 600; cursor: pointer; }
+.dh-sv { margin-top: 8px; padding: 5px 10px; font-size: 12px; }
+.dh-tag { display: inline-block; border-radius: 999px; padding: 2px 10px; font-size: 12px; font-weight: 700; margin-left: 4px; }
+.dh-tag.ok { background: rgba(5,150,105,.16); color: var(--green); }
+.dh-tag.mid { background: rgba(245,158,11,.2); color: #d97706; }
+.dh-tag.low { background: rgba(100,116,139,.2); color: var(--text-sub); }
+.dh-cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 12px; align-items: start; }
+.dh-col { border-radius: 14px; padding: 12px; }
+.dh-col h4 { margin: 0; font-size: 15px; }
+.dh-col > p { margin: 0 0 8px; font-size: 12px; color: var(--text-sub); }
+.dh-col.safe { background: rgba(5,150,105,.12); } .dh-col.safe h4 { color: var(--green); }
+.dh-col.mid { background: rgba(245,158,11,.14); } .dh-col.mid h4 { color: #d97706; }
+.dh-col.hard { background: rgba(239,68,68,.12); } .dh-col.hard h4 { color: #dc2626; }
+.dh-sc { background: var(--card-bg); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; font-size: 14px; color: var(--text-main); }
+.dh-m { font-size: 12px; color: var(--text-sub); line-height: 1.5; }
+.dh-est { margin-top: 12px; padding: 10px 12px; border-radius: 10px; background: rgba(100,116,139,.12); font-size: 13px; color: var(--text-main); }
+.dh-more { font-size: 12px; color: var(--text-sub); line-height: 1.6; margin: 4px 0 16px; }
+.dh-old { margin-bottom: 16px; }
+.dh-old > summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text-sub); padding: 8px 0; }
+#pt-basic-view { display: none !important; }   /* giao diện phân tích cũ: ẩn hẳn, tab Định hướng thay thế */
+.dh-info { margin: 4px 0 16px; font-size: 13px; color: var(--text-sub); }
+.dh-info > summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
+.dh-info > div { line-height: 1.6; padding: 4px 0 8px; }
+.dh-ask { margin-top: 10px; }
+
+/* --- Thanh kéo điểm môn (giống bản demo) + nút Không học + khung câu hỏi --- */
+.dh-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px 24px; }
+@media (max-width: 1100px) { .dh-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 520px) { .dh-grid { grid-template-columns: 1fr; } }
+.dh-sl { display: grid; grid-template-columns: 1fr auto auto; gap: 0 8px; align-items: center; font-size: 13px; font-weight: 600; color: var(--text-main); }
+.dh-sl output { color: var(--primary); min-width: 2ch; text-align: right; }
+.dh-sl input[type=range] { grid-column: 1 / 4; width: 100%; accent-color: var(--primary); margin: 6px 0 0; }
+.dh-sl input[type=range].off { opacity: .4; }
+.dh-ns { border: 1.5px dashed var(--border); background: none; color: var(--text-sub); border-radius: 999px; padding: 2px 9px; font-size: 11px; font-weight: 600; cursor: pointer; }
+.dh-ns.on { border-style: solid; border-color: var(--text-sub); background: var(--text-sub); color: var(--card-bg); }
+.dh-ns:focus-visible, .dh-sl input:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
+.dh-lw { color: #dc2626; }
+.dh-qb { background: rgba(127,127,127,.12); border-radius: 14px; padding: 22px 16px; text-align: center; }
+.dh-qb p { margin: 0; font-size: 17px; font-weight: 600; line-height: 1.5; color: var(--text-main); }
+.dh-codebox { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 14px; background: rgba(127,127,127,.12); border-radius: 12px; }
+.dh-codebox b { font-size: 28px; letter-spacing: .12em; color: var(--primary); }
+.dh-codebox span { font-size: 13px; color: var(--text-sub); }
+.dh-ghost { margin: 14px 0 0 6px; background: none; color: var(--primary); border: 1.5px solid var(--primary); border-radius: 12px; padding: 10px 18px; font-size: 14px; font-weight: 700; cursor: pointer; }
+.dh-tools { display: flex; align-items: center; gap: 12px; margin-top: 10px; }
+.dh-tools .dh-lnk { padding: 4px 0; }
+.dh-off { color: var(--text-sub); }
+.dh-tools [hidden], .dh-lw[hidden], .dh-off[hidden] { display: none; }
+
+.dh-qe { display: block; font-size: 44px; line-height: 1.2; margin-bottom: 10px; }
+
+/* --- Bước 3: nút Xem thêm + tab nhóm trên điện thoại --- */
+.dh-moreb { width: 100%; margin-top: 2px; padding: 9px; border: 1.5px dashed var(--border); border-radius: 10px; background: none; color: var(--primary); font-size: 13px; font-weight: 600; cursor: pointer; }
+.dh-gtabs { display: none; }
+.dh-gt { padding: 9px 4px; border-radius: 12px; border: 1.5px solid var(--border); background: var(--card-bg); color: var(--text-sub); font-size: 13px; font-weight: 700; cursor: pointer; }
+.dh-gt i { font-style: normal; display: inline-block; min-width: 18px; padding: 0 5px; border-radius: 999px; background: rgba(127,127,127,.2); font-size: 11px; }
+.dh-gt.safe.on { border-color: var(--green); color: var(--green); background: rgba(5,150,105,.14); }
+.dh-gt.mid.on { border-color: #d97706; color: #d97706; background: rgba(245,158,11,.16); }
+.dh-gt.hard.on { border-color: #dc2626; color: #dc2626; background: rgba(239,68,68,.14); }
+@media (max-width: 820px) {
+  .dh-gtabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 12px; }
+  .dh-cols { grid-template-columns: 1fr; margin-top: 10px; }
+  .dh-col:not(.on) { display: none; }
+}
+@media (max-width: 480px) {
+  .dh-steps { gap: 6px; }
+  .dh-stp { padding: 8px 2px; font-size: 12px; }
+  .dh-stp span { font-size: 10px; }
+  .dh-qe { font-size: 36px; }
+  .dh-qb { padding: 16px 12px; }
+  .dh-qb p { font-size: 16px; }
+  .dh-opt { padding: 12px 2px; font-size: 13px; }
+  .dh-sv, .dh-sm { padding: 8px 12px; }
+}
+
+/* --- Cỡ giao diện (điện thoại / máy tính bảng < 1024px): thu nhỏ nội dung các tab theo --ui-zoom (0.7 – 1.2); thanh trên và thanh dưới giữ nguyên để không vỡ --- */
+@media (max-width: 1023px) {
+  html[data-uz] .tab-content:not(#tab-ai) { zoom: var(--ui-zoom); }
+  html[data-uz] #tab-ai .ai-msgs .chat-bubble { font-size: calc(14px * var(--ui-zoom)) !important; }
+}
+.uz-menu { --uz-acc: var(--primary); --uz-trk: #cbd5e1; }
+html.dark .uz-menu { --uz-acc: #8b5cf6; --uz-trk: #42557b; }
+
+.uz-bar { display: flex; gap: 4px; padding: 4px; border-radius: 14px; background: #f1f5f9; border: 1px solid #e2e8f0; }
+.uz-opt { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 7px 2px; border-radius: 10px; border: 1px solid transparent; background: transparent; color: #475569; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; transition: .15s; white-space: nowrap; }
+.uz-opt:hover { background: #e2e8f0; }
+.uz-opt.on { background: var(--primary); color: #fff; border-color: var(--primary-hover); box-shadow: 0 2px 8px rgba(67,97,238,.35); }
+.uz-aa { font-weight: 800; line-height: 1; }
+.uz-icon { display: grid; place-items: center; font-weight: 800; font-size: 15px; }
+.tm-menu .uz-bar { width: 100%; }
+.ms-set .uz-menu { grid-column: 1 / -1; order: 1; padding: 12px 14px; gap: 10px; }
+.ms-set .uz-menu .menu-item-left { gap: 12px; }
+html.dark .uz-bar { background: #1f2c47; border-color: #5b6f99; }
+html.dark .uz-opt { color: #e2e8f0; }
+html.dark .uz-opt:hover { background: #364869; }
+html.dark .uz-opt.on { background: #8b5cf6; color: #fff; border-color: #ddd6fe; box-shadow: 0 0 0 2px rgba(221,214,254,.5), 0 4px 14px rgba(139,92,246,.55); }
+html.dark .uz-icon { background: #1f2c47 !important; color: #7dd3fc !important; }
+
+/* Ô tìm ngành (tab Định hướng) */
+.dh-search { margin: 4px 0 8px; }
+.dh-search input { width: 100%; box-sizing: border-box; padding: 11px 14px; border: 1.5px solid var(--border); border-radius: 12px; background: var(--card-bg); color: var(--text-main); font-size: 16px; font-family: inherit; outline: none; }
+.dh-search input:focus { border-color: var(--primary); }
+.dh-mcount { margin: 2px 0 4px; }
+.dh-empty { padding: 14px 0; text-align: center; }
+#dh-mlist .dh-moreb { margin-top: 10px; }

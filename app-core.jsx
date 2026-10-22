@@ -508,8 +508,8 @@ function AuthGate({ onUser }) {
     </div></div>
   );
   return (
-    <div className={box}><div className="bg-white rounded-2xl shadow p-6 md:p-8 w-full max-w-md">
-      <h1 className="text-2xl font-extrabold text-indigo-600 text-center mb-1">EduOrient</h1>
+    <div className={box}><UiZoomPopover up style={{ position: 'fixed', zIndex: 40, right: 16, bottom: 16 }} /><div className="bg-white rounded-2xl shadow p-6 md:p-8 w-full max-w-md">
+      <div className="flex items-center justify-center gap-2 mb-1"><img src="logo.svg" alt="" className="logo-l w-10 h-10" /><img src="logo-dark.svg" alt="" className="logo-d w-10 h-10" /><h1 className="text-2xl font-extrabold text-indigo-600 text-center">EduOrient</h1></div>
       <p className="text-xs text-slate-500 text-center mb-5">Định hướng học tập &amp; quản lý lớp học</p>
       <div className="grid grid-cols-2 gap-2 mb-4">
         {[['student', 'Học sinh'], ['teacher', 'Giáo viên']].map(([k, l]) => (
@@ -603,6 +603,57 @@ const ensureThemeController = () => {
 };
 ensureThemeController();
 
+// ===================== CỠ GIAO DIỆN: 3 nút nhanh (80% / 90% / 100%) =====================
+// Bộ điều khiển (window.getUiZoom / setUiZoom, khóa 'eduorient_ui_zoom', sự kiện 'eduorient-uizoom') được cài sẵn trong <head> của index.html để áp dụng TRƯỚC khi vẽ trang.
+// Dùng ở: màn hình đăng nhập (nút nổi), Giáo viên (Tab Tài khoản), Quản trị (header + menu), Phụ huynh (trên ảnh bìa).
+const UI_ZOOM_MIN = 70, UI_ZOOM_MAX = 120;
+const UI_ZOOM_PRESETS = [[80, 'Rất nhỏ', 11], [90, 'Nhỏ', 13], [100, 'Chuẩn', 16]];
+function useUiZoom() {
+  const read = () => (window.getUiZoom ? window.getUiZoom() : 100);
+  const [z, setZ] = useState(read);
+  useEffect(() => {
+    const on = () => setZ(read());
+    window.addEventListener('eduorient-uizoom', on); on();
+    return () => window.removeEventListener('eduorient-uizoom', on);
+  }, []);
+  return [z, (v) => { if (window.setUiZoom) window.setUiZoom(v); }];
+}
+function UiZoomPanel({ label = true }) {
+  const [z, set] = useUiZoom();
+  if (!window.setUiZoom) return null;
+  return (
+    <div className="uz-panel">
+      {label && <div className="tm-label">Cỡ chữ &amp; giao diện</div>}
+      <div className="uz-bar" role="radiogroup" aria-label="Cỡ giao diện">
+        {UI_ZOOM_PRESETS.map(([v, lb, fs]) => (
+          <button key={v} type="button" role="radio" aria-checked={z === v} onClick={() => set(v)} className={'uz-opt' + (z === v ? ' on' : '')}>
+            <span className="uz-aa" style={{ fontSize: fs }}>Aa</span><span>{lb}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+// Nút "Aa" mở khung chỉnh cỡ. up=true: khung mở lên trên (dùng cho nút nổi ở đáy màn hình). sm: nút vuông nhỏ cho header.
+function UiZoomPopover({ up = false, sm = false, className = '', style }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('mousedown', onDown); document.addEventListener('touchstart', onDown); document.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('touchstart', onDown); document.removeEventListener('keydown', onKey); };
+  }, [open]);
+  if (!window.setUiZoom) return null;
+  return (
+    <div ref={ref} className={'uz-pop-wrap ' + className} style={style}>
+      <button type="button" className={'uz-fab' + (sm ? ' sm' : '')} aria-label="Cỡ chữ và giao diện" title="Cỡ chữ & giao diện" aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(!open)}>Aa</button>
+      {open && <div className={'uz-pop ' + (up ? 'up' : 'down')} role="dialog" aria-label="Cỡ chữ và giao diện"><UiZoomPanel /></div>}
+    </div>
+  );
+}
+
 // ===== Chống trang trắng: mọi lỗi lúc render sẽ hiện thông báo + nút tải lại thay vì làm sập cả ứng dụng =====
 class ErrorBoundary extends React.Component {
   constructor(props) { super(props); this.state = { err: null }; }
@@ -633,4 +684,4 @@ class ErrorBoundary extends React.Component {
   }
 }
 
-export { initialsAvatar, AuthGate, ErrorBoundary, GDPT_SUBJECTS, LazyAdminPanel, LazyTeacherApp, PAGE_LOGIN, PAGE_STUDENT, SCHOOL_DB, SchoolPicker, ScreenLoading, SubjectSelect, Suspense, fbAuth, fbDb, fbErr, fbNow, fbSignOut, foldVN, goTo, isAdminEmail, readSchoolPick, safeAvatar };
+export { UiZoomPanel, UiZoomPopover, initialsAvatar, AuthGate, ErrorBoundary, GDPT_SUBJECTS, LazyAdminPanel, LazyTeacherApp, PAGE_LOGIN, PAGE_STUDENT, SCHOOL_DB, SchoolPicker, ScreenLoading, SubjectSelect, Suspense, fbAuth, fbDb, fbErr, fbNow, fbSignOut, foldVN, goTo, isAdminEmail, readSchoolPick, safeAvatar };

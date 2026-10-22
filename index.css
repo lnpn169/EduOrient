@@ -17,6 +17,11 @@
         .swal2-input, .swal2-textarea { font-size: .9rem !important; }
     
 
+
+        /* Logo EduOrient: bản sáng/tối đổi theo html.dark */
+        .logo-d { display: none; }
+        html.dark .logo-l { display: none; }
+        html.dark .logo-d { display: inline-block; }
         /* ===================== GIAO DIỆN TỐI (html.dark) ===================== */
         html.dark { color-scheme: dark; }
         html.dark body, html.dark body.bg-slate-50 { background-color: #182238; }
@@ -341,3 +346,41 @@
 [style*="color:white" i] svg.mdi-icon,
 [style*="color: white" i] svg.mdi-icon,
 .no-ic-color svg.mdi-icon { --ic-keep: currentColor; }
+
+        /* ===== CỠ GIAO DIỆN (đăng nhập / giáo viên / quản trị / phụ huynh): thu-phóng toàn bộ #root theo --ui-zoom (xem script eduorient_ui_zoom trong index.html) =====
+           CSS zoom cũng co/giãn đơn vị vh bên trong, nên các lớp dùng vh được chia lại cho --ui-zoom để vẫn đủ chiều cao màn hình. */
+        html[data-uz] #root { zoom: var(--ui-zoom); }
+html[data-uz] #root .min-h-screen { min-height: calc(100vh / var(--ui-zoom)); }
+html[data-uz] #root .md\:h-screen { height: calc(100vh / var(--ui-zoom)); }
+html[data-uz] #root .max-h-\[85vh\] { max-height: calc(85vh / var(--ui-zoom)); }
+html[data-uz] #root .max-h-\[88vh\] { max-height: calc(88vh / var(--ui-zoom)); }
+html[data-uz] #root .max-h-\[90vh\] { max-height: calc(90vh / var(--ui-zoom)); }
+html[data-uz] #root .max-h-\[92vh\] { max-height: calc(92vh / var(--ui-zoom)); }
+html[data-uz] #root .h-\[92vh\] { height: calc(92vh / var(--ui-zoom)); }
+html[data-uz] #root .h-\[88vh\] { height: calc(88vh / var(--ui-zoom)); }
+html[data-uz] #root .lg\:h-\[88vh\] { height: calc(88vh / var(--ui-zoom)); }
+
+        /* Nút / khung chỉnh cỡ KHÔNG co theo mức thu nhỏ (chia lại cho --ui-zoom) để luôn đủ lớn để bấm và kéo */
+        html[data-uz] #root .uz-pop-wrap { zoom: calc(1 / var(--ui-zoom)); }
+        html[data-uz] #root *:not(.uz-pop) > .uz-panel { zoom: calc(1 / var(--ui-zoom)); }
+        /* Bộ chỉnh cỡ giao diện: 3 nút nhanh */
+        .uz-panel { text-align: left; }
+        .uz-bar { display: flex; gap: 4px; padding: 4px; border-radius: 14px; background: #f1f5f9; border: 1px solid #e2e8f0; }
+        .uz-opt { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 7px 2px; border-radius: 10px; border: 1px solid transparent; background: transparent; color: #475569; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; transition: .15s; white-space: nowrap; }
+        .uz-opt:hover { background: #e2e8f0; }
+        .uz-opt.on { background: #f97316; color: #fff; border-color: #ea580c; box-shadow: 0 2px 8px rgba(249,115,22,.35); }
+        .uz-aa { font-weight: 800; line-height: 1; }
+        html.dark .uz-bar { background: #1f2c47; border-color: #5b6f99; }
+        html.dark .uz-opt { color: #e2e8f0; }
+        html.dark .uz-opt:hover { background: #364869; }
+        html.dark .uz-opt.on { background: #8b5cf6; color: #fff; border-color: #ddd6fe; box-shadow: 0 0 0 2px rgba(221,214,254,.5), 0 4px 14px rgba(139,92,246,.55); }
+        .uz-fab { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 9999px; border: 1px solid #e2e8f0; background: #fff; color: #334155; font-weight: 800; font-size: 15px; cursor: pointer; box-shadow: 0 4px 14px rgba(15,23,42,.18); }
+        .uz-fab:hover { background: #f1f5f9; }
+        .uz-fab.sm { width: 40px; height: 40px; border-radius: 12px; box-shadow: none; }
+        html.dark .uz-fab { background: #27354f; border-color: #5b6f99; color: #e2e8f0; }
+        .uz-pop-wrap { position: relative; display: inline-block; }
+        .uz-pop { position: absolute; right: 0; z-index: 60; width: 280px; max-width: calc(100vw - 32px); padding: 12px; border-radius: 16px; background: #fff; border: 1px solid #e2e8f0; box-shadow: 0 12px 32px rgba(15,23,42,.25); text-align: left; }
+        .uz-pop.up { bottom: calc(100% + 8px); }
+        .uz-pop.down { top: calc(100% + 8px); }
+        html.dark .uz-pop { background: #27354f; border-color: #5b6f99; }
+        html.dark .uz-pop .tm-label { color: #e2e8f0; }

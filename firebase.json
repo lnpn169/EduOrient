@@ -25,7 +25,10 @@
       "tailwind.config.js",
       "tailwind.hocsinh.config.js",
       "hocsinh.js",
-      "hocsinh.css"
+      "hocsinh.css",
+      "diemchuan.csv",
+      "build-diemchuan.mjs",
+      "DIEMCHUAN-HUONGDAN.md"
     ],
     "headers": [
       {
@@ -57,7 +60,7 @@
         "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
       },
       {
-        "source": "**/*.@(png|webmanifest)",
+        "source": "**/*.@(png|svg|webmanifest)",
         "headers": [{ "key": "Cache-Control", "value": "public, max-age=86400" }]
       }
     ],

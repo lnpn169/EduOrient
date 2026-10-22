@@ -1,5 +1,5 @@
 // EduOrient — màn hình GIÁO VIÊN (TeacherApp). Chỉ tải khi đăng nhập bằng tài khoản giáo viên.
-import { ErrorBoundary, GDPT_SUBJECTS, PAGE_LOGIN, SCHOOL_DB, SchoolPicker, SubjectSelect, fbAuth, fbDb, fbErr, fbNow, fbSignOut, foldVN, goTo, initialsAvatar, readSchoolPick, safeAvatar } from './app-core.jsx';
+import { ErrorBoundary, GDPT_SUBJECTS, UiZoomPanel, PAGE_LOGIN, SCHOOL_DB, SchoolPicker, SubjectSelect, fbAuth, fbDb, fbErr, fbNow, fbSignOut, foldVN, goTo, initialsAvatar, readSchoolPick, safeAvatar } from './app-core.jsx';
 import { ATT_STATUS, BxhScoreEditor, EMPTY_LIST, GroupSettingsModal, Icon, THEME_OPTS, avatarUrl, bxhBumpXp, clampScore, essayXpOf, keepList, keepMap, quizXpOf, subXp, wipeMsgs } from './app-shared.jsx';
 
         const { useState, useEffect, useRef, useMemo, useCallback, memo } = React;
@@ -2551,8 +2551,8 @@ const gridCls = 'grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)
                     <header className="bg-white border-b border-slate-200 px-3 sm:px-8 py-2.5 sm:py-3.5 shadow-sm sticky top-0 z-40 w-full max-w-full">
                         <div className="flex items-center justify-between gap-2 w-full">
                             <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-                                <div className="bg-indigo-600 text-white p-2 rounded-xl flex items-center justify-center shadow-md shadow-indigo-200 shrink-0">
-                                    <Icon name="compass" className="w-5 h-5 sm:w-6 sm:h-6" />
+                                <div className="flex items-center justify-center shrink-0">
+                                    <img src="logo.svg" alt="" className="logo-l w-9 h-9 sm:w-10 sm:h-10" /><img src="logo-dark.svg" alt="" className="logo-d w-9 h-9 sm:w-10 sm:h-10" />
                                 </div>
                                 <div className="min-w-0">
                                     <span className="font-extrabold text-lg sm:text-xl text-slate-900 tracking-tight block leading-tight">EduOrient</span>
@@ -2694,6 +2694,7 @@ const gridCls = 'grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)
                                                             <TdBtn icon="lock" onClick={() => setToolModal('pw')}>Đổi mật khẩu</TdBtn>
                                                             <TdBtn icon="eye" onClick={() => setViewTeacherModal(user)}>Xem Giao Diện Học Sinh Thấy</TdBtn>
                                                             <ThemeModeBar />
+                                                            <UiZoomPanel />
                                                             <TdBtn icon="out" onClick={async () => { if (await eduConfirm('Bạn có chắc muốn đăng xuất khỏi tài khoản này?', { title: 'Đăng xuất?', confirmText: 'Đăng xuất', cancelText: 'Ở lại' })) fbSignOut(setUser); }}>Đăng xuất</TdBtn>
                                                             {/* Tách riêng nút nguy hiểm khỏi nút Đăng xuất để tránh bấm nhầm */}
                                                             <div className="pt-3 mt-1 border-t border-slate-100">

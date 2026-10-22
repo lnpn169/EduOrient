@@ -13,7 +13,8 @@
     <meta name="twitter:card" content="summary">
 
     <!-- Icon & PWA -->
-    <link rel="icon" type="image/png" href="icon-192.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
     <link rel="apple-touch-icon" href="icon-192.png">
     <link rel="manifest" href="manifest.webmanifest">
     <meta name="theme-color" content="#4361ee">
@@ -55,6 +56,30 @@
 })();
 </script>
 
+    <!-- CỠ GIAO DIỆN: thu nhỏ nội dung (80% / 90% / 100%). Khóa lưu: eduorient_ui_zoom = số phần trăm (mặc định 100). Dùng chung index.html (đăng nhập / giáo viên / quản trị / phụ huynh) và hocsinh.html. Áp dụng TRƯỚC khi vẽ trang. -->
+    <script>
+    (function () {
+        var KEY = 'eduorient_ui_zoom', MIN = 70, MAX = 120, mem = 100, root = document.documentElement;
+        function snap(n) { n = Math.round(Number(n) / 5) * 5; if (!isFinite(n)) return 100; return Math.min(MAX, Math.max(MIN, n)); }
+        function get() { try { var v = localStorage.getItem(KEY); return v === null ? mem : snap(v); } catch (e) { return mem; } }
+        function sync() {
+            var c = get();
+            document.querySelectorAll('.uz-opt').forEach(function (b) { var on = Number(b.getAttribute('data-zoom')) === c; b.classList.toggle('on', on); b.setAttribute('aria-checked', on ? 'true' : 'false'); });
+                    }
+        function apply() {
+            var c = get(); root.style.setProperty('--ui-zoom', c / 100);
+            if (c === 100) root.removeAttribute('data-uz'); else root.setAttribute('data-uz', c);
+            sync();
+        }
+        function fire() { try { window.dispatchEvent(new Event('eduorient-uizoom')); } catch (e) {} }
+        window.getUiZoom = get;
+        window.setUiZoom = function (v) { v = snap(v); mem = v; try { localStorage.setItem(KEY, v); } catch (e) {} apply(); fire(); };
+        apply();
+        document.addEventListener('DOMContentLoaded', sync);
+        window.addEventListener('storage', function (e) { if (e.key === KEY) { apply(); fire(); } });
+    })();
+    </script>
+
     <!-- Font: tải song song, không chặn render -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -65,10 +90,10 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
 
     <!-- Tailwind CSS (file tĩnh, build bằng CLI: npm run build:css) -->
-    <link rel="stylesheet" href="tailwind.min.css?v=681b7a9784">
+    <link rel="stylesheet" href="tailwind.min.css?v=30ab91e68e">
 
     <!-- CSS riêng của app -->
-<link rel="stylesheet" href="index.css?v=de5d85684f">
+<link rel="stylesheet" href="index.css?v=5ee7ac9cf5">
 
     <!-- Thư viện CDN: React (production), SweetAlert2.
          Lucide: đã bỏ (icon là SVG nội tuyến trong app.jsx). JSZip: chỉ tải khi giáo viên bấm "Nhập đề từ file Word (.docx)". -->
@@ -86,7 +111,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js" integrity="sha384-TnlRYaR4JYz/lpaGuaiU61PjNberSA4vjLjtF+oRC/IkohkJqnWxw5EmDSOt1vA1" crossorigin="anonymous"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js" integrity="sha384-qn4Jh88HhJA8dplNQyGjOh9OGI4izVhrfj/qIFgaKcdgOE06pXqIKGlsCILZcLAC" crossorigin="anonymous"></script>
     <!-- type="module": bắt buộc để esbuild --splitting hoạt động; các chunk Giáo viên / Quản trị / Phụ huynh tự tải khi cần -->
-    <script type="module" src="app.min.js?v=21aeaa69e4"></script>
+    <script type="module" src="app.min.js?v=5a348b00b1"></script>
 <script>
   // Có bản mới: nếu người dùng đang ở tab khác thì tải lại âm thầm; nếu đang dùng thì hiện thanh "Cập nhật" (không làm mất dữ liệu đang nhập).
   if ('serviceWorker' in navigator) {

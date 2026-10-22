@@ -12,7 +12,8 @@
     <meta property="og:image" content="https://eduorient-d06c2.web.app/icon-512.png">
     <meta name="twitter:card" content="summary">
     <meta name="robots" content="noindex">
-    <link rel="icon" type="image/png" href="icon-192.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
     <link rel="apple-touch-icon" href="icon-192.png">
     <link rel="manifest" href="manifest.webmanifest">
     <!-- Kết nối sớm tới nơi tải Firebase SDK (www.gstatic.com) và SweetAlert2 / KaTeX (cdn.jsdelivr.net).
@@ -62,7 +63,30 @@
     window.addEventListener('storage', function (e) { if (e.key === KEY) { apply(); fire(); } });
 })();
 </script>
-<link rel="stylesheet" href="hocsinh.min.css?v=0bdd1f95b5">
+    <!-- CỠ GIAO DIỆN: thu nhỏ nội dung (80% / 90% / 100%). Khóa lưu: eduorient_ui_zoom = số phần trăm (mặc định 100). Dùng chung index.html (đăng nhập / giáo viên / quản trị / phụ huynh) và hocsinh.html. Áp dụng TRƯỚC khi vẽ trang. -->
+    <script>
+    (function () {
+        var KEY = 'eduorient_ui_zoom', MIN = 70, MAX = 120, mem = 100, root = document.documentElement;
+        function snap(n) { n = Math.round(Number(n) / 5) * 5; if (!isFinite(n)) return 100; return Math.min(MAX, Math.max(MIN, n)); }
+        function get() { try { var v = localStorage.getItem(KEY); return v === null ? mem : snap(v); } catch (e) { return mem; } }
+        function sync() {
+            var c = get();
+            document.querySelectorAll('.uz-opt').forEach(function (b) { var on = Number(b.getAttribute('data-zoom')) === c; b.classList.toggle('on', on); b.setAttribute('aria-checked', on ? 'true' : 'false'); });
+                    }
+        function apply() {
+            var c = get(); root.style.setProperty('--ui-zoom', c / 100);
+            if (c === 100) root.removeAttribute('data-uz'); else root.setAttribute('data-uz', c);
+            sync();
+        }
+        function fire() { try { window.dispatchEvent(new Event('eduorient-uizoom')); } catch (e) {} }
+        window.getUiZoom = get;
+        window.setUiZoom = function (v) { v = snap(v); mem = v; try { localStorage.setItem(KEY, v); } catch (e) {} apply(); fire(); };
+        apply();
+        document.addEventListener('DOMContentLoaded', sync);
+        window.addEventListener('storage', function (e) { if (e.key === KEY) { apply(); fire(); } });
+    })();
+    </script>
+<link rel="stylesheet" href="hocsinh.min.css?v=0b594a627a">
     <!-- ===== PHÂN TÍCH: SỬA DARK MODE (card câu hỏi, chữ, thanh tiến trình, nút 1-5, popup, view chuyên sâu). Nằm SAU hocsinh.min.css ===== -->
     <style id="pt-dark-fix">
         html.dark { color-scheme: dark; }
@@ -102,9 +126,7 @@
         html.dark #asp-countdown > div:nth-child(2) { background: rgba(253,230,138,.25) !important; }
         html.dark #asp-countdown-bar { background: #fbbf24 !important; }
 
-        /* --- Màn hình Phân tích chuyên sâu cũ (#modal-deep) + các khung nền sáng nội tuyến khác --- */
-        html.dark #deep-card { background: #182238 !important; color: #f1f5f9; }
-        html.dark #deep-bar { background: rgba(31,44,71,.96); color: #ffffff; }
+        /* --- Các khung nền sáng nội tuyến --- */
         html.dark #asp-hint { background: rgba(59,130,246,.16) !important; color: #e0f2fe !important; }
         html.dark #modal-studentid p { color: #e2e8f0 !important; }
         html.dark [style*="background:var(--bg,#f8fafc)" i] { background: #2f3f5e !important; }
@@ -121,46 +143,8 @@
         /* Banner khóa: bỏ style cũ của .lock-notice, phần hiển thị do thẻ con (Tailwind) đảm nhiệm. Không đụng display để JS vẫn ẩn/hiện được */
         #lock-banner.lock-notice { background: transparent !important; border: 0 !important; box-shadow: none !important; padding: 0 !important; margin-top: 0; margin-bottom: 16px; }
     </style>
-    <!-- ===== PHÂN TÍCH CHUYÊN SÂU (4 phần, gồm 16 câu MBTI): #modal-deep = lớp phủ, #deep-card = khung nội dung. JS đặt display:none <-> flex ===== -->
-    <style id="deep-modal-ui">
-        /* Hộp thoại SweetAlert luôn nổi trên popup */
-        .swal2-container { z-index: 20000 !important; }
-
-        /* Lớp phủ: KHÔNG khai báo display (JS đặt display:flex khi mở) */
-        #modal-deep.deep-overlay {
-            position: fixed; inset: 0; z-index: 9999; align-items: center; justify-content: center;
-            padding: 0; box-sizing: border-box; background: rgba(15, 23, 42, .55);
-            -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); overscroll-behavior: contain;
-        }
-        /* Khung nội dung: Mobile = toàn màn hình; cuộn mượt bên trong */
-        #modal-deep .deep-card {
-            width: 100%; height: 100%; max-height: 100dvh; overflow-y: auto; -webkit-overflow-scrolling: touch;
-            overscroll-behavior: contain; background: #f8fafc; box-sizing: border-box;
-        }
-        #deep-bar {
-            position: sticky; top: 0; z-index: 5; display: flex; align-items: center; justify-content: space-between; gap: 12px;
-            padding: 14px 18px; background: #fff; border-bottom: 1px solid rgba(148, 163, 184, .30);
-        }
-        #deep-content { max-width: none; margin: 0 auto; padding: 18px 16px 32px; box-sizing: border-box; }
-        /* Desktop >= 768px: khung rộng tương đương w-full max-w-5xl, cao tối đa 90vh, bo góc */
-        @media (min-width: 768px) {
-            #modal-deep.deep-overlay { padding: 24px; }
-            #modal-deep .deep-card { max-width: 1024px; height: auto; max-height: 90vh; border-radius: 20px; box-shadow: 0 25px 60px rgba(0, 0, 0, .35); }
-            #deep-bar { border-radius: 20px 20px 0 0; padding: 16px 28px; }
-            #deep-content { padding: 22px 28px 34px; }
-            #deep-content .dp-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 16px; align-items: start; }
-            #deep-content #dp-list { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px !important; }
-            #deep-content .deep-sum { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
-        }
-        html.dark #deep-bar { border-bottom-color: rgba(148, 163, 184, .28); }
-        html.dark #modal-deep.deep-overlay { background: rgba(6, 10, 20, .72); }
-            /* Đáy popup Phân tích chuyên sâu (Phần 4/4): dải cảnh báo nhỏ + nút, dính đáy khung cuộn */
-        #deep-content .deep-foot { position: sticky; bottom: 0; z-index: 4; margin: 14px -16px -32px; padding: 8px 16px calc(12px + env(safe-area-inset-bottom, 0px)); background: #f8fafc; border-top: 1px solid rgba(148, 163, 184, .30); }
-        #deep-content .deep-foot-note { margin: 0 0 8px; padding: 6px 10px; border-radius: 8px; font-size: 12px; line-height: 1.4; font-weight: 600; color: #78716c; background: #fefce8; border: 1px solid #fde68a; }
-        @media (min-width: 768px) { #deep-content .deep-foot { margin: 14px -28px -34px; padding-left: 28px; padding-right: 28px; border-radius: 0 0 20px 20px; } }
-        html.dark #deep-content .deep-foot { background: #182238; border-top-color: rgba(148, 163, 184, .28); }
-        html.dark #deep-content .deep-foot-note { color: #fde68a; background: rgba(245, 158, 11, .14); border-color: #a16207; }
-</style>
+    <!-- Hộp thoại SweetAlert luôn nổi trên các popup -->
+    <style id="swal-z-fix">.swal2-container { z-index: 20000 !important; }</style>
     <!-- ===== TAB TÀI KHOẢN: 2 cột cân bằng tuyệt đối trên desktop (>= 1024px = lg). Dưới 1024px giữ nguyên chế độ 3 mục của điện thoại/tablet ===== -->
     <style id="ai-hist-ui">
         .ai-h-item{display:flex;align-items:center;gap:6px;padding:9px 10px;margin:4px 0;border-radius:10px;cursor:pointer;font-size:13px;color:var(--text-main,inherit);text-align:left;border:1px solid transparent}
@@ -282,7 +266,7 @@
     <script src="wrapped-core.js?v=8c13d5ce40"></script>
     <!-- Tailwind: file CSS tĩnh build bằng CLI (thay cho cdn.tailwindcss.com chỉ dùng để thử nghiệm). Tắt preflight để không ảnh hưởng CSS cũ.
          Build: npx tailwindcss -c tailwind.hocsinh.config.js -i input.css -o hocsinh-tw.min.css --minify -->
-    <link rel="stylesheet" href="hocsinh-tw.min.css?v=63786204e0">
+    <link rel="stylesheet" href="hocsinh-tw.min.css?v=2a154e1cec">
     <!-- ===== DESKTOP DASHBOARD (>= 1024px). Mobile (< 1024px) giữ nguyên ===== -->
 
 <!-- TĂNG TƯƠNG PHẢN DARK MODE: khối riêng, nằm SAU #dark-theme -->
@@ -394,15 +378,6 @@
         </div></div></div>
 
     <!-- 3. MODAL HỒ SƠ HƯỚNG NGHIỆP (MỚI) -->
-    <div id="modal-deep" class="deep-overlay" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="deep-title">
-        <div id="deep-card" class="deep-card w-full max-w-5xl max-h-[90vh] overflow-y-auto">
-            <div id="deep-bar">
-                <b id="deep-title"><svg class=ic aria-hidden=true><use href=#i-microscope></use></svg> Phân tích chuyên sâu</b>
-                <button type="button" id="deep-exit" onclick="deepExit()" aria-label="Thoát"><svg class=ic aria-hidden=true><use href=#i-close></use></svg> Thoát</button>
-            </div>
-            <div id="deep-content"></div>
-        </div>
-    </div>
     <div id="modal-ho-so-huong-nghiep" class="fullscreen-overlay" style="display: none;">
         <div class="modal-card">
             <div class="modal-header">
@@ -631,9 +606,9 @@
             </div></div></div>
 
     <aside class="dash-sidebar" aria-label="Điều hướng chính">
-        <div class="side-logo"><span><svg class=ic aria-hidden=true><use href=#i-compass></use></svg></span><span>EduOrient</span></div>
+        <div class="side-logo"><span><img src="logo.svg" alt="" class="logo-l"><img src="logo-dark.svg" alt="" class="logo-d"></span><span>EduOrient</span></div>
         <nav class="side-nav">
-            <div class="side-item active" id="side-phantich" data-tab="tab-phantich" onclick="switchTab('tab-phantich', this, false)"><span class="si"><svg class=ic aria-hidden=true><use href=#i-chart-box></use></svg></span><span>Phân Tích</span></div>
+            <div class="side-item active" id="side-phantich" data-tab="tab-phantich" onclick="switchTab('tab-phantich', this, false)"><span class="si"><svg class=ic aria-hidden=true><use href=#i-compass></use></svg></span><span>Định hướng</span></div>
             <div class="side-item is-locked" id="side-baitap" data-tab="tab-baitap" onclick="switchTab('tab-baitap', this, true)"><span class="si"><svg class=ic aria-hidden=true><use href=#i-note-edit></use></svg></span><span>Bài tập</span></div>
             <div class="side-item is-locked" id="side-ai" data-tab="tab-ai" onclick="switchTab('tab-ai', this, true)"><span class="si"><svg class=ic aria-hidden=true><use href=#i-robot></use></svg></span><span>Chat AI</span></div>
             <div class="side-item is-locked" id="side-bxh" data-tab="tab-bxh" onclick="switchTab('tab-bxh', this, true)"><span class="si"><svg class=ic aria-hidden=true><use href=#i-trophy></use></svg></span><span>BXH</span></div>
@@ -647,7 +622,7 @@
             <div class="dm-foot-text">EduOrient AI</div>
         </div>
     </aside>
-    <div class="app-header"><div class="top-title" id="top-title">Phân Tích</div>
+    <div class="app-header"><div class="top-title" id="top-title">Định hướng</div>
         <div class="header-dropdown" id="header-level-badge">THPT <span>▼</span></div>
         <img id="user-avatar" src="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20fill%3D%22%234361ee%22%2F%3E%3Ctext%20x%3D%2232%22%20y%3D%2232%22%20dy%3D%22.35em%22%20text-anchor%3D%22middle%22%20font-family%3D%22Inter%2CArial%2Csans-serif%22%20font-weight%3D%22700%22%20font-size%3D%2227%22%20fill%3D%22%23fff%22%3EU%3C%2Ftext%3E%3C%2Fsvg%3E" alt="Avatar" class="avatar-img" onclick="switchTab('tab-profile', document.getElementById('nav-profile'), false)">
     </div>
@@ -664,6 +639,8 @@
                 <button type="button" class="rounded-xl border-0 bg-gradient-to-r from-amber-400 to-orange-500 px-5 py-2.5 text-sm font-extrabold text-slate-950 shadow-[0_0_20px_rgba(251,146,60,0.5)] transition-all duration-300 hover:scale-[1.03] hover:shadow-[0_0_30px_rgba(251,146,60,0.8)] active:scale-95 cursor-pointer" onclick="openSchoolModal()"><svg class=ic aria-hidden=true><use href=#i-domain></use></svg> Chọn trường ngay</button>
             </div>
         </div>
+        <!-- TAB ĐỊNH HƯỚNG: nội dung vẽ bằng JS (dhRender). Khối #pt-basic-view bên dưới là giao diện phân tích CŨ: đã ẩn bằng CSS nhưng vẫn giữ trong DOM vì các hàm cũ (phanTichGop, renderPtResult, ptw*) còn tham chiếu tới nó. -->
+        <div id="dh-root"></div>
         <!-- PHÂN TÍCH CƠ BẢN: chỉ điểm 8 môn + 12 câu Holland + nút "Phân Tích Định Hướng" + khung kết quả -->
         <div id="pt-basic-view">
         <div class="card">
@@ -831,7 +808,7 @@
                     <span><svg class=ic aria-hidden=true><use href=#i-bullseye-arrow></use></svg></span> <span id="profile-uni" onclick="openAsp('uni')" style="cursor:pointer;">Chưa chọn nguyện vọng</span>
                 </div>
                 <div class="profile-badge" id="profile-majors-wrap" style="display:none;">
-                    <span><svg class=ic aria-hidden=true><use href=#i-school></use></svg></span> <span id="profile-majors" onclick="openDeep()" style="cursor:pointer;"></span>
+                    <span><svg class=ic aria-hidden=true><use href=#i-school></use></svg></span> <span id="profile-majors"></span>
                 </div>
             </div>
             <button class="profile-edit-btn" onclick="openEdit()"><svg class=ic aria-hidden=true><use href=#i-pencil></use></svg> Chỉnh sửa hồ sơ</button>
@@ -852,15 +829,6 @@
             <div class="menu-section-title">Học tập & cộng đồng</div>
             <div class="menu-section-desc">Công cụ định hướng và tương tác học tập</div>
             
-            <!-- PHÂN TÍCH CHUYÊN SÂU (duy nhất): openDeep() -> 4 phần: Ngày sinh/Mệnh, Điểm học lực 8 môn, 18 câu Holland, 16 câu MBTI -> chọn tối đa 3 ngành -->
-            <div class="menu-item" id="deep-card-item" onclick="openDeep()">
-                <div class="menu-item-left">
-                    <div class="menu-item-icon" style="color:#0891b2;background:#cffafe;"><svg class=ic aria-hidden=true><use href=#i-microscope></use></svg></div>
-                    <div class="menu-item-text"><h4>Phân tích chuyên sâu</h4><p>Mệnh, Học lực, Holland &amp; 16 câu MBTI — chọn tối đa 3 ngành mục tiêu</p></div>
-                </div>
-                <div class="menu-item-arrow">›</div>
-            </div>
-
             <div class="menu-item" onclick="openHoSoHuongNghiep()">
                 <div class="menu-item-left">
                     <div class="menu-item-icon" style="color: #8b5cf6; background: #f3e8ff;"><svg class=ic aria-hidden=true><use href=#i-creation></use></svg></div>
@@ -922,6 +890,10 @@
                 <div class="menu-item-left"><div class="menu-item-icon" style="color:#6366f1;background:#e0e7ff;"><svg class=ic aria-hidden=true><use href=#i-palette></use></svg></div><div class="menu-item-text"><h4>Giao diện</h4><p>Mặc định theo hệ thống, hoặc chọn Tối / Sáng</p></div></div>
                 <div class="tm-bar" role="radiogroup" aria-label="Chế độ giao diện"><button type="button" class="tm-opt" data-mode="system" role="radio" aria-checked="false" onclick="setThemeMode('system')"><span class="tm-ic"><svg class=ic aria-hidden=true><use href=#i-monitor></use></svg></span><span>Mặc định</span></button><button type="button" class="tm-opt" data-mode="dark" role="radio" aria-checked="false" onclick="setThemeMode('dark')"><span class="tm-ic"><svg class=ic aria-hidden=true><use href=#i-weather-night></use></svg></span><span>Tối</span></button><button type="button" class="tm-opt" data-mode="light" role="radio" aria-checked="false" onclick="setThemeMode('light')"><span class="tm-ic"><svg class=ic aria-hidden=true><use href=#i-white-balance-sunny></use></svg></span><span>Sáng</span></button></div><div class="tm-hint"></div>
             </div>
+            <div class="menu-item dm-profile-item tm-menu uz-menu">
+                <div class="menu-item-left"><div class="menu-item-icon uz-icon" style="color:#0284c7;background:#e0f2fe;">Aa</div><div class="menu-item-text"><h4>Cỡ chữ &amp; giao diện</h4><p>Thu nhỏ nội dung để xem được nhiều hơn trên điện thoại</p></div></div>
+                <div class="uz-bar" role="radiogroup" aria-label="Cỡ giao diện"><button type="button" class="uz-opt" data-zoom="80" role="radio" aria-checked="false" onclick="setUiZoom(80)"><span class="uz-aa" style="font-size:11px">Aa</span><span>Rất nhỏ</span></button><button type="button" class="uz-opt" data-zoom="90" role="radio" aria-checked="false" onclick="setUiZoom(90)"><span class="uz-aa" style="font-size:13px">Aa</span><span>Nhỏ</span></button><button type="button" class="uz-opt" data-zoom="100" role="radio" aria-checked="false" onclick="setUiZoom(100)"><span class="uz-aa" style="font-size:16px">Aa</span><span>Chuẩn</span></button></div>
+            </div>
             <div class="menu-item" onclick="openPw()">
                 <div class="menu-item-left">
                     <div class="menu-item-icon" style="color: #10b981; background: #d1fae5;"><svg class=ic aria-hidden=true><use href=#i-shield-check></use></svg></div>
@@ -970,7 +942,7 @@
     <!-- BOTTOM NAV -->
     <nav class="bottom-nav">
         <div class="nav-item active" data-tab="tab-phantich" onclick="switchTab('tab-phantich', this, false)">
-            <div class="nav-icon"><svg class=ic aria-hidden=true><use href=#i-chart-box></use></svg></div><span>Phân Tích</span>
+            <div class="nav-icon"><svg class=ic aria-hidden=true><use href=#i-compass></use></svg></div><span>Định hướng</span>
         </div>
         <div class="nav-item is-locked" id="nav-baitap" data-tab="tab-baitap" onclick="switchTab('tab-baitap', this, true)">
             <div class="nav-icon"><svg class=ic aria-hidden=true><use href=#i-note-edit></use></svg></div><span>Bài tập</span>
@@ -986,7 +958,7 @@
         </div>
     </nav>
 
-    <script src="hocsinh.min.js?v=e2fdf597a6"></script>
+    <script src="hocsinh.min.js?v=8361c2f270"></script>
 <script>
 // Thanh báo mất mạng (hiện khi trình duyệt báo offline, tự ẩn khi có mạng lại)
 (function () {

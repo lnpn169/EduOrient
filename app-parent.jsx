@@ -1,5 +1,5 @@
 // EduOrient — cổng PHỤ HUYNH (ParentPortal). Chỉ tải khi phụ huynh đăng nhập.
-import { fbAuth, fbDb, fbNow, initialsAvatar, safeAvatar } from './app-core.jsx';
+import { UiZoomPopover, fbAuth, fbDb, fbNow, initialsAvatar, safeAvatar } from './app-core.jsx';
 import { ATT_STATUS, Icon, clampScore, subXp } from './app-shared.jsx';
 
         const { useState, useEffect, useRef, useMemo, useCallback, memo } = React;
@@ -390,7 +390,10 @@ import { ATT_STATUS, Icon, clampScore, subXp } from './app-shared.jsx';
             const d = data || {};
             return (
                 <div className="min-h-screen bg-slate-50 p-4"><div className="max-w-5xl mx-auto space-y-4">
-                    <p className="text-center text-[11px] font-bold uppercase tracking-wide text-slate-400">Báo cáo dành cho Phụ huynh</p>
+                    <div style={{ position: 'relative', minHeight: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', paddingRight: 44, paddingLeft: 44 }}>
+                        <p className="text-center text-[11px] font-bold uppercase tracking-wide text-slate-400">Báo cáo dành cho Phụ huynh</p>
+                        <UiZoomPopover sm style={{ position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)' }} />
+                    </div>
                     <ParentProfileCard student={student} prof={d.prof || {}} cover={cover} />
                     <div className="sticky top-0 z-30 md:hidden -mx-1 px-1 py-2 bg-slate-50/90 backdrop-blur">
                         <div className="flex gap-1 bg-white rounded-2xl shadow-sm p-1">

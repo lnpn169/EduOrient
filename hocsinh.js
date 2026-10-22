@@ -232,7 +232,7 @@ function soonFeature() { return eduAlert('Tính năng đang được phát tri�
         // CHỨC NĂNG 1: HỒ SƠ HƯỚNG NGHIỆP
         function openHoSoHuongNghiep() {
             if(!user.analysisData) {
-                return eduAlert("Bạn chưa thực hiện phân tích điểm! Hãy sang tab 'Phân Tích' nhập điểm trước.", 'warning');
+                return eduAlert("Bạn chưa thực hiện phân tích điểm! Hãy sang tab 'Định hướng' hoàn thành bước 1 (điểm học lực và trắc nghiệm) trước.", 'warning');
             }
             let data = user.analysisData;
             let html = `
@@ -566,11 +566,12 @@ function soonFeature() { return eduAlert('Tính năng đang được phát tri�
             document.querySelectorAll('[data-tab="' + tabId + '"]').forEach(el => el.classList.add('active'));   // đồng bộ Sidebar (desktop) + Bottom Nav (mobile)
             if (element) element.classList.add('active');
             const ttl = document.getElementById('top-title');
-            if (ttl) ttl.innerText = { 'tab-phantich': 'Phân Tích', 'tab-baitap': 'Bài Tập', 'tab-ai': 'Chat AI', 'tab-bxh': 'Bảng Xếp Hạng', 'tab-profile': 'Tài Khoản' }[tabId] || '';
+            if (ttl) ttl.innerText = { 'tab-phantich': 'Định hướng', 'tab-baitap': 'Bài Tập', 'tab-ai': 'Chat AI', 'tab-bxh': 'Bảng Xếp Hạng', 'tab-profile': 'Tài Khoản' }[tabId] || '';
             updateFab();
             syncAiLayout(tabId === 'tab-ai');
             if (tabId === 'tab-ai') aiEnsureList();   // lần đầu mở Chat AI mới tải lịch sử
-            if (tabId === 'tab-bxh' && ME) loadBxh();   // tự bỏ qua nếu cache < 5 phút
+            if (tabId === 'tab-phantich') { try { dhRender(); } catch (e) {} }   // tab Định hướng
+        if (tabId === 'tab-bxh' && ME) loadBxh();   // tự bỏ qua nếu cache < 5 phút
         }
 
         // Chat AI trên máy tính: khóa cuộn CẢ TRANG (chỉ khung tin nhắn / lịch sử cuộn bên trong) và đo chiều cao thanh tiêu đề
@@ -1096,15 +1097,65 @@ function soonFeature() { return eduAlert('Tính năng đang được phát tri�
             ['R','Em thích làm việc với dụng cụ, thiết bị hoặc ngoài trời.'],['I','Em thích giải các bài toán, câu đố khó.'],['A','Em thích nghĩ ra ý tưởng mới, khác biệt.'],['S','Em thích lắng nghe và chia sẻ với người khác.'],['E','Em thích làm trưởng nhóm, dẫn dắt mọi người.'],['C','Em thích làm việc theo quy trình rõ ràng.'],
             ['R','Em thích tự tay làm ra sản phẩm thực tế.'],['I','Em thích làm thí nghiệm hoặc nghiên cứu.'],['A','Em thích tự do thể hiện cá tính khi làm việc.'],['S','Em thích hoạt động tập thể, cộng đồng.'],['E','Em thích kinh doanh, bán hàng hoặc tổ chức sự kiện.'],['C','Em thích tính toán chi tiết, chính xác.']];
         const ANS = ['Không thích', 'Bình thường', 'Rất thích'];   // thứ tự nút trái -> phải; chỉ số = điểm lưu: 0 / 1 / 2 (Rất thích = 2, Bình thường = 1, Không thích = 0)
-        // ---- Điểm chuẩn 3 năm gần nhất (thang 30). DỮ LIỆU ƯỚC TÍNH - admin thay bằng số liệu chính thức từng năm tại đây ----
+        // ---- Điểm chuẩn 3 năm gần nhất (thang 30, xét điểm thi tốt nghiệp THPT) ----
+        // NGUỒN SỐ LIỆU THẬT: file diemchuan.csv (mỗi dòng có cột "nguon"). Chạy `node build-diemchuan.mjs` (đã nằm trong `npm run build`)
+        // để ghi bảng vào khối DC_REAL bên dưới. KHÔNG sửa tay khối này.  Dạng: { idTrường: { mãNgành: [điểm2023, điểm2024, điểm2025] } }
+        const DC_YEARS = [2023, 2024, 2025];
+        // <DC_REAL> (tự động ghi bởi build-diemchuan.mjs từ diemchuan.csv - đừng sửa tay)
+        const DC_REAL = {
+            "ajc": { "jou": [24.98,25.9,24.09], "mkt": [24.98,25.9,24.09], "mmd": [28.68,28.25,26.5], "pr": [24.98,25.9,24.09], "soc": [25,25.7,24.2], "x1dstb9b": [23.31,25.25,22.96], "x1esf35": [25.1,25.89,25.1], "x1fhevev": [24.98,25.9,24.09], "x1jxza9a": [25.35,25.8,24.44], "x1wztv75": [24.25,25.61,23.5], "xgs9tks": [24.17,25.45,23.07], "xrx7oe6": [24.98,25.9,24.09], "xt4q0ce": [23.94,25.25,22.96] },
+            "annd": { "cs": [23.8,24.5,24], "en": [23.8,24.5,24], "it": [23.8,24.5,24], "sec": [23.8,24.5,24], "x8a5tn4": [23.8,24.5,24], "xuxaq9f": [23.8,24.5,24] },
+            "aof": { "acc": [26.15,26.35,26.6], "ai": [25.94,26.19,25.8], "bus": [26.17,26.25,25.8], "eco": [25.8,26.1,25.5], "ecom": [25.94,26.19,25.8], "en": [25.94,26.19,25.8], "fin": [25.8,26.22,26], "xfm2q4m": [25.8,26.03,25.1] },
+            "ba": { "acc": [25.8,26.4,26.15], "bus": [25.8,26,25.75], "cs": [25.6,26.1,25.7], "eco": [25.7,26,25.6], "ecom": [26.5,26.75,26.3], "en": [25.7,26.2,25.9], "fin": [25.8,26.1,25.8], "it": [26.2,26.5,26.1], "law": [26.2,28.13,26.8], "log": [25.8,28.13,26.9], "x5o9f4i": [25.8,26.2,25.9], "xfm2q4m": [25.7,26.1,25.8] },
+            "dav": { "eco": [28.12,25.1,25.2], "en": [28.15,25.2,25.15], "int": [28.21,25.4,25.5], "lang": [28.42,25,25.3], "law": [28.02,25.2,25.1], "x1sukcli": [28.05,25.3,25.25], "x1u7ebga": [28.46,25.5,25.6], "xcubnc1": [28,25,25] },
+            "fptu": { "ai": [23.8,24.5,24], "bus": [23.8,24.5,24], "ce": [23.8,24.5,24], "cs": [23.8,24.5,24], "des": [23.8,24.5,24], "en": [23.8,24.5,24], "it": [23.8,24.5,24], "lang": [23.8,24.5,24], "mkt": [23.8,24.5,24], "mmd": [23.8,24.5,24], "x114nbzi": [23.8,24.5,24], "x19mdkfr": [23.8,24.5,24], "x1sukcli": [23.8,24.5,24] },
+            "ftu": { "acc": [28.15,27.95,27.55], "ai": [28.4,28.15,27.9], "bus": [28.25,28.05,27.7], "eco": [28.3,28.1,27.8], "ecom": [28.3,28.1,27.7], "en": [28.1,27.9,27.5], "fin": [28.2,28,27.6], "int": [28.1,27.9,27.5], "lang": [28.2,28,27.6], "law": [28,27.8,27.4], "log": [28.5,28.2,28.1], "mkt": [28.2,28,27.6], "x114nbzi": [28,27.8,27.3], "x1esf35": [28.1,27.9,27.4], "x1rmkydi": [28.15,27.95,27.5], "x1uvsq4v": [28.25,28.05,27.65] },
+            "hanu": { "acc": [23.8,24.5,24], "bus": [23.8,24.5,24], "ecom": [23.8,24.5,24], "en": [23.8,24.5,24], "fin": [23.8,24.5,24], "int": [23.8,24.5,24], "it": [23.8,24.5,24], "lang": [23.8,24.5,24], "mkt": [23.8,24.5,24], "mmd": [23.8,24.5,24], "tour": [23.8,24.5,24], "x13j8hrq": [23.8,24.5,24], "x15y7ud3": [23.8,24.5,24], "x1lqmg7f": [23.8,24.5,24], "x1pdj1fu": [23.8,24.5,24], "x1rdc95p": [23.8,24.5,24] },
+            "hau": { "arc": [22.5,23.1,22.7], "civ": [18,18.8,18.2], "des": [23,23.6,23.2], "it": [23.5,24.1,23.7], "x1141in9": [21.25,21.9,21.47], "x1f53v22": [19,19.6,19.2], "x3qtqma": [21.25,21.9,21.47], "x3ys5ya": [21.25,21.9,21.47], "x4w8iul": [21.25,21.9,21.47], "xnxugyq": [21.25,21.9,21.47], "xtfp2k": [21.5,22.2,21.8] },
+            "haui": { "acc": [24.5,25,24.6], "auto": [24,24.6,24.1], "bus": [24.6,25.1,24.7], "ce": [24.2,24.8,24.3], "ee": [23.8,24.4,23.9], "en": [24.2,24.9,24.5], "food": [22,22.8,22.4], "ind": [23.2,23.9,23.5], "it": [25.1,25.6,25.2], "lang": [24.8,25.4,25], "me": [23.5,24.1,23.6], "mkt": [24.9,25.4,25], "tel": [23.6,24.2,23.7], "tour": [23,23.8,23.4], "x16vtqkf": [21,21.9,21.5], "x1bxrrgz": [24.3,24.9,24.5], "x1kp3iee": [21.5,22.3,21.8], "x9z2fwd": [24,24.6,24.2] },
+            "hlu": { "int": [26.1,27.2,26.5], "law": [25.2,26.5,25.8], "x1b2b1ql": [26.8,27.8,27], "x1n4uheq": [25.5,26.8,26.1] },
+            "hmu": { "den": [27.5,27.9,27.6], "med": [27.73,28.27,27.95], "nur": [23.2,24.1,23.8], "pha": [24.4,25.14,24.72], "psy": [25.5,26.2,25.8], "x18u2n14": [22.8,23.6,23.2], "x19g77be": [22.5,23.5,23], "x1ihosg6": [24.2,24.9,24.4], "x1oy3435": [25.8,26.3,25.9], "x1q80lzi": [19,20.5,20], "xcdqpgy": [24.1,24.8,24.3], "xfw0fiw": [26.1,26.5,26] },
+            "hnue": { "bio": [24,24.6,24.1], "chem": [23.8,24.5,24], "it": [25.1,25.7,25.2], "math": [26.2,26.8,26.3], "phy": [23.5,24.2,23.8], "psy": [25.8,26.4,25.9], "soc": [24.5,25.2,24.6], "x11fmdax": [28.5,28.8,28.1], "x13a0emr": [24.8,25.4,24.9], "x17axkta": [27.5,28.1,27.6], "x19wncz": [28.25,28.6,28], "x1aproy8": [28.42,28.83,28.2], "x1crulm2": [23,23.8,23.2], "x1dstb9b": [24.2,24.9,24.3], "x1ezyrbk": [26,26.6,25.8], "x1fhevev": [25,25.8,25.2], "x1hzo312": [26.8,27.5,26.9], "x1nku14y": [27.2,27.8,27], "x1ohygli": [22.5,23.2,22.7], "x1qrc0th": [26.2,26.8,26.1], "x1sch7ll": [22.5,23.2,22.8], "x1tab0pp": [24,24.8,24.2], "x1w4i3zl": [26.2,26.8,26], "xdq4l5d": [26.5,27,26.4], "xev25bp": [25.2,25.8,25.3], "xgf3cxd": [25,25.6,25.1], "xhlsn7c": [28,28.5,27.8], "xitl9es": [25.5,26.1,25.4], "xk8xvyv": [23,23.5,23.1], "xkbfyac": [22,22.8,22.2], "xmdiony": [26.8,27.3,26.6], "xxh50vs": [26,26.6,25.9] },
+            "hou": { "acc": [23.2,23.8,23.4], "arc": [23.04,23.67,23.23], "bio": [23.04,23.67,23.23], "bus": [23,23.6,23.2], "des": [21,21.8,21.2], "eco": [23.04,23.67,23.23], "ecom": [23.6,24.2,23.8], "en": [24,24.5,24.1], "fin": [22.8,23.5,23], "food": [23.04,23.67,23.23], "it": [23.8,24.3,23.9], "law": [23.5,24.1,23.7], "tour": [22.5,23.2,22.8], "x8a5tn4": [23.04,23.67,23.23] },
+            "huce": { "arc": [22,22.5,22.1], "auto": [22.5,23.1,22.6], "chem": [17,17.5,17], "civ": [17,18,17.5], "geo": [17,17.5,17], "it": [24.75,24.8,24.2], "log": [24,24.5,24.1], "me": [21,21.8,21.2], "water": [17,17.5,17], "x148dg4p": [21.5,22,21.6], "x1f53v22": [18,18.5,18], "xb3918j": [17,17.5,17], "xe0lj73": [17,17.5,17], "xtfp2k": [20,20.5,20.1] },
+            "humg": { "acc": [21.5,22.2,21.8], "bus": [21,21.8,21.3], "chem": [16,16.8,16.2], "civ": [16.5,17.2,16.8], "ee": [19.5,20.2,19.8], "fin": [20.8,21.5,21], "geo": [16,16.5,16], "it": [22.5,23.2,22.8], "me": [19,19.8,19.3], "x16ibvwb": [19.2,19.91,19.44], "x1cdgoru": [19.2,19.91,19.44], "xxp2kr1": [19.2,19.91,19.44] },
+            "hup": { "bio": [24,24.5,24.1], "chem": [23.8,24.2,23.9], "pha": [25,25.5,25.1], "x1requvv": [24.5,24.9,24.6] },
+            "hust": { "acc": [25.5,26,25.5], "ai": [28.8,28.4,28.1], "auto": [26.8,27.1,26.5], "bio": [24.5,25.2,24.8], "bus": [25.8,26.2,25.8], "ce": [28.29,28.02,27.8], "chem": [23.5,24.2,23.8], "civ": [21,22.5,22.1], "cs": [28.05,27.9,27.5], "eco": [26,26.3,25.9], "ee": [27.2,27.5,26.9], "en": [26.2,26.5,26.1], "fin": [25.7,26.1,25.6], "food": [25.1,25.8,25.3], "ind": [25.6,26.1,25.7], "it": [29.42,28.85,28.2], "log": [27.2,27.6,27.1], "math": [27,27.2,26.8], "me": [26.75,26.9,26.4], "phy": [23.8,24.5,24], "tel": [27.1,27.3,26.8], "x1280btw": [24.5,25.1,24.7], "x1fyne3g": [22.5,23.5,23.1], "x1lh7ap2": [26.2,26.5,26], "xel9spf": [26.8,27.1,26.7], "xfm2q4m": [26.5,26.8,26.3] },
+            "neu": { "acc": [27.2,27.79,28.38], "ai": [27.03,27.33,26.13], "bus": [27.25,27.15,27.1], "eco": [27.35,27.54,28.13], "ecom": [27.65,28.02,28.83], "fin": [27.1,27.3,27.34], "law": [26.6,26.91,26.75], "log": [27.4,27.89,28.61], "mkt": [27.55,27.78,28.12], "pr": [27.2,28.18,28.07], "tour": [26.65,26.96,26.25], "x19xupcu": [27.05,27.1,26.27], "x1bxrrgz": [27.1,27.3,27.1], "x1fx28yr": [26.4,26.83,25.41], "x1gswbrh": [26.6,26.81,23.75], "x1hfdcoq": [26.4,26.71,24.75], "x3ahghw": [27.03,27.33,24.92], "x43lreg": [26.85,26.97,26.79], "xfm2q4m": [27.2,27.45,27.5] },
+            "ppa": { "pol": [23.8,24.5,24], "x1wh43c8": [23.8,24.5,24], "x1yrdwb2": [23.8,24.5,24], "x4yo6at": [23.8,24.5,24], "x9yisg5": [23.8,24.5,24], "xvwbu15": [23.8,24.5,24] },
+            "ptit": { "acc": [24.65,25,22.5], "ai": [26.55,26.31,26.21], "bus": [24.8,25.1,22.75], "ce": [25.62,25.78,24.52], "cs": [26.04,25.85,25.21], "des": [25.89,25.75,24], "ecom": [26.1,26.3,25.1], "it": [26.59,26.4,25.8], "jou": [25.62,25.29,22.67], "mkt": [25.8,26.1,24], "mmd": [25.05,25.94,25.25], "tel": [25.68,25.75,25.1], "x19mdkfr": [25.2,25.5,24.87], "x5o9f4i": [25.35,25.61,23.63], "x5us7ke": [25.4,26.08,26.19] },
+            "tlu": { "acc": [23.8,24.5,24], "ai": [24.8,25.3,24.9], "auto": [23,23.7,23.2], "bus": [24,24.6,24.1], "ce": [22.82,23.45,22.98], "chem": [22.82,23.45,22.98], "civ": [19.5,20.2,19.8], "eco": [22.82,23.45,22.98], "en": [23.5,24.1,23.6], "it": [25,25.6,25.1], "log": [24.6,25.2,24.7], "me": [22,22.8,22.3], "water": [18,18.5,18.1], "x1gokb5t": [22.82,23.45,22.98] },
+            "tmu": { "acc": [26.2,26.5,26.1], "bus": [26,26.3,25.8], "eco": [26.3,26.6,26.2], "ecom": [27,27.1,26.75], "en": [26,26.2,25.8], "fin": [26.1,26.4,25.9], "law": [26.1,26.5,26], "log": [27,27.1,26.8], "mkt": [27,27.1,26.7], "tour": [25.8,26.1,25.6], "x1bxrrgz": [26,26.3,25.8], "x1fx28yr": [25.8,26.1,25.6], "x8a5tn4": [26.2,26.5,26], "xfm2q4m": [26.2,26.5,26.1] },
+            "utc": { "acc": [24,24.6,24.1], "arc": [24.03,24.65,24.16], "auto": [24.5,25,24.6], "bus": [24.2,24.8,24.3], "civ": [21.2,22.1,21.5], "eco": [24.03,24.65,24.16], "ee": [23.8,24.5,24], "it": [25.25,25.8,25.3], "log": [25.8,26.2,25.75], "me": [23.5,24.2,23.7], "trn": [24.03,24.65,24.16], "x1xc8bw3": [24.03,24.65,24.16], "xnxugyq": [24.03,24.65,24.16], "xxp2kr1": [24.03,24.65,24.16] },
+            "vnu-hus": { "ai": [25.2,25.8,25.3], "bio": [23.2,23.9,23.4], "chem": [23.5,24.1,23.6], "cs": [23.53,24.2,23.7], "geo": [21.5,22.2,21.8], "math": [25.5,26.1,25.6], "phy": [23,23.8,23.2], "x19xupcu": [23.53,24.2,23.7], "x1cdgoru": [23.53,24.2,23.7], "x1cr5u6n": [23.53,24.2,23.7], "x1is4js6": [23.53,24.2,23.7], "x1sch7ll": [22.8,23.5,23], "xva1bo": [23.53,24.2,23.7] },
+            "vnu-ueb": { "acc": [25.5,25.9,25.6], "bus": [25.8,26.2,25.9], "eco": [25.7,26.1,25.8], "ecom": [26.2,26.5,26.1], "fin": [25.6,26,25.7], "x1w05klr": [25.4,25.8,25.5] },
+            "vnu-uet": { "ai": [27.2,27.1,26.8], "auto": [25.4,25.7,25.3], "ce": [26.9,26.8,26.5], "cs": [26.8,26.7,26.4], "ee": [25.8,26.1,25.7], "it": [27.85,27.5,27.2], "me": [25.5,25.8,25.4], "phy": [23.5,24.1,23.7], "tel": [25.6,25.9,25.5], "x1gokb5t": [25.2,25.6,25.1], "x1n5ryy2": [22.5,23.2,22.7], "x1ryhri0": [24.8,25.2,24.7], "xdqys95": [22,22.8,22.3] },
+            "vnu-ulis": { "en": [23.8,24.5,24], "lang": [23.8,24.5,24], "x13j8hrq": [23.8,24.5,24], "x13jijng": [23.8,24.5,24], "x15tbwq0": [23.8,24.5,24], "x15tfrhy": [23.8,24.5,24], "x1kbysc4": [23.8,24.5,24], "xibz6j5": [23.8,24.5,24], "xjvncl2": [23.8,24.5,24], "xmshlrq": [23.8,24.5,24], "xmshuk5": [23.8,24.5,24], "xmshwid": [23.8,24.5,24], "xmsrye3": [23.8,24.5,24], "xudqt4f": [23.8,24.5,24] },
+            "vnu-ussh": { "int": [26.8,27.2,26.4], "jou": [28.5,28.25,26.5], "lang": [26.2,26.8,25.9], "pr": [28.78,28.5,27], "psy": [26.5,27,26.1], "soc": [25.5,26,25.2], "tour": [26,26.5,25.8], "x13jelrs": [25.8,26.4,25.5], "x1dstb9b": [25.2,25.8,25], "x1fhevev": [26.5,27.1,26], "x1gy33vv": [22.5,23.2,22.8], "x1vaylb6": [24,24.8,24.2], "x1xepycg": [25.5,26.1,25.2], "x1xp4mcz": [25,25.6,24.8], "xfnqvo4": [26,26.6,25.7], "xitl9es": [26.8,27.3,26.2], "xrh8lw3": [26.1,26.7,25.8] },
+            "vnua": { "acc": [18.5,19,18.5], "agr": [18.67,19.17,18.67], "bio": [18,18.5,18], "bus": [19,19.5,19], "chem": [18.67,19.17,18.67], "eco": [18.67,19.17,18.67], "en": [18,18.5,18], "food": [18.5,19,18.5], "it": [20,20.5,20], "x1ca2k02": [18.67,19.17,18.67], "x1cdgoru": [18.67,19.17,18.67], "x1hejm93": [18.67,19.17,18.67], "x1pns7as": [18.67,19.17,18.67], "xlk1bmp": [18.67,19.17,18.67], "xs2xwzp": [18.67,19.17,18.67], "xtxbbx9": [18.67,19.17,18.67] }
+        };
+        // </DC_REAL>
+        // ---- DỰ PHÒNG (chỉ dùng cho cặp trường-ngành CHƯA có số liệu thật trong DC_REAL): ước tính quanh điểm nền theo nhóm ngành / nhóm trường ----
         const BASE = {it:25,ai:26,cs:25,ce:24,me:22,ee:23,tel:23,auto:24,civ:20,arc:22,trn:20,log:25,fin:25,acc:24,bus:24,mkt:25,eco:25,ecom:25,law:25,jou:25,pr:26,en:25,lang:25,int:26,tour:23,soc:22,psy:24,edu:24,med:27,den:27,pha:26,nur:21,bio:22,chem:21,food:22,agr:18,water:17,geo:17,math:23,phy:22,des:22,ind:23,pol:24,sec:24,mmd:25};
         const TIER = {top:'hust neu ftu hmu vnu-uet vnu-ueb vnu-ulis dav hup', low:'haui tlu vnua hou hau humg huce fptu'};
-        const DC_YEARS = [2023, 2024, 2025];
-        function diemChuan(uid, k) {
+        function dcUocTinh(uid, k) {
             const off = TIER.top.split(' ').includes(uid) ? 1.5 : TIER.low.split(' ').includes(uid) ? -1.5 : 0.5, h = (k.charCodeAt(0) + k.length) % 3;
-            const ys = [[-0.4, 0.2, 0], [0.3, -0.3, 0.1], [0, 0.4, -0.2]][h].map(d => Math.max(14, Math.min(29.5, Math.round(((BASE[k] ?? MJ[k][3]) + off + d) * 4) / 4)));
-            const avg = ys.reduce((a, b) => a + b, 0) / 3;
-            return { ys, safe: Math.min(30, Math.round((avg + 0.5) * 4) / 4) };   // điểm an toàn = trung bình 3 năm + 0.5
+            return [[-0.4, 0.2, 0], [0.3, -0.3, 0.1], [0, 0.4, -0.2]][h].map(d => Math.max(14, Math.min(29.5, Math.round(((BASE[k] ?? MJ[k][3]) + off + d) * 4) / 4)));
+        }
+        // Điểm an toàn D = trung bình 3 năm + 0.5 (làm tròn 0.25, tối đa 30). CÔNG THỨC KHÔNG ĐỔI; chỉ đổi nguồn của 3 con số đầu vào.
+        const dcSafe = ys => Math.min(30, Math.round((ys.reduce((a, b) => a + b, 0) / ys.length + 0.5) * 4) / 4);
+        // Trả { ys: [3 năm], safe: D, real: true nếu lấy từ bảng điểm chuẩn thật, false nếu là ước tính dự phòng }
+        function diemChuan(uid, k) {
+            const r = DC_REAL[uid] && DC_REAL[uid][k];
+            if (Array.isArray(r) && r.length === DC_YEARS.length && r.every(Number.isFinite)) return { ys: r.slice(), safe: dcSafe(r), real: true };
+            const ys = dcUocTinh(uid, k);
+            return { ys, safe: dcSafe(ys), real: false };
+        }
+        // Tỉ lệ cặp (trường, ngành) đã có số liệu thật - gõ dcCoverage() trong Console để kiểm tra
+        function dcCoverage() {
+            let real = 0, all = 0;
+            UNIS.forEach(u => mjOf(u.id).forEach(k => { all++; if (diemChuan(u.id, k).real) real++; }));
+            return { real, all, pct: all ? Math.round(real / all * 1000) / 10 : 0 };
         }
         // D.qv === 2: giá trị lưu = điểm trực tiếp (0/1/2). Dữ liệu cũ (không có qv) lưu theo chỉ số cũ (0 = Rất thích) -> quy đổi 2 - q
         const holScore = (D = DEEP) => { const r = { R:0, I:0, A:0, S:0, E:0, C:0 }; QS.forEach((q, i) => { const v = D.q[i]; if (v !== undefined && v !== null) r[q[0]] += (D.qv === 2 ? v : 2 - v); }); return r; };
@@ -1155,7 +1206,7 @@ function soonFeature() { return eduAlert('Tính năng đang được phát tri�
             }
             closeModal('modal-deep');
         }
-        document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('modal-deep').style.display === 'flex' && !document.querySelector('.swal2-container')) deepExit(); });
+        document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('modal-deep') && $('modal-deep').style.display === 'flex' && !document.querySelector('.swal2-container')) deepExit(); });
         function deepBack() { DSTEP--; deepRender(); deepScroll(0); }
         function deepNext() {
             if (DSTEP === 1) { const v = $('dp-dob').value; if (!v || !calcMenh(v)) return eduAlert('Hãy chọn ngày sinh hợp lệ (năm 2000-2014).', 'warning'); DEEP.dob = v; }
@@ -1188,7 +1239,7 @@ function soonFeature() { return eduAlert('Tính năng đang được phát tri�
             const tg = Number(user.deepData.target) || Math.max(...ch.map(r => r.dc.safe));
             g.innerHTML = `<div class="card-title"><svg class=ic aria-hidden=true><use href=#i-bullseye-arrow></use></svg> Điểm mục tiêu của em</div>
                 <div style="display:flex;align-items:center;gap:8px;margin:8px 0;"><input name="goal-input" type="number" id="goal-input" aria-label="Điểm mục tiêu (trên 30)" min="0" max="30" step="0.25" value="${tg}" onchange="goalSet(this.value)" style="width:90px;padding:8px;border:1px solid #e2e8f0;border-radius:10px;font-size:15px;font-weight:700;"><span style="font-size:12px;color:#64748b;">/ 30 điểm (em có thể tự chỉnh)</span></div>
-                ${ch.map(r => { const d = tg - r.dc.safe, z0 = Math.abs(d) < 0.005; return `<div style="display:flex;justify-content:space-between;gap:8px;font-size:13px;padding:6px 0;border-top:1px solid #f1f5f9;"><span><b>${mjTag(r)}</b> <span style="color:#64748b;">(an toàn ${r.dc.safe})</span></span><b style="color:${d > 0 || z0 ? '#16a34a' : '#dc2626'};">${z0 ? '✓ an toàn' : d > 0 ? 'thừa +' + d.toFixed(2).replace(/\.?0+$/, '') : 'thiếu ' + Math.abs(d).toFixed(2).replace(/\.?0+$/, '')}</b></div>`; }).join('')}`;
+                ${ch.map(r => { const d = tg - r.dc.safe, z0 = Math.abs(d) < 0.005; return `<div style="display:flex;justify-content:space-between;gap:8px;font-size:13px;padding:6px 0;border-top:1px solid #f1f5f9;"><span><b>${mjTag(r)}</b> <span style="color:#64748b;">(an toàn ${r.dc.safe})</span></span><b style="color:${d > 0 || z0 ? '#16a34a' : '#dc2626'};">${z0 ? '<svg class=ic aria-hidden=true><use href=#i-check-circle></use></svg> an toàn' : d > 0 ? 'thừa +' + d.toFixed(2).replace(/\.?0+$/, '') : 'thiếu ' + Math.abs(d).toFixed(2).replace(/\.?0+$/, '')}</b></div>`; }).join('')}`;
         }
         function goalSet(v) {
             const n = Math.max(0, Math.min(30, parseFloat(v))); if (isNaN(n) || !user.deepData) return renderProfileDeep();
@@ -1289,12 +1340,12 @@ function soonFeature() { return eduAlert('Tính năng đang được phát tri�
             return `<div style="background:${on ? 'var(--sel-soft)' : 'var(--card-bg)'};border:2px solid ${on ? 'var(--primary)' : 'var(--border)'};border-radius:14px;padding:10px 12px;">
                 <div onclick="deepPick('${r.k}')" style="display:flex;gap:10px;align-items:center;cursor:pointer;min-height:46px;">
                     <span style="flex:0 0 26px;height:26px;border-radius:50%;border:2px solid var(--primary);background:${on ? 'var(--primary)' : 'transparent'};color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;">${on ? '✓' : ''}</span>
-                    <div style="flex:1;min-width:0;font-size:13px;"><b>${esc(r.name)}</b><br><span style="font-size:12px;color:#64748b;">Khối ${esc(r.khoi)} • An toàn <b>${r.dc.safe}</b> • Ước tính <b style="color:${enough ? '#16a34a' : '#dc2626'};">${r.pts.toFixed(1)}</b> <span style="display:inline-block;margin-left:4px;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:700;color:#fff;background:${mjVerdict(r.pts, r.dc.safe)[1]};">${mjVerdict(r.pts, r.dc.safe)[0]}</span></span></div>
+                    <div style="flex:1;min-width:0;font-size:13px;"><b>${esc(r.name)}</b><br><span style="font-size:12px;color:#64748b;">Khối ${esc(r.khoi)} • An toàn <b>${r.dc.safe}</b>${r.dc.real ? '' : '<sup title="Chưa có điểm chuẩn chính thức, đây là ước tính">*</sup>'} • Ước tính <b style="color:${enough ? '#16a34a' : '#dc2626'};">${r.pts.toFixed(1)}</b> <span style="display:inline-block;margin-left:4px;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:700;color:#fff;background:${mjVerdict(r.pts, r.dc.safe)[1]};">${mjVerdict(r.pts, r.dc.safe)[0]}</span></span></div>
                     <b style="color:var(--primary);font-size:15px;">${r.pct}%</b></div>
                 <button type="button" onclick="dpToggle('${r.k}')" style="margin-top:6px;padding:6px 0;border:0;background:none;color:var(--primary);font-size:12px;font-weight:700;cursor:pointer;">${open ? 'Ẩn chi tiết ▴' : 'Xem chi tiết ▾'}</button>
                 ${open ? `<div style="margin-top:4px;padding:10px;border-radius:10px;background:var(--bg,#f8fafc);font-size:12px;line-height:1.7;color:#475569;">
                     ${jobs ? `<svg class=ic aria-hidden=true><use href=#i-briefcase></use></svg> <b>Nghề tiêu biểu:</b> ${esc(jobs)}<br>` : ''}<svg class=ic aria-hidden=true><use href=#i-compass></use></svg> <b>Hợp với người:</b> ${esc(hol)}<br><svg class=ic aria-hidden=true><use href=#i-book-multiple></use></svg> <b>Khối phù hợp nhất:</b> ${esc(khoiFull(r.khoi))}<br><svg class=ic aria-hidden=true><use href=#i-note-edit></use></svg> <b>Xét tuyển:</b> ${MJ[r.k][1].split(',').join(' • ')}<br>
-                    <svg class=ic aria-hidden=true><use href=#i-chart-line></use></svg> <b>Điểm chuẩn:</b> ${DC_YEARS.map((y, i) => y + ': ' + r.dc.ys[i]).join(' • ')}<br><svg class=ic aria-hidden=true><use href=#i-scale-balance></use></svg> <b>Thành phần:</b> Môn ${r.parts.mon}% • An toàn ${r.parts.safe}% • Holland ${r.parts.hol}%${r.parts.mbti === null ? '' : ' • MBTI ' + r.parts.mbti + '%'}<br>
+                    <svg class=ic aria-hidden=true><use href=#i-chart-line></use></svg> <b>Điểm chuẩn${r.dc.real ? '' : ' (ƯỚC TÍNH - chưa có số liệu chính thức)'}:</b> ${DC_YEARS.map((y, i) => y + ': ' + r.dc.ys[i]).join(' • ')}<br><svg class=ic aria-hidden=true><use href=#i-scale-balance></use></svg> <b>Thành phần:</b> Môn ${r.parts.mon}% • An toàn ${r.parts.safe}% • Holland ${r.parts.hol}%${r.parts.mbti === null ? '' : ' • MBTI ' + r.parts.mbti + '%'}<br>
                     <svg class=ic aria-hidden=true><use href=#i-bullseye-arrow></use></svg> ${enough ? 'Đã đủ điểm an toàn.' : 'Còn thiếu <b>' + (r.dc.safe - r.pts).toFixed(1) + '</b> điểm so với mức an toàn.'}</div>` : ''}</div>`;
         };
         function deepResultHtml() {
@@ -1899,7 +1950,7 @@ function processRegister() {
                 (h.description ? `<p style="font-size:12px;color:var(--text-sub);margin-bottom:10px;">${esc(h.description)}</p>` : '') +
                 h.questions.map((q, i) => psgBox(i, q) + (q.kind === 'essay' ? `<div class="hw-q" id="hwq-${i}" style="margin-bottom:14px;background:#eef2ff;border:1px solid #c7d2fe;padding:12px;border-radius:10px;"><p style="font-weight:bold;font-size:13px;white-space:pre-wrap;">Câu ${i + 1} (Tự luận)${q.q ? ': ' + esc(q.q) : ''}</p>${(q.images || []).map(im => `<img src="${im}" style="width:100%;margin-top:8px;border-radius:8px;border:1px solid #c7d2fe;">`).join('')}</div>` : `<div class="hw-q" id="hwq-${i}" style="margin-bottom:14px;background:#f8fafc;padding:12px;border-radius:10px;"><p style="font-weight:bold;font-size:13px;margin-bottom:8px;">Câu ${i + 1}: ${esc(q.q)}</p>` +
                     q.a.map((o, j) => { const wrong = done && my[i] === j && j !== q.c;
-                        return `<div class="quiz-option ${done && j === q.c ? 'correct' : ''}" data-q="${i}" style="${!done && ans[i] === j ? 'background:#dbeafe;' : ''}${wrong ? 'background:#fee2e2;border-color:#ef4444;' : ''}" onclick="chonDA(this,${i},${j})">${'ABCD'[j]}. ${esc(o)}${wrong ? ' ✗' : ''}${done && j === q.c ? ' ✓' : ''}</div>`; }).join('') +
+                        return `<div class="quiz-option ${done && j === q.c ? 'correct' : ''}" data-q="${i}" style="${!done && ans[i] === j ? 'background:#dbeafe;' : ''}${wrong ? 'background:#fee2e2;border-color:#ef4444;' : ''}" onclick="chonDA(this,${i},${j})">${'ABCD'[j]}. ${esc(o)}${wrong ? ' <svg class=ic aria-hidden=true><use href=#i-close-circle></use></svg>' : ''}${done && j === q.c ? ' <svg class=ic aria-hidden=true><use href=#i-check-circle></use></svg>' : ''}</div>`; }).join('') +
                     (done && (q.e || my[i] === undefined || my[i] < 0) ? `<p style="font-size:12px;color:var(--text-sub);margin-top:6px;">${my[i] === undefined || my[i] < 0 ? '<b>Bạn chưa trả lời câu này.</b> ' : ''}${q.e ? '<svg class=ic aria-hidden=true><use href=#i-lightbulb-on></use></svg> ' + esc(q.e) : ''}</p>` : '') + '</div>')).join('');
             if (isEssayHW(h)) {
                 if (!done) $('hw-body').insertAdjacentHTML('beforeend', '<div class="hw-photo" style="margin-top:6px;padding:12px;border:1px dashed #6366f1;border-radius:10px;"><b style="font-size:13px;"><svg class=ic aria-hidden=true><use href=#i-camera></use></svg> Ảnh bài làm tự luận</b><p style="font-size:11px;color:var(--text-sub);margin:4px 0 8px;">Làm bài ra giấy, rồi chụp ảnh hoặc chọn ảnh từ thư viện để nộp.</p><div class="ph-box"></div></div>');
@@ -3967,7 +4018,7 @@ function renderMobilePS() {
     }
     if (card) {
         var hour = Math.floor(((nowMs() + VN_MS) % 86400000) / 3600000), sub, subColor = 'var(--text-sub)';
-        if (s.doneToday) { sub = '✓ Hôm nay đã giữ lửa'; subColor = '#22c55e'; }
+        if (s.doneToday) { sub = '<svg class=ic aria-hidden=true><use href=#i-check-circle></use></svg> Hôm nay đã giữ lửa'; subColor = '#22c55e'; }
         else if (live) { sub = hour >= 19 ? '<svg class=ic aria-hidden=true><use href=#i-alarm></use></svg> Sắp tắt! Vào học ngay' : 'Đăng nhập mỗi ngày để giữ lửa'; subColor = hour >= 19 ? '#f97316' : 'var(--text-sub)'; }
         else sub = 'Đăng nhập mỗi ngày để thắp lửa';
         var rr = restoreInfo(); if (rr.can) { sub = '<svg class=ic aria-hidden=true><use href=#i-heart-broken></use></svg> Khôi phục chuỗi ' + rr.prev + ' ngày'; subColor = '#f97316'; }
@@ -4284,8 +4335,8 @@ function openWrongBook() {
             var head = w.title !== last ? '<h4 style="font-size:13px;margin:14px 0 6px;color:var(--primary);"><svg class=ic aria-hidden=true><use href=#i-book></use></svg> ' + esc(w.title) + '</h4>' : ''; last = w.title;
             return head + '<div style="border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-bottom:8px;background:var(--card-bg);">' +
                 '<div style="font-size:13px;font-weight:700;white-space:pre-wrap;">Câu ' + (w.i + 1) + ': ' + esc(w.q.q || '') + (w.ok >= REVIEW_MASTERED ? ' <span style="color:#16a34a;font-size:11px;"><svg class=ic aria-hidden=true><use href=#i-check-circle></use></svg> đã nắm</span>' : '') + '</div>' +
-                '<div style="font-size:13px;margin-top:6px;">' + (w.my >= 0 ? '<span style="color:#dc2626;">✗ Bạn chọn: ' + 'ABCD'[w.my] + '. ' + esc(w.q.a[w.my] || '') + '</span><br>' : '<span style="color:#dc2626;">✗ Bạn chưa trả lời câu này</span><br>') +
-                '<span style="color:#16a34a;">✓ Đáp án đúng: ' + 'ABCD'[w.q.c] + '. ' + esc(w.q.a[w.q.c] || '') + '</span></div>' +
+                '<div style="font-size:13px;margin-top:6px;">' + (w.my >= 0 ? '<span style="color:#dc2626;"><svg class=ic aria-hidden=true><use href=#i-close-circle></use></svg> Bạn chọn: ' + 'ABCD'[w.my] + '. ' + esc(w.q.a[w.my] || '') + '</span><br>' : '<span style="color:#dc2626;"><svg class=ic aria-hidden=true><use href=#i-close-circle></use></svg> Bạn chưa trả lời câu này</span><br>') +
+                '<span style="color:#16a34a;"><svg class=ic aria-hidden=true><use href=#i-check-circle></use></svg> Đáp án đúng: ' + 'ABCD'[w.q.c] + '. ' + esc(w.q.a[w.q.c] || '') + '</span></div>' +
                 (w.q.e ? '<div style="font-size:12px;color:var(--text-sub);margin-top:6px;"><svg class=ic aria-hidden=true><use href=#i-lightbulb-on></use></svg> ' + esc(w.q.e) + '</div>' : '') +
                 '<button type="button" onclick="askAiWrong(' + k + ')" style="margin-top:8px;border:0;background:var(--primary);color:#fff;padding:6px 12px;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;"><svg class=ic aria-hidden=true><use href=#i-robot></use></svg> Nhờ AI giải thích</button></div>';
         }).join('');
@@ -4393,7 +4444,7 @@ function renderSideStreak() {
     el.style.display = '';
     var s = streakInfo(), alive = s.alive, tier = flameTier(s.cur, alive), c = FLAME_PAL[tier];
     var hour = Math.floor(((nowMs() + VN_MS) % 86400000) / 3600000), sub, subColor = 'var(--text-sub)';
-    if (s.doneToday) { sub = '✓ Hôm nay đã giữ lửa'; subColor = '#22c55e'; }
+    if (s.doneToday) { sub = '<svg class=ic aria-hidden=true><use href=#i-check-circle></use></svg> Hôm nay đã giữ lửa'; subColor = '#22c55e'; }
     else if (alive && s.cur > 0) { sub = hour >= 19 ? '<svg class=ic aria-hidden=true><use href=#i-alarm></use></svg> Sắp tắt! Vào học ngay' : 'Đăng nhập mỗi ngày để giữ lửa'; subColor = hour >= 19 ? '#f97316' : 'var(--text-sub)'; }
     else sub = 'Đăng nhập mỗi ngày để thắp lửa';
     var rr = restoreInfo(); if (rr.can) { sub = '<svg class=ic aria-hidden=true><use href=#i-heart-broken></use></svg> Khôi phục chuỗi ' + rr.prev + ' ngày'; subColor = '#f97316'; }
@@ -4541,7 +4592,7 @@ function renderReview() {
     var opts = q.a.map(function (o, j) {
         var cls = answered ? (j === q.c ? ' ok' : (j === w.picked ? ' bad' : '')) : '';
         return '<button type="button" class="rv-opt' + cls + '"' + (answered ? ' disabled' : ' onclick="answerReview(' + j + ')"') + '>' +
-            '<b>' + 'ABCD'[j] + '.</b> ' + esc(o) + (answered && j === q.c ? ' ✓' : '') + (answered && j === w.picked && j !== q.c ? ' ✗' : '') + '</button>';
+            '<b>' + 'ABCD'[j] + '.</b> ' + esc(o) + (answered && j === q.c ? ' <svg class=ic aria-hidden=true><use href=#i-check-circle></use></svg>' : '') + (answered && j === w.picked && j !== q.c ? ' <svg class=ic aria-hidden=true><use href=#i-close-circle></use></svg>' : '') + '</button>';
     }).join('');
     var fb = '';
     if (answered) {
@@ -4687,3 +4738,222 @@ function wrMaybeAuto() {
         } catch (e) { console.warn('Tuần của bạn:', e); }
     };
 })();
+
+        // ================= TAB ĐỊNH HƯỚNG (thay cho Phân Tích): Bản thân -> Ngành -> Trường =================
+        // Hai trục tách riêng: (1) độ HỢP ngành = 70% Holland + 30% khối mạnh nhất; (2) khả năng ĐỖ = điểm của em so với điểm chuẩn tham chiếu.
+        // Điểm chuẩn tham chiếu = trung bình các năm + nửa xu hướng. Cặp trường-ngành CHƯA có số liệu thật thì không xếp nhóm, chỉ liệt kê.
+        // MBTI và Mệnh KHÔNG tính vào tab này. Dữ liệu lưu ở privates/{uid}.dh .
+        const DH_QE = ['🔧', '🔬', '🎨', '🤝', '🎤', '🗂️', '🌳', '🧩', '💡', '👂', '🧭', '✅', '🏗️', '🧪', '✨', '🙌', '🛍️', '🧮'];   // hình minh họa cho 18 câu trắc nghiệm (cùng thứ tự với QS)
+        const DH_DEF = 7;   // điểm mặc định của thanh kéo (giống bản demo)
+        const DH = { loaded: false, tries: 0, step: 1, qi: 0, mn: 10, mq: '', cur: null, sc: Object.fromEntries(MON.map(m => [m[0], DH_DEF])), prev: {}, scSet: false, tm: null, exp: {}, grp: null, q: [], wish: [], off: {} };
+        const dhEsc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        const dhU = u => Array.isArray(u) ? { id: u[0], name: u[1], short: u[2] } : { id: u.id, name: u.name, short: u.short };
+        const dhAnswered = v => v === 0 || v === 1 || v === 2;
+        const dhQDone = () => QS.every((_, i) => dhAnswered(DH.q[i]));
+        const dhNum = v => { v = parseFloat(v); return isNaN(v) ? null : Math.max(0, Math.min(10, Math.round(v * 10) / 10)); };
+        const dhShow = v => String(v > 0 ? v : 0);
+        const dhCount = () => MON.filter(m => DH.sc[m[0]] > 0).length;
+        const DH_K5 = ['A00', 'A01', 'B00', 'C00', 'D01'];
+        const dhKhoiOk = () => DH_K5.some(id => KHOI[id].every(m => DH.sc[m] > 0));   // cần đủ điểm ít nhất 1 khối thi chính
+        const dhOffN = () => MON.length - dhCount();
+        const dhLDone = () => DH.scSet && dhKhoiOk();   // đã xác nhận điểm (kéo / bấm xác nhận / có dữ liệu cũ) và đủ ít nhất 1 khối
+        function dhLwText() {
+            if (!DH.scSet) return 'Hãy kéo thanh trượt, hoặc bấm “Điểm đúng rồi” để xác nhận điểm các môn.';
+            if (!dhKhoiOk()) return 'Cần có điểm đủ cho ít nhất một khối: ' + DH_K5.map(id => id + ' (' + KHOI[id].map(m => (MON.find(x => x[0] === m) || [0, m])[1]).join(', ') + ')').join('; ') + '.';
+            return '';
+        }
+        function dhOffText() { const n = dhOffN(); return n > 0 ? n + ' môn đang ở mức 0 (không học). Bấm nút “Không học” của môn đó để bật lại.' : ''; }
+        const dhHol = () => holScore({ q: DH.q, qv: 2 });
+        const dhTop = () => Object.entries(dhHol()).sort((a, b) => b[1] - a[1]).slice(0, 3).map(e => e[0]);
+        const dhLab = f => f >= 0.68 ? ['Rất hợp', 'ok'] : f >= 0.5 ? ['Khá hợp', 'mid'] : ['Tạm được', 'low'];
+        function dhSc() { const s = {}; MON.forEach(m => { const v = DH.sc[m[0]]; if (v > 0) s[m[0]] = v; }); return s; }   // 0 = không học -> bỏ qua
+        function dhOffered(k) { return DH.off[k] || (DH.off[k] = UNIS.map(dhU).filter(u => mjOf(u.id).includes(k))); }
+        function dhBlock(k, sc) { return MJ[k][1].split(',').filter(x => KHOI[x]).map(x => [x, kScore(x, sc)]).sort((a, b) => b[1] - a[1])[0] || ['', 0]; }
+        function dhFromDoc(x) {
+            x = x || {};
+            const d = x.dh, p = x.deep, own = d && (d.sc || d.lv), old = !own && p && p.lv && Array.isArray(p.q) ? p : null, src = own ? d : old;
+            if (src && !DH.scSet && !DH.q.length) {
+                if (src.sc) MON.forEach(m => { const v = dhNum(src.sc[m[0]]); if (v != null) DH.sc[m[0]] = v; });
+                else MON.forEach(m => { const i = (src.lv || {})[m[0]], l = LEVELS[i]; DH.sc[m[0]] = l ? l[1] : (i === -1 ? 0 : DH_DEF); });   // dữ liệu cũ (mức điểm) -> số điểm
+                DH.scSet = true;
+                const q = src.q, cv = old && old.qv !== 2 ? (v => v == null ? undefined : 2 - v) : (v => v == null ? undefined : v);
+                DH.q = typeof q === 'string' ? q.split('').map(c => c === '-' ? undefined : +c) : (Array.isArray(q) ? q.map(cv) : []);
+                const first = QS.findIndex((_, i) => !dhAnswered(DH.q[i])); DH.qi = first < 0 ? 0 : first;
+            }
+            if (d && Array.isArray(d.wish) && !DH.wish.length) DH.wish = d.wish.filter(w => w && MJ[w.k] && UNIS.map(dhU).some(u => u.id === w.u)).slice(0, 3);
+        }
+        function dhLoad() {
+            if (DH.loaded) return;
+            if (typeof ME === 'undefined' || !ME) { if (DH.tries++ < 20) setTimeout(dhRender, 1500); return; }
+            DH.loaded = true;
+            if (user.deepData && user.deepData.lv) dhFromDoc({ deep: user.deepData });
+            fbDb.collection('privates').doc(ME.uid).get().then(d => { dhFromDoc(d.data() || {}); dhRender(); }).catch(() => {});
+        }
+        function dhSave() {
+            if (typeof ME === 'undefined' || !ME) return;
+            const q = QS.map((_, i) => dhAnswered(DH.q[i]) ? String(DH.q[i]) : '-').join('');
+            fbDb.collection('privates').doc(ME.uid).set({ dh: clean({ sc: DH.sc, q, wish: DH.wish, at: Date.now() }) }, { mergeFields: ['dh'] }).catch(() => {});
+        }
+        function dhRankMajors() {
+            const hol = dhHol(), sc = dhSc();
+            return Object.keys(MJ).filter(k => dhOffered(k).length).map(k => {
+                const m = MJ[k], b = dhBlock(k, sc);
+                const hm = Math.min(1, m[2].split('').reduce((a, c) => a + (hol[c] || 0) / 6, 0) / 2), kf = Math.min(1, b[1] / 30);
+                return { k, name: m[0], khoi: b[0], pts: b[1], f: 0.7 * hm + 0.3 * kf, n: dhOffered(k).length };
+            }).sort((a, b) => b.f - a.f);
+        }
+        function dhWhy(r) {
+            const hol = dhHol(), nm = Object.fromEntries(HOL), m = MJ[r.k], sh = m[2].split('').filter(c => hol[c] >= 4);
+            return (sh.length ? 'Em cao ở nhóm ' + sh.map(c => nm[c]).join(', ') + ' (mã ngành ' + m[2] + '). ' : 'Mã ngành ' + m[2] + ' ít trùng với nhóm nổi bật của em. ')
+                + (r.khoi ? 'Khối mạnh nhất cho ngành này: ' + r.khoi + ' (khoảng ' + r.pts.toFixed(1) + '/30).' : '');
+        }
+        function dhSchools(k) {
+            const b = dhBlock(k, dhSc()), total = b[1], g = { safe: [], mid: [], hard: [], est: [] };
+            dhOffered(k).forEach(u => {
+                const dc = diemChuan(u.id, k);
+                if (!dc.real) return g.est.push({ u });
+                const ys = dc.ys, avg = ys.reduce((a, c) => a + c, 0) / ys.length, tr = ys.length > 1 ? (ys[ys.length - 1] - ys[0]) / (ys.length - 1) : 0, ref = avg + tr * 0.5, d = total - ref;
+                (d >= 1.5 ? g.safe : d >= -1.5 ? g.mid : g.hard).push({ u, dc, ref, d, tr });
+            });
+            ['safe', 'mid', 'hard'].forEach(x => g[x].sort((p, q) => q.ref - p.ref));
+            return { total, khoi: b[0], g };
+        }
+        function dhStepper() {
+            const st = (n, t, s) => '<button type="button" class="dh-stp' + (DH.step === n ? ' on' : '') + '" onclick="dhGo(' + n + ')"><b>' + n + '. ' + t + '</b><span>' + s + '</span></button>';
+            return '<div class="dh-steps">' + st(1, 'Về em', 'Điểm &amp; sở thích') + st(2, 'Ngành', 'Độ hợp') + st(3, 'Trường', 'Khả năng đỗ') + '</div>';
+        }
+        function dhNeed() { return '<div class="card"><div class="card-title">Em cần hoàn thành bước 1</div><div class="card-desc">Xác nhận điểm các môn (đủ ít nhất một khối thi) và trả lời đủ ' + QS.length + ' câu để xem kết quả.</div><button type="button" class="btn-primary" onclick="dhGo(1)">Về bước 1</button></div>'; }
+        function dhViewMe() {
+            const grid = MON.map(m => { const k = m[0], v = DH.sc[k], off = v === 0;
+                return '<div class="dh-sl"><label for="dh-r-' + k + '">' + m[1] + '</label><output id="dh-o-' + k + '">' + dhShow(v) + '</output>'
+                    + '<button type="button" id="dh-ns-' + k + '" class="dh-ns' + (off ? ' on' : '') + '" aria-pressed="' + off + '" onclick="dhNone(\'' + k + '\')">Không học</button>'
+                    + '<input id="dh-r-' + k + '" type="range" min="0" max="10" step="0.1" value="' + v + '" class="' + (off ? 'off' : '') + '" oninput="dhSlide(\'' + k + '\',this)" onchange="dhScDone()"></div>'; }).join('');
+            let quiz;
+            if (!dhQDone()) {
+                const i = DH.qi, q = QS[i];
+                quiz = '<div class="dh-qp">Câu ' + (i + 1) + ' / ' + QS.length + '</div><div class="dh-qb"><span class="dh-qe" aria-hidden="true">' + (DH_QE[i] || '') + '</span><p>' + dhEsc(q[1]) + '</p></div><div class="dh-opts">'
+                    + ANS.map((a, j) => '<button type="button" class="dh-opt' + (DH.q[i] === j ? ' on' : '') + '" onclick="dhAns(' + i + ',' + j + ')">' + a + '</button>').join('') + '</div>'
+                    + (i > 0 ? '<button type="button" class="dh-lnk" onclick="dhPrev()">← Câu trước</button>' : '');
+            } else {
+                const t = dhTop(), nm = Object.fromEntries(HOL);
+                quiz = '<div class="dh-codebox"><b>' + t.join('') + '</b><span>Mã Holland của em: ' + t.map(c => nm[c]).join(' · ') + '</span></div>'
+                    + '<button type="button" class="btn-primary" style="margin-top:14px" onclick="dhGo(2)">Xem ngành hợp với em</button>'
+                    + '<button type="button" class="dh-ghost" onclick="dhRedo()">Làm lại</button>';
+            }
+            return '<div class="card"><div class="card-title">Điểm môn học</div><div class="card-desc">Nhập điểm trung bình gần nhất hoặc điểm thi thử. Kéo thanh trượt là được. Môn nào em không học thì bấm “Không học” (hoặc kéo về 0).</div>'
+                + '<div class="dh-grid">' + grid + '</div><div class="dh-tools"><button type="button" class="dh-lnk" onclick="dhResetSc()">Đặt lại điểm</button><button type="button" class="dh-sm" id="dh-ok" onclick="dhConfirm()"' + (DH.scSet ? ' hidden' : '') + '>Điểm đúng rồi</button></div>'
+                + '<div class="card-desc dh-off" id="dh-off" style="margin:6px 0 0"' + (dhOffText() ? '' : ' hidden') + '>' + dhOffText() + '</div>'
+                + '<div class="card-desc dh-lw" id="dh-lw" style="margin:6px 0 0"' + (dhLwText() ? '' : ' hidden') + '>' + dhLwText() + '</div>'
+                + '<div class="card-title" style="margin-top:22px">Em thích làm gì?</div><div class="card-desc">Không có câu đúng hay sai. Chọn theo cảm giác của em, mỗi câu chỉ vài giây.</div>' + quiz + '</div>';
+        }
+        // Danh sách ngành: có ô tìm kiếm (bỏ dấu, không phân biệt hoa thường) và nút "Xem thêm" mỗi lần 10 ngành.
+        const DH_PAGE = 10;
+        function dhMajList() {
+            const all = dhRankMajors(), q = foldVN(DH.mq || '').trim(), f = q ? all.filter(r => foldVN(r.name).indexOf(q) >= 0) : all;
+            const list = f.slice(0, Math.max(DH_PAGE, DH.mn || DH_PAGE)), left = f.length - list.length;
+            const rows = list.map(r => { const l = dhLab(r.f), job = typeof MJ_JOBS !== 'undefined' && MJ_JOBS[r.k];
+                return '<div class="dh-row"><div><b>' + dhEsc(r.name) + '</b> <span class="dh-tag ' + l[1] + '">' + l[0] + '</span></div><button type="button" class="dh-sm" onclick="dhPick(\'' + r.k + '\')">Xem trường (' + r.n + ')</button><div class="dh-why">' + dhEsc(dhWhy(r)) + '</div>' + (job ? '<div class="dh-why">Nghề tiêu biểu: ' + dhEsc(job) + '</div>' : '') + '</div>'; }).join('');
+            const info = '<div class="dh-m dh-mcount" aria-live="polite">' + (q ? 'Tìm thấy ' + f.length + ' ngành' : 'Đang hiện ' + list.length + '/' + f.length + ' ngành') + '</div>';
+            return info + (rows || '<div class="dh-m dh-empty">Không tìm thấy ngành nào khớp với “' + dhEsc(DH.mq) + '”. Thử gõ ngắn hơn hoặc bỏ dấu.</div>')
+                + (left > 0 ? '<button type="button" class="dh-moreb" onclick="dhMore()">Xem thêm ' + Math.min(DH_PAGE, left) + ' ngành' + (left > DH_PAGE ? ' (còn ' + left + ')' : '') + '</button>' : '')
+                + (list.length > DH_PAGE ? '<button type="button" class="dh-lnk" onclick="dhLess()">Thu gọn về ' + DH_PAGE + ' ngành đầu</button>' : '');
+        }
+        function dhViewMajors() {
+            if (!dhLDone() || !dhQDone()) return dhNeed();
+            return '<div class="card"><div class="card-title">Ngành xếp theo độ hợp</div><div class="card-desc">Dựa trên sở thích và điểm học lực của em, chưa tính điểm chuẩn. Chọn một ngành để xem các trường.</div>'
+                + '<div class="dh-search"><input id="dh-ms" type="search" name="dhMajorSearch" aria-label="Tìm ngành" placeholder="🔍 Tìm ngành (vd: công nghệ, y, luật...)" autocomplete="off" value="' + dhEsc(DH.mq || '') + '" oninput="dhMajSearch(this.value)"></div>'
+                + '<div id="dh-mlist">' + dhMajList() + '</div>'
+                + '<div class="dh-ask"><button type="button" class="dh-sm" onclick="dhAskAi(\'major\')">Hỏi Chat AI về kết quả này</button></div></div>';
+        }
+        function dhWishHtml() {
+            if (!DH.wish.length) return '';
+            const gs = new Set(DH.wish.map(w => w.g)), tip = !gs.has('An toàn') ? 'Danh sách chưa có trường An toàn. Nên thêm ít nhất một trường để có phương án dự phòng.' : (!gs.has('Thử thách') && DH.wish.length >= 2 ? 'Em có thể thêm một trường Thử thách nếu muốn thử sức.' : 'Danh sách đã có phương án dự phòng. Hãy kiểm tra lại điểm chuẩn chính thức của từng trường.');
+            const cls = { 'An toàn': 'ok', 'Vừa sức': 'mid', 'Thử thách': 'low' }, nameOf = id => (UNIS.map(dhU).find(u => u.id === id) || {}).name || id;
+            return '<div class="card"><div class="card-title">Nguyện vọng của em (' + DH.wish.length + '/3)</div>' + DH.wish.map((w, i) => '<div class="dh-row"><div><b>' + dhEsc(nameOf(w.u)) + '</b> <span class="dh-m">' + dhEsc(MJ[w.k][0]) + '</span> <span class="dh-tag ' + (cls[w.g] || 'low') + '">' + dhEsc(w.g) + '</span></div><button type="button" class="dh-sm" onclick="dhUnwish(' + i + ')">Bỏ</button></div>').join('') + '<div class="card-desc" style="margin:10px 0 0">' + tip + '</div><div class="dh-ask"><button type="button" class="dh-sm" onclick="dhAskAi(\'wish\')">Nhờ Chat AI nhận xét danh sách này</button></div></div>';
+        }
+        function dhViewSchools() {
+            if (!dhLDone() || !dhQDone()) return dhNeed();
+            if (!DH.cur || !MJ[DH.cur]) DH.cur = dhRankMajors()[0].k;
+            const k = DH.cur, s = dhSchools(k), nk = /^[VHTNM]\d/.test(s.khoi);
+            const card = (x, g) => { const saved = DH.wish.some(w => w.u === x.u.id && w.k === k), yrs = DC_YEARS.map((y, i) => y + ': ' + x.dc.ys[i]).join(' · ');
+                return '<div class="dh-sc"><b>' + dhEsc(x.u.name) + '</b><div class="dh-m">Chuẩn tham chiếu ' + x.ref.toFixed(1) + '. ' + (x.d >= 0 ? 'Điểm em cao hơn ' + x.d.toFixed(1) : 'Em còn thiếu ' + (-x.d).toFixed(1)) + ' điểm.</div><div class="dh-m">' + yrs + ' · xu hướng ' + (x.tr > 0.05 ? 'tăng' : x.tr < -0.05 ? 'giảm' : 'ổn định') + '</div><button type="button" class="dh-sv" onclick="dhWish(\'' + x.u.id + '\',\'' + k + '\',\'' + g + '\')">' + (saved ? 'Đã lưu ✓' : 'Lưu vào nguyện vọng') + '</button></div>'; };
+            const LIM = 4;   // mỗi nhóm hiện trước 4 trường, còn lại bấm "Xem thêm"
+            if (!DH.grp || !s.g[DH.grp] || DH.grp === 'est') DH.grp = ['mid', 'safe', 'hard'].find(x => s.g[x].length) || 'mid';
+            const col = (key, name, desc, g) => { const arr = s.g[key], open = !!DH.exp[key], list = open ? arr : arr.slice(0, LIM);
+                return '<div class="dh-col ' + key + (DH.grp === key ? ' on' : '') + '"><h4>' + name + ' (' + arr.length + ')</h4><p>' + desc + '</p>' + (list.map(x => card(x, g)).join('') || '<div class="dh-m">Chưa có trường ở nhóm này.</div>')
+                    + (arr.length > LIM ? '<button type="button" class="dh-moreb" onclick="dhExp(\'' + key + '\')">' + (open ? 'Thu gọn' : 'Xem thêm ' + (arr.length - LIM) + ' trường') + '</button>' : '') + '</div>'; };
+            const tabs = '<div class="dh-gtabs" role="tablist">' + [['safe', 'An toàn'], ['mid', 'Vừa sức'], ['hard', 'Thử thách']].map(t => '<button type="button" role="tab" aria-selected="' + (DH.grp === t[0]) + '" class="dh-gt ' + t[0] + (DH.grp === t[0] ? ' on' : '') + '" onclick="dhGrp(\'' + t[0] + '\')">' + t[1] + ' <i>' + s.g[t[0]].length + '</i></button>').join('') + '</div>';
+            return '<div class="card"><div class="card-title">Trường cho ngành ' + dhEsc(MJ[k][0]) + '</div><div class="card-desc">Điểm của em theo khối ' + s.khoi + ': khoảng ' + s.total.toFixed(1) + '/30 (tính từ mức học lực em chọn nên chỉ là ước lượng). So với điểm chuẩn tham chiếu từ các năm ' + DC_YEARS.join(', ') + ' (xét điểm thi THPT), có tính xu hướng tăng hoặc giảm.' + (nk ? ' Khối này có môn năng khiếu thi riêng nên điểm chỉ mang tính ước tính.' : '') + '</div>' + tabs + '<div class="dh-cols">'
+                + col('safe', 'An toàn', 'Điểm em cao hơn chuẩn từ 1,5 trở lên', 'An toàn') + col('mid', 'Vừa sức', 'Chênh lệch trong khoảng ±1,5', 'Vừa sức') + col('hard', 'Thử thách', 'Điểm em thấp hơn chuẩn tham chiếu', 'Thử thách') + '</div>'
+                + (s.g.est.length ? '<div class="dh-est"><b>Chưa có số liệu thật (' + s.g.est.length + ' trường)</b><div class="dh-m">Các trường này chưa có điểm chuẩn xác thực nên không xếp vào nhóm nào: ' + s.g.est.map(x => dhEsc(x.u.name)).join('; ') + '.</div></div>' : '') + '</div>' + dhWishHtml();
+        }
+        // Giữ tương thích luồng cũ: Hồ sơ hướng nghiệp (openHoSoHuongNghiep) đọc user.analysisData do phanTichGop() tạo ra.
+        // Khi em hoàn thành bước 1 ở tab Định hướng, ghi lại analysisData cùng cấu trúc (khối mạnh nhất, nhóm Holland, ngành gợi ý).
+        function dhSyncLegacy() {
+            if (!dhLDone() || !dhQDone()) return;
+            const sc = dhSc(), khoi = ['A00', 'A01', 'B00', 'C00', 'D01'].filter(id => KHOI[id].every(m => sc[m])).map(id => ({ id, mon: KHOI_TEN[id], c: KHOI[id], diem: kScore(id, sc) })).sort((a, b) => b.diem - a.diem);
+            if (!khoi.length) return;
+            const hol = dhHol(), ha = {}; Object.keys(hol).forEach(c => { ha[c] = 1 + hol[c] / 6 * 4; });
+            user.analysisData = { topKhoi: khoi[0].id, monHoc: khoi[0].mon, diemTong: khoi[0].diem.toFixed(1), tatCaKhoi: khoi, holland: dhTop().slice(0, 2).join(''), mbti: null, mbtiText: null,
+                formula: 'Độ hợp = 70% Holland + 30% khối mạnh nhất (tab Định hướng)', hollandAvg: ha,
+                nganhGoiY: dhRankMajors().slice(0, 5).map(r => '• ' + esc(r.name) + ' — <b>' + dhLab(r.f)[0] + '</b>').join('<br>') };
+            try { cachePtResult(user.analysisData); } catch (e) {}
+            try { saveUser(); } catch (e) {}
+        }
+        function dhAskAi(kind) {
+            if (!dhLDone() || !dhQDone()) return;
+            const r = dhRankMajors().slice(0, 3).map(x => x.name).join(', '), nm = Object.fromEntries(HOL), t = dhTop();
+            let q = 'Mình thiên về nhóm sở thích ' + t.join('') + ' (' + t.map(c => nm[c]).join(', ') + '). Ngành hợp nhất theo ứng dụng: ' + r + '.';
+            if (kind === 'wish' && DH.wish.length) q += ' Nguyện vọng mình đã lưu: ' + DH.wish.map(w => (UNIS.map(dhU).find(u => u.id === w.u) || {}).name + ' – ' + MJ[w.k][0] + ' (' + w.g + ')').join('; ') + '. Bạn nhận xét giúp danh sách này đã hợp lý chưa và nên thêm hay đổi gì?';
+            else q += ' Bạn giải thích ngắn gọn vì sao các ngành này hợp với mình và mình nên tìm hiểu thêm điều gì trước khi chọn?';
+            const nav = document.querySelector('.nav-item[data-tab="tab-ai"]') || document.querySelector('.side-item[data-tab="tab-ai"]');
+            switchTab('tab-ai', nav, true);
+            if (user.isLocked) return;
+            setTimeout(() => { try { aiSend(q); } catch (e) {} }, 400);
+        }
+        function dhRender() {
+            const el = document.getElementById('dh-root'); if (!el) return;
+            try { dhLoad(); } catch (e) {}
+            const body = DH.step === 2 ? dhViewMajors() : DH.step === 3 ? dhViewSchools() : dhViewMe();
+            el.innerHTML = dhStepper() + body + '<details class="dh-info"><summary>Tìm hiểu thêm: MBTI và Mệnh</summary><div>MBTI và Mệnh mang tính tham khảo và văn hóa, không được tính vào độ hợp ngành hay khả năng đỗ ở tab này. </div></details>';
+        }
+        function dhTop0() { const el = document.getElementById('dh-root'); if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start' }); }
+        function dhGo(n) { DH.step = n; dhRender(); dhTop0(); }
+        function dhExp(k) { DH.exp[k] = !DH.exp[k]; dhRender(); }
+        function dhGrp(k) { DH.grp = k; dhRender(); }
+        function dhPick(k) { DH.cur = k; DH.exp = {}; DH.grp = null; DH.step = 3; dhRender(); dhTop0(); }
+        function dhMajUpdate() { const el = document.getElementById('dh-mlist'); if (el) el.innerHTML = dhMajList(); }
+        function dhMore() { DH.mn = Math.max(DH_PAGE, DH.mn || DH_PAGE) + DH_PAGE; dhMajUpdate(); }
+        function dhLess() { DH.mn = DH_PAGE; dhMajUpdate(); const el = document.getElementById('dh-ms'); if (el && el.scrollIntoView) el.scrollIntoView({ block: 'center' }); }
+        function dhMajSearch(v) { DH.mq = String(v || ''); DH.mn = DH_PAGE; dhMajUpdate(); }   // chỉ vẽ lại danh sách, không vẽ lại ô nhập nên không mất con trỏ
+        // Thanh kéo: chỉ cập nhật nhãn tại chỗ (không vẽ lại cả tab để không giật khi đang kéo), lưu sau khi thả
+        function dhPaint(k) {
+            const v = DH.sc[k], o = document.getElementById('dh-o-' + k), b = document.getElementById('dh-ns-' + k), r = document.getElementById('dh-r-' + k);
+            if (o) o.textContent = dhShow(v);
+            if (b) { b.classList.toggle('on', v === 0); b.setAttribute('aria-pressed', v === 0 ? 'true' : 'false'); }
+            if (r) { r.classList.toggle('off', v === 0); if (+r.value !== v) r.value = v; }
+            dhNotes();
+        }
+        function dhNotes() {
+            const w = document.getElementById('dh-lw'), f = document.getElementById('dh-off'), ok = document.getElementById('dh-ok'), t = dhLwText(), o = dhOffText();
+            if (w) { w.textContent = t; w.hidden = !t; }
+            if (f) { f.textContent = o; f.hidden = !o; }
+            if (ok) ok.hidden = DH.scSet;
+        }
+        function dhSlide(k, el) { const v = dhNum(el.value); if (v == null) return; DH.sc[k] = v; DH.scSet = true; if (v > 0) DH.prev[k] = v; dhPaint(k); clearTimeout(DH.tm); DH.tm = setTimeout(dhScDone, 700); }
+        function dhNone(k) { DH.sc[k] = DH.sc[k] > 0 ? 0 : (DH.prev[k] || DH_DEF); DH.scSet = true; dhPaint(k); clearTimeout(DH.tm); DH.tm = setTimeout(dhScDone, 300); }
+        function dhResetSc() { MON.forEach(m => { DH.sc[m[0]] = DH_DEF; }); DH.scSet = true; dhSave(); if (dhQDone()) dhSyncLegacy(); dhRender(); }
+        function dhConfirm() { DH.scSet = true; dhSave(); if (dhQDone() && dhLDone()) dhSyncLegacy(); dhRender(); }
+        function dhScDone() { clearTimeout(DH.tm); dhSave(); if (dhLDone() && dhQDone()) dhSyncLegacy(); }
+        function dhAns(i, j) { DH.q[i] = j; if (i < QS.length - 1) DH.qi = i + 1; dhSave(); if (dhQDone()) dhSyncLegacy(); dhRender(); }
+        function dhPrev() { if (DH.qi > 0) DH.qi--; dhRender(); }
+        function dhRedo() { DH.q = []; DH.qi = 0; dhSave(); dhRender(); }
+        function dhWish(u, k, g) {
+            const i = DH.wish.findIndex(w => w.u === u && w.k === k);
+            if (i >= 0) DH.wish.splice(i, 1);
+            else if (DH.wish.length >= 3) return eduAlert('Em chỉ lưu tối đa 3 nguyện vọng. Hãy bỏ bớt một mục trước.', 'warning');
+            else DH.wish.push({ u, k, g });
+            dhSave(); dhRender();
+        }
+        function dhUnwish(i) { DH.wish.splice(i, 1); dhSave(); dhRender(); }
+        dhRender();

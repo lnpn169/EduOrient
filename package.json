@@ -2,10 +2,12 @@
   "name": "eduorient",
   "version": "1.0.0",
   "scripts": {
-    "build": "npm run build:css && npm run build:css:hs && node build-app.mjs && node build-hocsinh.mjs",
+    "build": "node build-diemchuan.mjs && npm run build:css && npm run build:css:hs && node build-app.mjs && node build-hocsinh.mjs",
     "build:css": "tailwindcss -i input.css -o tailwind.min.css --minify",
     "build:css:hs": "tailwindcss -c tailwind.hocsinh.config.js -i input.css -o hocsinh-tw.min.css --minify",
-    "sri": "node add-sri.mjs"
+    "sri": "node add-sri.mjs",
+    "dc": "node build-diemchuan.mjs",
+    "dc:init": "node build-diemchuan.mjs --init"
   },
   "devDependencies": {
     "esbuild": "^0.28.2",

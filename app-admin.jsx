@@ -1,6 +1,6 @@
 // EduOrient — màn hình QUẢN TRỊ (AdminPanel). Chỉ tải khi đăng nhập bằng tài khoản quản trị.
-import { ErrorBoundary, fbDb, fbErr, fbNow, foldVN, isAdminEmail } from './app-core.jsx';
-import { BxhScoreEditor, EMPTY_LIST, GroupSettingsModal, Icon, THEME_OPTS, bxhBumpXp, clampScore, keepList, keepMap, subXp, wipeMsgs } from './app-shared.jsx';
+import { ErrorBoundary, UiZoomPanel, UiZoomPopover, fbDb, fbErr, fbNow, foldVN, isAdminEmail } from './app-core.jsx';
+import { BxhScoreEditor, EMPTY_LIST, GroupSettingsModal, Icon, LIcon, bxhBumpXp, clampScore, keepList, keepMap, subXp, wipeMsgs } from './app-shared.jsx';
 
         const { useState, useEffect, useRef, useMemo, useCallback, memo } = React;
 
@@ -382,63 +382,178 @@ import { BxhScoreEditor, EMPTY_LIST, GroupSettingsModal, Icon, THEME_OPTS, bxhBu
             const togglePriv = (t) => { const to = !priv[t.id]; fbDb.collection('profiles').doc(t.id).update({ isPrivate: to }).then(() => eduToast((to ? 'Đã ẩn danh: ' : 'Đã bỏ ẩn danh: ') + (t.name || t.email), 'success')).catch((e) => eduAlert(e && e.code === 'not-found' ? 'Giáo viên này chưa có hồ sơ công khai (chưa đăng nhập lần nào).' : e && e.code === 'permission-denied' ? 'Không có quyền. Hãy Publish bản firestore.rules mới (cho phép admin sửa trường isPrivate).' : fbErr(e), 'error')); };
             const privBtn = (t) => <button onClick={() => togglePriv(t)} title={priv[t.id] ? 'Bỏ ẩn danh: giáo viên hiện lại trong danh sách tìm kiếm' : 'Ẩn danh: giáo viên không hiện trong danh sách tìm kiếm của học sinh / giáo viên khác'} className={'px-3 py-1.5 rounded-lg text-xs font-bold ' + (priv[t.id] ? 'bg-indigo-50 text-indigo-700' : 'bg-slate-100 text-slate-700')}>{priv[t.id] ? 'Bỏ ẩn' : 'Ẩn danh'}</button>;
             const privBadge = <span className="ml-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500"><Icon name="lock" className="ic-inline" /> Ẩn danh</span>;
-            const groups = [['pending', 'Chờ duyệt'], ['approved', 'Đã duyệt'], ['rejected', 'Từ chối / Khóa']];
+            const STATUS = [['pending', 'Chờ duyệt', ''], ['approved', 'Đã duyệt', ''], ['rejected', 'Từ chối', ' / Khóa']];   // phần thứ 3 chỉ hiện từ màn hình sm trở lên
+            const NAV = [['teachers', 'Duyệt giáo viên', 'user-check'], ['users', 'Quản lý người dùng', 'users'], ['mod', 'Kiểm duyệt bài đăng', 'shield-check'], ['groups', 'Nhóm lớp & GVCN', 'graduation-cap'], ['scores', 'Quản lý & Chỉnh sửa Điểm', 'bar-chart']];
+            const [navOpen, setNavOpen] = useState(false);
+            // Drawer menu (< md): theo dõi breakpoint md (768px) để tự đóng khi xoay ngang/phóng to, và để ẩn drawer khỏi bàn phím khi đang đóng
+            const hasMQ = typeof window !== 'undefined' && typeof window.matchMedia === 'function';
+            const [wide, setWide] = useState(() => (hasMQ ? window.matchMedia('(min-width: 768px)').matches : true));
+            useEffect(() => {
+                if (!hasMQ) return;
+                const mq = window.matchMedia('(min-width: 768px)');
+                const on = () => { setWide(mq.matches); if (mq.matches) setNavOpen(false); };
+                if (mq.addEventListener) mq.addEventListener('change', on); else mq.addListener(on);
+                return () => { if (mq.removeEventListener) mq.removeEventListener('change', on); else mq.removeListener(on); };
+            }, []);
+            // Khi drawer mở: Esc để đóng + khóa cuộn nền (tránh trang phía sau cuộn theo)
+            useEffect(() => {
+                if (!navOpen) return;
+                const onKey = (e) => { if (e.key === 'Escape') setNavOpen(false); };
+                document.addEventListener('keydown', onKey);
+                const prev = document.body.style.overflow; document.body.style.overflow = 'hidden';
+                return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = prev; };
+            }, [navOpen]);
+            const drawerHidden = !wide && !navOpen;     // drawer đang nằm ngoài màn hình: không cho Tab vào
+            const navTab = drawerHidden ? -1 : undefined;
+            const [st, setSt] = useState('approved');     // bộ lọc trạng thái của bảng giáo viên
+            const [tq, setTq] = useState('');             // ô tìm kiếm trong bảng giáo viên
+            const counts = useMemo(() => { const c = { pending: 0, approved: 0, rejected: 0 }; list.forEach((x) => { if (c[x.status] !== undefined) c[x.status]++; }); return c; }, [list]);
+            const tRows = useMemo(() => list.filter((x) => x.status === st && (!tq.trim() || foldVN((x.name || '') + ' ' + (x.email || '') + ' ' + (x.subject || '') + ' ' + (x.school || '')).includes(foldVN(tq.trim())))), [list, st, tq]);
+            const cur = NAV.find((n) => n[0] === tab) || NAV[0];
+            const goTab = (k) => { setTab(k); setNavOpen(false); };
+            const btnBase = 'inline-flex items-center justify-center gap-1 rounded-lg text-xs font-bold whitespace-nowrap';
+            const btn = btnBase + ' px-2.5 py-1.5';      // bảng (md+)
+            const btnM = btnBase + ' px-3 py-2';         // thẻ trên mobile: nút to hơn, dễ bấm
+            // Cụm nút thao tác của 1 giáo viên — dùng chung cho bảng (compact: Thẻ/Ẩn danh chỉ còn icon dưới xl) và thẻ mobile (đủ nhãn)
+            const rowActions = (x, compact) => {
+                const b = compact ? btn : btnM, lbl = compact ? 'hidden xl:inline' : '';
+                return (<>
+                    <button type="button" onClick={() => showCard(x.id)} title="Xem thẻ giáo viên" aria-label="Xem thẻ giáo viên" className={b + ' bg-slate-100 text-slate-700'}><LIcon n="id-card" className="w-3.5 h-3.5" /><span className={lbl}>Thẻ</span></button>
+                    <button type="button" onClick={() => togglePriv(x)} aria-label={priv[x.id] ? 'Bỏ ẩn danh' : 'Ẩn danh'} title={priv[x.id] ? 'Bỏ ẩn danh: giáo viên hiện lại trong danh sách tìm kiếm' : 'Ẩn danh: giáo viên không hiện trong danh sách tìm kiếm của học sinh / giáo viên khác'} className={b + (priv[x.id] ? ' bg-indigo-50 text-indigo-700' : ' bg-slate-100 text-slate-700')}><LIcon n={priv[x.id] ? 'eye' : 'eye-off'} className="w-3.5 h-3.5" /><span className={lbl}>{priv[x.id] ? 'Bỏ ẩn' : 'Ẩn danh'}</span></button>
+                    {st !== 'approved' && <button type="button" onClick={() => setStatus(x.id, 'approved')} className={b + ' bg-emerald-600 text-white'}>Duyệt</button>}
+                    {st !== 'rejected' && <button type="button" onClick={() => eduConfirm('Bạn có thể duyệt lại tài khoản này sau.', { title: 'Từ chối / khóa tài khoản này?', confirmText: st === 'approved' ? 'Khóa' : 'Từ chối', danger: true }).then((yes) => yes && setStatus(x.id, 'rejected'))} className={b + ' bg-red-50 text-red-600'}>{st === 'approved' ? 'Khóa' : 'Từ chối'}</button>}
+                    <button type="button" onClick={() => delUser(x)} title="Xóa tài khoản" aria-label="Xóa tài khoản" className={b + ' bg-red-50 text-red-600'}><LIcon n="trash" className="w-3.5 h-3.5" />{!compact && 'Xóa'}</button>
+                </>);
+            };
             return (
-                <div className="min-h-screen bg-slate-50 p-4 md:p-8"><div className="max-w-3xl mx-auto">
-                    <div className="flex justify-between items-center mb-6">
-                        <div><h1 className="text-xl font-extrabold text-indigo-600">Quản trị EduOrient</h1><p className="text-xs text-slate-500">{user.email}</p>
-                            {user.diag && <p className="text-[10px] text-slate-400 mt-0.5">Đăng nhập: {user.diag.providers} • email đã xác minh: {user.diag.tokenVerified === null ? (user.diag.verified ? 'có' : 'chưa') : (user.diag.tokenVerified ? 'có' : 'CHƯA (token)')}</p>}</div>
-                        <button onClick={onLogout} className="px-3 py-2 rounded-xl bg-white border text-xs font-semibold">Đăng xuất</button>
-                    </div>
-                    {err && <p className="text-sm text-red-600 mb-3">{err}</p>}
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4">{[['teachers', 'Duyệt giáo viên'], ['users', 'Quản lý người dùng'], ['mod', 'Kiểm duyệt bài đăng'], ['groups', 'Nhóm lớp & GVCN'], ['scores', 'Quản lý & Chỉnh sửa Điểm']].map(([k, l]) => (
-                        <button key={k} onClick={() => setTab(k)} className={'py-2 rounded-xl text-sm font-bold ' + (tab === k ? 'bg-indigo-600 text-white' : 'bg-white border text-slate-600')}>{l}</button>))}
-                        <AdminThemeSwitch /></div>
-                    {tab === 'mod' && <AdminModeration />}
-                    {tab === 'groups' && <ErrorBoundary inline><AdminGroups teachers={list} user={user} /></ErrorBoundary>}
-                    {tab === 'scores' && <ErrorBoundary inline><AdminScoreEditor user={user} /></ErrorBoundary>}
-                    {tab === 'users' && (<div className="bg-white rounded-2xl shadow-sm p-4 mb-4">
-                        <div className="flex gap-2 mb-3">
-                            <input id="user-search" name="userSearch" aria-label="Tìm theo tên hoặc email" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Tìm theo tên hoặc email..." className="flex-1 min-w-0 px-3 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
-                            <button onClick={() => setUsersTick((t) => t + 1)} title="Tải lại danh sách (1 lượt đọc / tài khoản)" className="shrink-0 px-3 py-2 rounded-xl bg-white border text-xs font-semibold">↻ Tải lại</button>
+                <div className="min-h-screen bg-slate-50 md:flex">
+                    {/* Lớp phủ (< md): luôn được mount để mờ dần khi mở/đóng; chỉ nhận click khi menu mở. z-30 < sidebar z-40 < modal z-50 */}
+                    <div aria-hidden="true" onClick={() => setNavOpen(false)} style={{ opacity: navOpen ? 1 : 0 }}
+                        className={'fixed inset-0 z-30 bg-slate-900/60 backdrop-blur-sm transition-all duration-200 md:hidden ' + (navOpen ? '' : 'pointer-events-none')} />
+                    <aside id="admin-nav" aria-label="Menu quản trị" aria-hidden={drawerHidden ? 'true' : undefined} className={'fixed inset-y-0 left-0 z-40 w-64 bg-white border-r border-slate-200 flex flex-col transition-transform duration-200 ease-in-out md:sticky md:top-0 md:h-screen md:w-60 md:shrink-0 md:translate-x-0 ' + (navOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full')}>
+                        <div className="h-16 shrink-0 px-5 flex items-center justify-between border-b border-slate-200">
+                            <span className="flex items-center gap-2 text-lg font-extrabold text-indigo-600"><img src="logo.svg" alt="" className="logo-l w-8 h-8" /><img src="logo-dark.svg" alt="" className="logo-d w-8 h-8" />EduOrient</span>
+                            <button type="button" tabIndex={navTab} onClick={() => setNavOpen(false)} aria-label="Đóng menu" className="md:hidden w-10 h-11 inline-flex items-center justify-center rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200"><LIcon n="x" className="w-5 h-5" /></button>
                         </div>
-                        {allShown.length === 0 && <p className="text-xs text-slate-400">Không có người dùng.</p>}
-                        {allShown.map((u) => (<div key={u.id} className="flex items-center justify-between gap-2 py-2 border-t border-slate-100">
-                            <div className="min-w-0"><p className="text-sm font-semibold truncate">{u.name} <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500">{u.role === 'teacher' ? 'Giáo viên' : 'Học sinh'}</span>{u.role === 'teacher' && priv[u.id] && privBadge}</p><p className="text-xs text-slate-500 truncate">{u.email}</p></div>
-                            <div className="flex flex-wrap justify-end gap-2 shrink-0">{u.role === 'teacher' && privBtn(u)}<button onClick={() => delUser(u)} title="Xóa tài khoản" className="px-3 py-1.5 rounded-lg bg-red-50 text-red-600 text-xs font-bold"><Icon name="delete" className="ic-inline" /> Xóa</button></div>
-                        </div>))}
-                    </div>)}
-                    {card && (<div className="fixed inset-0 bg-slate-900/70 z-50 flex items-center justify-center p-4" onClick={() => setCard(null)}>
-                        {card === 'none' ? <div className="bg-white rounded-2xl p-6 text-sm">Giáo viên này chưa tải ảnh thẻ.</div> : <img src={card} className="max-h-[85vh] max-w-full rounded-xl" />}</div>)}
-                    {tab === 'teachers' && groups.map(([st, label]) => {
-                        const rows = list.filter((x) => x.status === st);
-                        return (
-                            <div key={st} className="bg-white rounded-2xl shadow-sm p-4 mb-4">
-                                <h2 className="font-bold text-sm mb-3">{label} ({rows.length})</h2>
-                                {rows.length === 0 && <p className="text-xs text-slate-400">Không có ai.</p>}
-                                {rows.map((x) => (
-                                    <div key={x.id} className="flex items-center justify-between gap-2 py-2 border-t border-slate-100">
-                                        <div className="min-w-0"><p className="text-sm font-semibold truncate">{x.name}{priv[x.id] && privBadge}</p><p className="text-xs text-slate-500 truncate">{x.email}{x.subject ? ' • Môn ' + x.subject : ''}{x.school ? ' • ' + x.school : ''}</p></div>
-                                        <div className="flex flex-wrap justify-end gap-2 shrink-0">
-                                            {privBtn(x)}
-                                            <button onClick={() => showCard(x.id)} className="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-700 text-xs font-bold">Xem thẻ</button>
-                                            <button onClick={() => delUser(x)} title="Xóa tài khoản" className="px-3 py-1.5 rounded-lg bg-red-50 text-red-600 text-xs font-bold"><Icon name="delete" className="ic-inline" /></button>
-                                            {st !== 'approved' && <button onClick={() => setStatus(x.id, 'approved')} className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-bold">Duyệt</button>}
-                                            {st !== 'rejected' && <button onClick={() => eduConfirm('Bạn có thể duyệt lại tài khoản này sau.', { title: 'Từ chối / khóa tài khoản này?', confirmText: st === 'approved' ? 'Khóa' : 'Từ chối', danger: true }).then((yes) => yes && setStatus(x.id, 'rejected'))} className="px-3 py-1.5 rounded-lg bg-red-50 text-red-600 text-xs font-bold">{st === 'approved' ? 'Khóa' : 'Từ chối'}</button>}
+                        <nav className="flex-1 overflow-y-auto overscroll-contain p-3 space-y-1">
+                            {NAV.map(([k, l, ic]) => (
+                                <button key={k} type="button" tabIndex={navTab} onClick={() => goTab(k)} aria-current={tab === k ? 'page' : undefined}
+                                    className={'w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm text-left font-semibold ' + (tab === k ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-100')}>
+                                    <LIcon n={ic} className="w-[18px] h-[18px] shrink-0" />
+                                    <span className="flex-1 min-w-0">{l}</span>
+                                    {k === 'teachers' && counts.pending > 0 && <span className="shrink-0 px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-bold">{counts.pending}</span>}
+                                </button>))}
+                        </nav>
+                        {/* Mobile: công tắc giao diện chuyển từ header vào đây cho header đỡ chật */}
+                        <div className="md:hidden shrink-0 border-t border-slate-200 p-3 flex items-center justify-between gap-3">
+                            <span className="text-xs font-semibold text-slate-500">Giao diện</span>
+                            <AdminThemeSwitch tabIndex={navTab} />
+                        </div>
+                        <div className="md:hidden shrink-0 border-t border-slate-200 p-3"><UiZoomPanel /></div>
+                    </aside>
+                    <div className="flex-1 min-w-0 overflow-x-clip">
+                        <header className="sticky top-0 z-20 bg-white border-b border-slate-200 h-16 px-4 md:px-8 flex items-center gap-3">
+                            <button type="button" onClick={() => setNavOpen(true)} aria-label="Mở menu" aria-expanded={navOpen} aria-controls="admin-nav" className="md:hidden relative shrink-0 w-11 h-11 inline-flex items-center justify-center rounded-xl bg-indigo-600 text-white shadow-md hover:bg-indigo-700">
+                                <LIcon n="menu" className="w-6 h-6" />
+                                {counts.pending > 0 && <span className="absolute top-0.5 right-2 w-3 h-3 rounded-full bg-amber-400" />}
+                            </button>
+                            <div className="min-w-0 flex-1">
+                                <h1 className="text-base md:text-lg font-extrabold text-slate-900 truncate">{cur[1]}</h1>
+                                <p className="text-xs text-slate-500 truncate">{user.email}</p>
+                            </div>
+                            <div className="hidden md:block shrink-0"><AdminThemeSwitch /></div>
+                            <div className="hidden md:block shrink-0"><UiZoomPopover sm /></div>
+                            <button type="button" onClick={onLogout} aria-label="Đăng xuất" title="Đăng xuất" className="shrink-0 inline-flex items-center justify-center gap-1.5 w-11 h-11 sm:w-auto sm:p-3 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-100"><LIcon n="log-out" className="w-4 h-4" /><span className="hidden sm:inline">Đăng xuất</span></button>
+                        </header>
+                        <main className="p-4 md:p-8 max-w-6xl">
+                            {user.diag && <p className="text-[10px] text-slate-400 mb-3">Đăng nhập: {user.diag.providers} • email đã xác minh: {user.diag.tokenVerified === null ? (user.diag.verified ? 'có' : 'chưa') : (user.diag.tokenVerified ? 'có' : 'CHƯA (token)')}</p>}
+                            {err && <p className="text-sm text-red-600 mb-3">{err}</p>}
+                            {tab === 'mod' && <AdminModeration />}
+                            {tab === 'groups' && <ErrorBoundary inline><AdminGroups teachers={list} user={user} /></ErrorBoundary>}
+                            {tab === 'scores' && <ErrorBoundary inline><AdminScoreEditor user={user} /></ErrorBoundary>}
+                            {tab === 'users' && (<div className="bg-white rounded-2xl shadow-sm p-4 mb-4">
+                                <div className="flex gap-2 mb-3">
+                                    <input id="user-search" name="userSearch" aria-label="Tìm theo tên hoặc email" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Tìm theo tên hoặc email..." className="flex-1 min-w-0 px-3 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
+                                    <button onClick={() => setUsersTick((t) => t + 1)} title="Tải lại danh sách (1 lượt đọc / tài khoản)" className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border text-xs font-semibold"><LIcon n="refresh" className="w-3.5 h-3.5" />Tải lại</button>
+                                </div>
+                                {allShown.length === 0 && <p className="text-xs text-slate-400">Không có người dùng.</p>}
+                                {allShown.map((u) => (<div key={u.id} className="flex flex-wrap items-center gap-2 py-2 border-t border-slate-100">
+                                    <div className="min-w-0 flex-1"><p className="text-sm font-semibold truncate">{u.name} <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500">{u.role === 'teacher' ? 'Giáo viên' : 'Học sinh'}</span>{u.role === 'teacher' && priv[u.id] && privBadge}</p><p className="text-xs text-slate-500 truncate">{u.email}</p></div>
+                                    <div className="flex flex-wrap justify-end gap-2 shrink-0 w-full sm:w-auto">{u.role === 'teacher' && privBtn(u)}<button onClick={() => delUser(u)} title="Xóa tài khoản" className="px-3 py-1.5 rounded-lg bg-red-50 text-red-600 text-xs font-bold inline-flex items-center gap-1"><LIcon n="trash" className="w-3.5 h-3.5" /> Xóa</button></div>
+                                </div>))}
+                            </div>)}
+                            {card && (<div className="fixed inset-0 bg-slate-900/70 z-50 flex items-center justify-center p-4" onClick={() => setCard(null)}>
+                                {card === 'none' ? <div className="bg-white rounded-2xl p-6 text-sm">Giáo viên này chưa tải ảnh thẻ.</div> : <img src={card} className="max-h-[85vh] max-w-full rounded-xl" />}</div>)}
+                            {tab === 'teachers' && (
+                                <div className="bg-white rounded-2xl shadow-sm">
+                                    <div className="p-4 flex flex-col lg:flex-row lg:items-center gap-3 border-b border-slate-100">
+                                        <div role="tablist" aria-label="Trạng thái giáo viên" className="flex w-full lg:w-auto gap-1 p-1 rounded-xl bg-slate-100">
+                                            {STATUS.map(([k, l, more]) => (
+                                                <button key={k} type="button" role="tab" aria-selected={st === k} onClick={() => setSt(k)}
+                                                    className={'flex-1 px-2 py-1.5 rounded-lg text-xs font-bold text-center leading-tight whitespace-nowrap ' + (st === k ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-600')}>
+                                                    <span className="block sm:inline whitespace-nowrap">{l}{more && <span className="hidden sm:inline">{more}</span>}</span>{' '}
+                                                    <span className="block sm:inline">({counts[k]})</span>
+                                                </button>))}
+                                        </div>
+                                        <div className="relative lg:ml-auto lg:w-80">
+                                            <LIcon n="search" className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                                            <input id="teacher-search" name="teacherSearch" aria-label="Tìm giáo viên" value={tq} onChange={(e) => setTq(e.target.value)} placeholder="Tìm theo tên, email, môn, trường..." className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
                                         </div>
                                     </div>
-                                ))}
-                            </div>
-                        );
-                    })}
-                    </div></div>
+                                    {/* Mobile (< md): mỗi giáo viên là 1 thẻ — thấy đủ thông tin và nút thao tác, không phải cuộn ngang */}
+                                    <ul className="md:hidden">
+                                        {tRows.length === 0 && <li className="px-4 py-10 text-center text-xs text-slate-400">{tq.trim() ? 'Không có giáo viên phù hợp.' : 'Không có ai.'}</li>}
+                                        {tRows.map((x) => (
+                                            <li key={x.id} className="p-4 border-b border-slate-100 last:border-0">
+                                                <div className="flex items-start justify-between gap-2">
+                                                    <div className="min-w-0">
+                                                        <p className="text-sm font-bold text-slate-800 truncate">{x.name || '—'}</p>
+                                                        <p className="text-xs text-slate-500 truncate">{x.email}</p>
+                                                    </div>
+                                                    {priv[x.id] && <span className="shrink-0 inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500"><LIcon n="eye-off" className="w-3 h-3" />Ẩn danh</span>}
+                                                </div>
+                                                <p className="mt-1.5 text-xs text-slate-600 break-words">{[x.subject, x.school].filter(Boolean).join(' • ') || '—'}</p>
+                                                <div className="mt-3 flex flex-wrap gap-1.5">{rowActions(x, false)}</div>
+                                            </li>))}
+                                    </ul>
+                                    {/* md+: bảng dữ liệu (cuộn ngang trong khung nếu màn hình hẹp) */}
+                                    <div className="hidden md:block overflow-x-auto">
+                                        <table className="w-full min-w-[640px] text-sm text-left">
+                                            <thead>
+                                                <tr className="text-xs text-slate-500 border-b border-slate-100">
+                                                    <th scope="col" className="px-4 py-3 font-semibold">Họ tên</th>
+                                                    <th scope="col" className="px-4 py-3 font-semibold">Email</th>
+                                                    <th scope="col" className="px-4 py-3 font-semibold">Môn</th>
+                                                    <th scope="col" className="px-4 py-3 font-semibold">Trường</th>
+                                                    <th scope="col" className="px-4 py-3 font-semibold text-right">Thao tác</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {tRows.length === 0 && <tr><td colSpan={5} className="px-4 py-10 text-center text-xs text-slate-400">{tq.trim() ? 'Không có giáo viên phù hợp.' : 'Không có ai.'}</td></tr>}
+                                                {tRows.map((x) => (
+                                                    <tr key={x.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
+                                                        <td className="px-4 py-3 font-semibold text-slate-800 max-w-[200px]"><span className="block truncate">{x.name || '—'}</span>{priv[x.id] && <span className="inline-flex items-center gap-1 mt-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500"><LIcon n="eye-off" className="w-3 h-3" />Ẩn danh</span>}</td>
+                                                        <td className="px-4 py-3 text-slate-600 max-w-[220px]"><span className="block truncate">{x.email}</span></td>
+                                                        <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{x.subject || '—'}</td>
+                                                        <td className="px-4 py-3 text-slate-600 max-w-[200px]"><span className="block truncate">{x.school || '—'}</span></td>
+                                                        <td className="px-4 py-3"><div className="flex justify-end gap-1.5">{rowActions(x, true)}</div></td>
+                                                    </tr>))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <p className="px-4 py-3 text-[11px] text-slate-400 border-t border-slate-100">Hiển thị {tRows.length} / {counts[st]} giáo viên.</p>
+                                </div>)}
+                        </main>
+                    </div>
+                </div>
             );
         }
 
 
-        // Công tắc Sáng / Tối gọn cho trang Quản trị: nằm trong ô trống của lưới tab. Dùng chung controller + khóa 'eduorient_theme' với ThemeModeBar.
-        // Chỉ dùng class Tailwind có sẵn (bg-white / border / text-slate-600 / bg-indigo-600) nên tự đổi màu theo html.dark giống các nút tab bên cạnh.
-        const AdminThemeSwitch = () => {
+        // Công tắc giao diện Mặc định / Tối / Sáng ở header. Dùng chung controller + khóa 'eduorient_theme' với ThemeModeBar (window.getThemeMode / setThemeMode).
+        // Icon là SVG nhúng (LIcon) nên không còn lỗi hiện tên icon thành chữ.
+        const ADMIN_THEME_OPTS = [['system', 'monitor', 'Mặc định'], ['dark', 'moon', 'Tối'], ['light', 'sun', 'Sáng']];
+        const AdminThemeSwitch = ({ tabIndex }) => {
             const get = () => (window.getThemeMode ? window.getThemeMode() : 'system');
             const [mode, setModeState] = useState(get);
             useEffect(() => {
@@ -449,11 +564,11 @@ import { BxhScoreEditor, EMPTY_LIST, GroupSettingsModal, Icon, THEME_OPTS, bxhBu
             }, []);
             const pick = (m) => { if (window.setThemeMode) window.setThemeMode(m); setModeState(m); };
             return (
-                <div role="radiogroup" aria-label="Chế độ giao diện" className="flex rounded-xl border bg-white overflow-hidden">
-                    {THEME_OPTS.map(([k, ic, lb]) => (
-                        <button key={k} type="button" role="radio" aria-checked={mode === k} aria-label={lb} title={k === 'system' ? 'Theo hệ thống (Mặc định)' : 'Giao diện ' + lb.toLowerCase()} onClick={() => pick(k)}
-                            className={'flex-1 flex items-center justify-center gap-1 py-2 text-sm font-bold ' + (mode === k ? 'bg-indigo-600 text-white' : 'text-slate-600')}>
-                            <span>{ic}</span><span className="hidden sm:inline">{lb}</span>
+                <div role="radiogroup" aria-label="Chế độ giao diện" className="shrink-0 flex gap-0.5 p-0.5 rounded-xl bg-slate-100">
+                    {ADMIN_THEME_OPTS.map(([k, ic, lb]) => (
+                        <button key={k} type="button" tabIndex={tabIndex} role="radio" aria-checked={mode === k} aria-label={lb} title={k === 'system' ? 'Theo hệ thống (Mặc định)' : 'Giao diện ' + lb.toLowerCase()} onClick={() => pick(k)}
+                            className={'inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold ' + (mode === k ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:text-slate-900')}>
+                            <LIcon n={ic} className="w-4 h-4" /><span className="hidden xl:inline">{lb}</span>
                         </button>
                     ))}
                 </div>

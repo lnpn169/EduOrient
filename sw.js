@@ -1,4 +1,4 @@
-const CACHE_NAME = 'eduorient-v20261019-1527';
+const CACHE_NAME = 'eduorient-v20261023-0058';
 
 // Cache riêng cho thư viện CDN: KHÔNG bị xóa mỗi lần deploy (update-sw.js chỉ đổi CACHE_NAME),
 // nhờ vậy người dùng không phải tải lại React/Firebase sau mỗi lần cập nhật.
@@ -18,21 +18,24 @@ const APP_SHELL = [
   '/index.html',
   '/hocsinh.html',
   '/manifest.webmanifest',
-  '/icon-192.png'
+  '/icon-192.png',
+  '/logo.svg',
+  '/logo-dark.svg',
+  '/favicon-32.png'
 ];
 
 // JS/CSS của app kèm hash nội dung. DANH SÁCH NÀY DO update-sw.js TỰ GHI mỗi lần deploy.
 // <VERSIONED-ASSETS> (tự động ghi bởi update-sw.js - đừng sửa tay)
 const VERSIONED_ASSETS = [
-  '/app.min.js?v=21aeaa69e4',
-  '/tailwind.min.css?v=681b7a9784',
+  '/app.min.js?v=5a348b00b1',
+  '/tailwind.min.css?v=30ab91e68e',
   '/edu-common.js?v=840d9bcdce',
   '/edu-icons.js?v=065cec5837',
   '/wrapped-core.js?v=8c13d5ce40',
-  '/index.css?v=de5d85684f',
-  '/hocsinh.min.js?v=e2fdf597a6',
-  '/hocsinh.min.css?v=0bdd1f95b5',
-  '/hocsinh-tw.min.css?v=63786204e0'
+  '/index.css?v=5ee7ac9cf5',
+  '/hocsinh.min.js?v=8361c2f270',
+  '/hocsinh.min.css?v=0b594a627a',
+  '/hocsinh-tw.min.css?v=2a154e1cec'
 ];
 // </VERSIONED-ASSETS>
 
