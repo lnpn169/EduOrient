@@ -1,19 +1,159 @@
 // EduOrient — màn hình QUẢN TRỊ (AdminPanel). Chỉ tải khi đăng nhập bằng tài khoản quản trị.
-import { ErrorBoundary, UiZoomPanel, UiZoomPopover, fbDb, fbErr, fbNow, foldVN, isAdminEmail } from './app-core.jsx';
+import { ErrorBoundary, SCHOOL_DB, UiZoomPanel, UiZoomPopover, fbDb, fbErr, fbNow, foldVN, isAdminEmail } from './app-core.jsx';
 import { BxhScoreEditor, EMPTY_LIST, GroupSettingsModal, Icon, LIcon, bxhBumpXp, clampScore, keepList, keepMap, subXp, wipeMsgs } from './app-shared.jsx';
 
         const { useState, useEffect, useRef, useMemo, useCallback, memo } = React;
 
         // Dựng lại bxh/summary từ đầu (chạy 1 lần để di chuyển dữ liệu cũ, và khi muốn đối soát)
+        // Giữ lại trường k (tổ hợp) cũ của từng học sinh: k không tính được từ submissions, mất k thì phải đồng bộ lại toàn bộ.
         async function rebuildBxhSummary() {
-            const [ps, ss, bs] = await Promise.all([fbDb.collection('profiles').where('role', '==', 'student').get(), fbDb.collection('submissions').get(), fbDb.collection('bxhScores').get()]);
+            const [ps, ss, bs, old] = await Promise.all([fbDb.collection('profiles').where('role', '==', 'student').get(), fbDb.collection('submissions').get(), fbDb.collection('bxhScores').get(), fbDb.collection('bxh').doc('summary').get()]);
+            const oldUsers = (old.exists && (old.data() || {}).users) || {};
             const xp = {}, cnt = {}, adj = {};
             ss.forEach((d) => { const x = d.data(); xp[x.uid] = (xp[x.uid] || 0) + subXp(x); cnt[x.uid] = (cnt[x.uid] || 0) + 1; });
             bs.forEach((d) => { const v = (d.data() || {}).adjustXp; if (typeof v === 'number') adj[d.id] = v; });
             const users = {};
-            ps.forEach((d) => { const p = d.data(); users[d.id] = { n: p.name || '', c: p.cls || '', s: p.targetSchoolId || '', sn: p.targetSchoolName || '', u: p.uniId || '', un: p.uniName || '', xp: xp[d.id] || 0, d: cnt[d.id] || 0, adj: adj[d.id] || 0 }; });
-            await fbDb.collection('bxh').doc('summary').set({ users });   // ghi đè toàn bộ
+            ps.forEach((d) => { const p = d.data(); const kOld = (oldUsers[d.id] || {}).k; users[d.id] = { n: p.name || '', c: p.cls || '', s: p.targetSchoolId || '', sn: p.targetSchoolName || '', u: p.uniId || '', un: p.uniName || '', xp: xp[d.id] || 0, d: cnt[d.id] || 0, adj: adj[d.id] || 0, ...(typeof kOld === 'string' && kOld ? { k: kOld } : {}) }; });
+            await fbDb.collection('bxh').doc('summary').set({ users });   // ghi đè toàn bộ (đã giữ lại k)
             return Object.keys(users).length;
+        }
+
+        // ===== BẮT ĐẦU KHỐI DÙNG CHUNG: tính "tổ hợp" của 1 tài khoản (hàm THUẦN, không phụ thuộc biến nào khác) =====
+        // Copy NGUYÊN khối này (từ dòng BẮT ĐẦU tới dòng KẾT THÚC) sang app-admin.jsx ở giai đoạn 3B để app học sinh và admin cho CÙNG kết quả.
+        // Vào : sc = { toan: 9, van: 8.5, anh: 7, ... } (điểm 0..10; thiếu khóa hoặc <= 0 nghĩa là KHÔNG học -> bỏ qua; học sinh cũ chưa có tin/cn/ktpl => tự coi là 0)
+        // Ra  : chuỗi môn đã sắp xếp A-Z nối bằng "+", ví dụ "hoa+ly+toan"; trả '' nếu không tính được (thiếu Toán hoặc Văn, hoặc < 2 môn còn lại có điểm).
+        // Quy tắc: (1) Toán + Văn bắt buộc; (2) lấy thêm 2 môn điểm cao nhất trong các môn còn lại (chỉ môn > 0) => 4 môn; (3) tổ hợp = 3 môn có tổng cao nhất trong 4 môn đó (tức bỏ môn thấp nhất).
+        // Khi HÒA (chọn 2 môn, hoặc chọn môn bỏ): ưu tiên tổ hợp theo K_UU_TIEN (D01 > A00 > A01 > B00 > C00), rồi tới thứ tự môn cố định K_THU_TU_MON. Chỉ để kết quả ỔN ĐỊNH mỗi lần tính lại, KHÔNG có ý nghĩa khoa học.
+        // Lưu ý: chỉ lưu chuỗi môn, KHÔNG lưu mã khối (A00, D01...) để dữ liệu không phụ thuộc bảng KHOI; phía hiển thị tự tra mã khối từ bảng.
+        const K_THU_TU_MON = ['toan', 'van', 'anh', 'ly', 'hoa', 'sinh', 'su', 'dia', 'tin', 'cn', 'ktpl'];
+        const K_UU_TIEN = ['anh+toan+van' /* D01 */, 'hoa+ly+toan' /* A00 */, 'anh+ly+toan' /* A01 */, 'hoa+sinh+toan' /* B00 */, 'dia+su+van' /* C00 */];
+        function tinhToHopK(sc) {
+            sc = sc || {};
+            const v = m => { const x = Math.round(Number(sc[m]) * 10); return x > 0 ? x : 0; };   // nhân 10 làm tròn: so sánh số nguyên, không bị sai số số thực khi hòa điểm
+            if (!(v('toan') > 0 && v('van') > 0)) return '';
+            const others = K_THU_TU_MON.filter(m => m !== 'toan' && m !== 'van' && v(m) > 0);
+            if (others.length < 2) return '';
+            // Bước 1: các cặp môn tự chọn có tổng cao nhất (nhiều cặp nếu hòa điểm)
+            let bestPair = -1, pairs = [];
+            for (let i = 0; i < others.length; i++) for (let j = i + 1; j < others.length; j++) {
+                const t = v(others[i]) + v(others[j]);
+                if (t > bestPair) { bestPair = t; pairs = []; }
+                if (t === bestPair) pairs.push([others[i], others[j]]);
+            }
+            // Bước 2: với mỗi cặp, thử bỏ lần lượt từng môn trong 4 môn; chọn bộ 3 tổng cao nhất, hòa thì theo K_UU_TIEN rồi theo thứ tự môn
+            const cmpOrd = (x, y) => { for (let i = 0; i < x.length; i++) if (x[i] !== y[i]) return x[i] - y[i]; return 0; };
+            const tot = (c, b) => c.sum !== b.sum ? c.sum > b.sum : c.rank !== b.rank ? c.rank < b.rank : cmpOrd(c.ord, b.ord) < 0;   // true nếu c "tốt hơn" b
+            let best = null;
+            pairs.forEach(p => {
+                const four = ['toan', 'van', p[0], p[1]];
+                four.forEach(drop => {
+                    const tri = four.filter(m => m !== drop), key = tri.slice().sort().join('+'), pr = K_UU_TIEN.indexOf(key);
+                    const c = { key: key, sum: tri.reduce((a, m) => a + v(m), 0), rank: pr < 0 ? K_UU_TIEN.length : pr, ord: tri.map(m => K_THU_TU_MON.indexOf(m)).sort((x, y) => x - y) };
+                    if (!best || tot(c, best)) best = c;
+                });
+            });
+            return best ? best.key : '';
+        }
+        // ===== KẾT THÚC KHỐI DÙNG CHUNG =====
+
+        // Điều kiện "đã làm bài định hướng" PHẢN CHIẾU dhLDone() + dhQDone() ở hocsinh.js (app học sinh chỉ ghi k khi đủ điều kiện này, admin phải cùng quy tắc):
+        // đủ 18 câu hỏi (K_SO_CAU = QS.length) + có điểm đủ ít nhất 1 trong 5 khối A00/A01/B00/C00/D01. Đổi số câu hỏi ở hocsinh.js thì phải đổi K_SO_CAU.
+        // Trả: null = không có dh.sc (chưa làm / dữ liệu quá cũ) => bỏ qua, không đụng k; '' = chưa đủ điều kiện hoặc không tính được => k phải để trống; chuỗi = giá trị k.
+        const K_SO_CAU = 18;
+        const K_KHOI5 = [['toan', 'ly', 'hoa'], ['toan', 'ly', 'anh'], ['toan', 'hoa', 'sinh'], ['van', 'su', 'dia'], ['toan', 'van', 'anh']];
+        function kTuPrivate(data) {
+            const dh = (data || {}).dh;
+            if (!dh || !dh.sc || typeof dh.sc !== 'object') return null;
+            const sc = dh.sc, co = (m) => Math.round(Number(sc[m]) * 10) > 0;
+            const dayDuCau = typeof dh.q === 'string' && new RegExp('^[012]{' + K_SO_CAU + '}$').test(dh.q);
+            return dayDuCau && K_KHOI5.some((ms) => ms.every(co)) ? tinhToHopK(sc) : '';
+        }
+
+        // Nút "Đồng bộ tổ hợp": đọc privates/{uid}.dh của học sinh THEO LÔ (150 em/lô), tính k bằng tinhToHopK, ghi k vào bxh/summary mỗi lô (dừng giữa chừng vẫn giữ phần đã ghi).
+        // Chi phí đọc = 1 lượt đọc / học sinh được xử lý + 1 lượt đọc bxh/summary. Mặc định bỏ qua em đã có k; tick "đọc lại cả em đã có k" để đối soát.
+        function AdminKSync() {
+            const [run, setRun] = useState(null);
+            const [again, setAgain] = useState(false);
+            const stopRef = useRef(false);
+            const busy = !!run && !run.fin;
+            const start = async () => {
+                let us;
+                try { us = ((await fbDb.collection('bxh').doc('summary').get()).data() || {}).users || {}; } catch (e) { eduAlert(fbErr(e), 'error'); return; }
+                const ids = Object.keys(us).filter((id) => again || !us[id].k);
+                if (!ids.length) { eduToast('Mọi học sinh trong BXH đã có tổ hợp.', 'success'); return; }
+                if (!(await eduConfirm('Sẽ đọc dữ liệu riêng của ' + ids.length + ' học sinh (' + ids.length + ' lượt đọc Firestore), chia lô 150 em, có thể bấm Dừng bất cứ lúc nào. Em chưa làm xong bài định hướng sẽ không có tổ hợp và được đọc lại ở lần chạy sau.', { title: 'Đồng bộ tổ hợp?', confirmText: 'Chạy' }))) return;
+                stopRef.current = false;
+                const st = { done: 0, total: ids.length, wrote: 0, del: 0, skip: 0, fin: false, stopped: false, err: '' };
+                setRun({ ...st });
+                const A = firebase.firestore.FieldPath.documentId();
+                try {
+                    for (let i = 0; i < ids.length; i += 150) {
+                        if (stopRef.current) { st.stopped = true; break; }
+                        const lo = ids.slice(i, i + 150), chunks = [];
+                        for (let j = 0; j < lo.length; j += 30) chunks.push(lo.slice(j, j + 30));
+                        const snaps = await Promise.all(chunks.map((ch) => fbDb.collection('privates').where(A, 'in', ch).get()));
+                        const got = {}; snaps.forEach((sn) => sn.forEach((d) => { got[d.id] = d.data(); }));
+                        const patch = {};
+                        lo.forEach((id) => {
+                            const k = got[id] ? kTuPrivate(got[id]) : null, cur = us[id].k || '';
+                            if (k === null) { st.skip++; return; }
+                            if (k === cur) return;
+                            if (k) { patch[id] = { k }; st.wrote++; } else if (cur) { patch[id] = { k: firebase.firestore.FieldValue.delete() }; st.del++; }
+                        });
+                        if (Object.keys(patch).length) await fbDb.collection('bxh').doc('summary').set({ users: patch }, { merge: true });
+                        st.done += lo.length; setRun({ ...st });
+                    }
+                } catch (e) { st.err = fbErr(e); }
+                st.fin = true; setRun({ ...st });
+            };
+            return (
+                <div className="mt-3 pt-3 border-t border-slate-100">
+                    <div className="flex flex-wrap items-center gap-2">
+                        <button type="button" onClick={start} disabled={busy} className="px-3 py-1.5 bg-indigo-50 text-indigo-700 text-xs font-bold rounded-lg disabled:opacity-50">Đồng bộ tổ hợp</button>
+                        {busy && <button type="button" onClick={() => { stopRef.current = true; }} className="px-3 py-1.5 bg-red-50 text-red-600 text-xs font-bold rounded-lg">Dừng</button>}
+                        <label className="text-[11px] text-slate-500 flex items-center gap-1"><input type="checkbox" checked={again} disabled={busy} onChange={(e) => setAgain(e.target.checked)} />Đọc lại cả em đã có tổ hợp</label>
+                    </div>
+                    {run && (<div className="mt-2">
+                        <div className="h-2 bg-slate-100 rounded-full overflow-hidden"><div className="h-full bg-indigo-500 transition-all" style={{ width: Math.round(run.done / run.total * 100) + '%' }}></div></div>
+                        <p className="text-[11px] text-slate-500 mt-1">Đã đọc {run.done}/{run.total} em • ghi mới/đổi {run.wrote} • xóa {run.del} • chưa có dữ liệu điểm {run.skip}
+                            {run.fin ? (run.err ? <b className="text-red-600"> • Lỗi: {run.err} (phần đã ghi vẫn được giữ)</b> : run.stopped ? <b className="text-amber-600"> • Đã dừng (phần đã ghi vẫn được giữ)</b> : <b className="text-emerald-600"> • Xong</b>) : ' • đang chạy...'}</p>
+                    </div>)}
+                </div>);
+        }
+
+        // ===================== TÊN TRƯỜNG THEO schoolId (dùng cho Nhóm lớp & Chỉnh sửa điểm BXH) =====================
+        // schoolId (targetSchoolId của học sinh, cũng là groups.schoolId và bxh/summary.users[uid].s) có dạng "<id tỉnh>-<slug trường>".
+        // Thứ tự lấy tên: (1) danh sách trường chuẩn SCHOOL_DB (cùng quy tắc slug với hocsinh.js) -> (2) tên sn đã lưu trong bxh/summary -> (3) làm đẹp slug.
+        // Ưu tiên danh sách chuẩn vì sn là chữ do học sinh tự ghi, không được rules kiểm tra nội dung.
+        const NO_SCHOOL = '';   // học sinh / nhóm chưa có trường (hoặc mã cũ không còn đúng định dạng)
+        const slugOfSchool = (s) => foldVN(s).replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+        const SCHOOL_BY_ID = {};
+        SCHOOL_DB.forEach((p) => p.schools.forEach((t) => { SCHOOL_BY_ID[p.id + '-' + slugOfSchool(t.name)] = { name: t.name, prov: p.name }; }));
+        const prettySlug = (slug) => String(slug || '').split('-').filter(Boolean).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+        function schoolInfoOf(id, sn) {
+            id = String(id || '');
+            if (!id) return { name: '', prov: '' };
+            const hit = SCHOOL_BY_ID[id];
+            if (hit) return { name: hit.name, prov: hit.prov };
+            const p = SCHOOL_DB.find((x) => id.indexOf(x.id + '-') === 0);
+            const nm = String(sn || '').replace(/\s+/g, ' ').trim().slice(0, 80);
+            return { name: nm || prettySlug(p ? id.slice(p.id.length + 1) : id), prov: p ? p.name : '' };
+        }
+        // Nhãn hiển thị cho danh sách schoolId: { id: nhãn }. Hai trường trùng tên (khác tỉnh) thì thêm tên tỉnh để không bị lẫn.
+        function buildSchoolLabels(entries) {   // entries: [{ id, sn }]
+            const info = {}, byName = {};
+            entries.forEach((e) => {
+                const id = String(e.id || '');
+                if (!id || info[id]) return;
+                info[id] = schoolInfoOf(id, e.sn);
+                const k = foldVN(info[id].name); byName[k] = (byName[k] || 0) + 1;
+            });
+            const out = {};
+            Object.keys(info).forEach((id) => {
+                const i = info[id], dup = byName[foldVN(i.name)] > 1;
+                out[id] = dup ? i.name + (i.prov ? ' (' + i.prov + ')' : ' (' + id + ')') : i.name;
+            });
+            return out;
         }
 
 
@@ -66,7 +206,7 @@ import { BxhScoreEditor, EMPTY_LIST, GroupSettingsModal, Icon, LIcon, bxhBumpXp,
 
 
         // ===== Quản lý Nhóm Lớp & GVCN (Admin) =====
-        function GroupHomeroomRowImpl({ g, teacher, onMembers, onDelete, deleting }) {
+        function GroupHomeroomRowImpl({ g, teacher, onMembers, onDelete, deleting, schoolLabel }) {
             const [email, setEmail] = useState('');
             const [busy, setBusy] = useState(false);
             const [msg, setMsg] = useState(null);   // { t: 'ok' | 'err', s: string }
@@ -100,7 +240,7 @@ import { BxhScoreEditor, EMPTY_LIST, GroupSettingsModal, Icon, LIcon, bxhBumpXp,
                     <div className="flex justify-between items-start gap-2">
                         <div className="min-w-0">
                             <p className="font-bold text-sm truncate">{g.name || ('Nhóm Chat Lớp ' + (g.cls || ''))}</p>
-                            <p className="text-[11px] text-slate-400 truncate">{g.schoolId || ''} • {(g.members || []).length} thành viên{g.monitorUid ? ' • có Lớp Trưởng' : ''}{(g.hiddenMembers || []).length ? ' • ' + g.hiddenMembers.length + ' đang ẩn' : ''}</p>
+                            <p className="text-[11px] text-slate-400 truncate">{schoolLabel || g.schoolId || 'Chưa rõ trường'} • {(g.members || []).length} thành viên{g.monitorUid ? ' • có Lớp Trưởng' : ''}{(g.hiddenMembers || []).length ? ' • ' + g.hiddenMembers.length + ' đang ẩn' : ''}</p>
                         </div>
                         <div className="shrink-0 flex items-center gap-1.5">
                             <span className={'px-2 py-1 rounded-lg text-[10px] font-bold ' + (has ? 'bg-rose-50 text-rose-600' : 'bg-slate-100 text-slate-500')}>{has ? 'Đã có GVCN' : 'Chưa có GVCN'}</span>
@@ -125,6 +265,9 @@ import { BxhScoreEditor, EMPTY_LIST, GroupSettingsModal, Icon, LIcon, bxhBumpXp,
             const [openId, setOpenId] = useState('');
             const [err, setErr] = useState('');
             const [kw, setKw] = useState('');
+            const [sch, setSch] = useState('all');   // 'all' = Tất cả trường; còn lại = schoolId ('' = nhóm chưa rõ trường)
+            const [snMap, setSnMap] = useState({});  // schoolId -> tên lấy từ bxh/summary (chỉ tải khi có nhóm mà danh sách trường chuẩn không biết)
+            const [snTried, setSnTried] = useState(false);
             const [deletingId, setDeletingId] = useState('');
             const closeOpenId = useCallback(() => setOpenId(''), []);
             // Admin xóa nhóm lớp: xác nhận -> xóa toàn bộ tin nhắn (subcollection msgs) -> xóa document nhóm. Danh sách tự cập nhật nhờ onSnapshot.
@@ -162,25 +305,219 @@ import { BxhScoreEditor, EMPTY_LIST, GroupSettingsModal, Icon, LIcon, bxhBumpXp,
             }, [memKey]);
             const byId = useMemo(() => { const m = {}; (teachers || []).forEach((t) => { m[t.id] = t; }); return m; }, [teachers]);
             const norm = (x) => String(x || '').toLowerCase();
-            const rows = useMemo(() => (groups || []).filter((g) => {
+            // Tên trường: ưu tiên danh sách chuẩn (không tốn lượt đọc). Chỉ khi có schoolId lạ mới đọc bxh/summary đúng 1 lần để lấy tên sn.
+            const needSn = useMemo(() => (groups || []).some((g) => g.schoolId && !SCHOOL_BY_ID[g.schoolId]), [groups]);
+            useEffect(() => {
+                if (!needSn || snTried) return;
+                setSnTried(true);
+                fbDb.collection('bxh').doc('summary').get().then((d) => {
+                    const us = (d.data() || {}).users || {}, m = {};
+                    Object.keys(us).forEach((id) => { const e = us[id] || {}; if (e.s && e.sn && !m[e.s]) m[e.s] = String(e.sn); });
+                    setSnMap(m);
+                }).catch(() => {});   // không đọc được thì dùng slug làm đẹp
+            }, [needSn, snTried]);
+            const labels = useMemo(() => buildSchoolLabels((groups || []).map((g) => ({ id: g.schoolId, sn: snMap[g.schoolId] }))), [groups, snMap]);
+            const labelOf = (g) => (g.schoolId ? labels[g.schoolId] : '') || '';
+            // Danh sách trường cho ô chọn: sắp xếp theo tên, kèm số nhóm
+            const schoolOpts = useMemo(() => {
+                const cnt = {};
+                (groups || []).forEach((g) => { const k = g.schoolId || ''; cnt[k] = (cnt[k] || 0) + 1; });
+                return Object.keys(cnt).map((id) => ({ id, label: id ? (labels[id] || id) : 'Chưa rõ trường', n: cnt[id] }))
+                    .sort((a, b) => (a.id === '' ? 1 : b.id === '' ? -1 : a.label.localeCompare(b.label, 'vi')));
+            }, [groups, labels]);
+            const schSel = sch !== 'all' && schoolOpts.some((o) => o.id === sch) ? sch : 'all';   // trường đang chọn bị xóa hết nhóm => quay về Tất cả
+            const scoped = useMemo(() => (groups || []).filter((g) => schSel === 'all' || (g.schoolId || '') === schSel), [groups, schSel]);
+            const rows = useMemo(() => scoped.filter((g) => {
                 if (!kw.trim()) return true;
                 const t = byId[g.homeroomTeacherUid] || {};
-                return (norm(g.name) + ' ' + norm(g.cls) + ' ' + norm(g.schoolId) + ' ' + norm(t.name) + ' ' + norm(t.email)).includes(norm(kw.trim()));
-            }).sort((a, b) => String(a.schoolId || '').localeCompare(String(b.schoolId || '')) || String(a.cls || '').localeCompare(String(b.cls || ''), 'vi', { numeric: true })), [groups, kw, byId]);
-            const withHr = (groups || []).filter((g) => g.homeroomTeacherUid).length;
+                return (norm(g.name) + ' ' + norm(g.cls) + ' ' + norm(g.schoolId) + ' ' + norm(labelOf(g)) + ' ' + norm(t.name) + ' ' + norm(t.email)).includes(norm(kw.trim()));
+            }).sort((a, b) => labelOf(a).localeCompare(labelOf(b), 'vi') || String(a.schoolId || '').localeCompare(String(b.schoolId || '')) || String(a.cls || '').localeCompare(String(b.cls || ''), 'vi', { numeric: true })), [scoped, kw, byId, labels]);
+            const withHr = scoped.filter((g) => g.homeroomTeacherUid).length;
             return (
                 <div>
                     {err && <p className="text-sm text-red-600 mb-3">{err}</p>}
                     <div className="bg-white rounded-2xl shadow-sm p-4 mb-3">
                         <h2 className="font-bold text-sm">Quản lý Nhóm Lớp & GVCN</h2>
                         <p className="text-[11px] text-slate-400 mt-1">Nhóm chat lớp do học sinh tự khởi tạo. Mỗi lớp chỉ có 1 GVCN; GVCN được tự thêm vào nhóm, có huy hiệu "GVCN", được xóa mọi tin nhắn vi phạm và phong / bãi nhiệm Lớp Trưởng.</p>
-                        <input id="assign-search" name="keyword" aria-label="Tìm kiếm" value={kw} onChange={(e) => setKw(e.target.value)} placeholder="Tìm theo lớp, trường, tên / email GVCN..." className="w-full mt-3 px-3 py-2 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500" />
-                        {groups && <p className="text-[11px] text-slate-500 mt-2">{groups.length} nhóm • {withHr} nhóm đã có GVCN</p>}
+                        <select id="assign-school" name="schoolFilter" aria-label="Chọn trường" value={schSel} onChange={(e) => setSch(e.target.value)} className="w-full mt-3 px-3 py-2 border border-slate-200 rounded-xl text-xs bg-white outline-none focus:ring-2 focus:ring-indigo-500">
+                            <option value="all">Tất cả trường{groups ? ' (' + groups.length + ' nhóm)' : ''}</option>
+                            {schoolOpts.map((o) => <option key={'s:' + o.id} value={o.id}>{o.label} ({o.n} nhóm)</option>)}
+                        </select>
+                        <input id="assign-search" name="keyword" aria-label="Tìm kiếm" value={kw} onChange={(e) => setKw(e.target.value)} placeholder="Tìm theo lớp, trường, tên / email GVCN..." className="w-full mt-2 px-3 py-2 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500" />
+                        {groups && <p className="text-[11px] text-slate-500 mt-2">{scoped.length} nhóm • {withHr} nhóm đã có GVCN</p>}
                     </div>
                     {groups === null && !err && <p className="text-xs text-slate-400">Đang tải danh sách nhóm...</p>}
                     {groups && rows.length === 0 && <p className="text-xs text-slate-400">{groups.length === 0 ? 'Chưa có nhóm chat lớp nào được khởi tạo.' : 'Không có nhóm phù hợp.'}</p>}
-                    {rows.map((g) => <GroupHomeroomRow key={g.id} g={g} teacher={byId[g.homeroomTeacherUid]} onMembers={setOpenId} onDelete={deleteGroup} deleting={deletingId === g.id} />)}
+                    {rows.map((g) => <GroupHomeroomRow key={g.id} g={g} teacher={byId[g.homeroomTeacherUid]} onMembers={setOpenId} onDelete={deleteGroup} deleting={deletingId === g.id} schoolLabel={labelOf(g)} />)}
                     {openId && (groups || []).find((g) => g.id === openId) && <GroupSettingsModal group={(groups || []).find((g) => g.id === openId)} profiles={profiles} user={user || {}} isAdmin={true} onClose={closeOpenId} />}
+                </div>
+            );
+        }
+
+
+        // ===================== TAB "TỔ HỢP THEO TRƯỜNG" (Giai đoạn 4 - phần 1: khung, bộ lọc trường, dòng tổng kết) =====================
+        // CHỈ đọc bxh/summary (1 lượt đọc khi mở tab, thêm 1 lượt mỗi lần bấm "Tải lại"). KHÔNG đọc privates.
+        // y = số học sinh của trường trong bxh/summary; x = số em có k (đã làm bài định hướng và tính được tổ hợp).
+        // Phần biểu đồ (cột ngang, "Khác", 5/10 cột theo isWide, chú giải KHOI_TEN) sẽ làm ở phần sau, gắn vào chỗ đánh dấu cuối component.
+        // Bảng tra mã khối cho biểu đồ. CHỈ gồm khối thuần 3 môn học (không có môn năng khiếu/vẽ) nên tra được từ chuỗi môn k.
+        // Đây là bản SAO của KHOI trong hocsinh.js (admin và app học sinh là 2 bundle riêng, không import chung được): thêm/sửa khối ở hocsinh.js thì sửa cả ở đây.
+        // Đã đối chiếu với bảng mã tổ hợp xét tuyển 2026 (Bộ GD&ĐT, qua thuvienphapluat.vn): chỉ các tổ hợp 3 môn nằm trong 11 môn của app; 'cn' = Công nghệ công nghiệp (các mã Công nghệ nông nghiệp như X04, X08, X12... không đưa vào).
+        // Khối năng khiếu (V00, V01, H00, T00, N00, M00) cố ý không đưa vào: chúng không suy ra được từ điểm 3 môn học.
+        const KHOI_HIEN = { A00: ['toan', 'ly', 'hoa'], A01: ['toan', 'ly', 'anh'], B00: ['toan', 'hoa', 'sinh'], C00: ['van', 'su', 'dia'], D01: ['toan', 'van', 'anh'],
+            X25: ['toan', 'anh', 'ktpl'], X26: ['toan', 'anh', 'tin'], X27: ['toan', 'cn', 'anh'], C14: ['van', 'toan', 'ktpl'], D84: ['toan', 'ktpl', 'anh'], D66: ['van', 'anh', 'ktpl'], C19: ['van', 'su', 'ktpl'], C20: ['van', 'dia', 'ktpl'],
+            A02: ['toan', 'ly', 'sinh'], A03: ['toan', 'ly', 'su'], A04: ['toan', 'ly', 'dia'], A05: ['toan', 'hoa', 'su'], A06: ['toan', 'hoa', 'dia'], A07: ['toan', 'su', 'dia'], A08: ['toan', 'su', 'ktpl'], A09: ['toan', 'dia', 'ktpl'], A10: ['toan', 'ly', 'ktpl'], A11: ['toan', 'hoa', 'ktpl'], B02: ['toan', 'sinh', 'dia'], B03: ['toan', 'sinh', 'van'], B04: ['toan', 'sinh', 'ktpl'], B08: ['toan', 'sinh', 'anh'], C01: ['van', 'toan', 'ly'], C02: ['van', 'toan', 'hoa'], C03: ['van', 'toan', 'su'], C04: ['van', 'toan', 'dia'], C05: ['van', 'ly', 'hoa'], C08: ['van', 'hoa', 'sinh'], C09: ['van', 'ly', 'dia'], C10: ['van', 'hoa', 'su'], C11: ['van', 'hoa', 'dia'], C12: ['van', 'su', 'sinh'], C13: ['van', 'sinh', 'dia'], C18: ['van', 'sinh', 'ktpl'], X17: ['toan', 'su', 'ktpl'], X18: ['toan', 'su', 'tin'], X19: ['toan', 'su', 'cn'], X21: ['toan', 'dia', 'ktpl'], X22: ['toan', 'dia', 'tin'], X23: ['toan', 'dia', 'cn'], X53: ['toan', 'ktpl', 'tin'], X54: ['toan', 'ktpl', 'cn'], X58: ['van', 'ly', 'ktpl'], X59: ['van', 'ly', 'tin'], X60: ['van', 'ly', 'cn'], X62: ['van', 'hoa', 'ktpl'], X63: ['van', 'hoa', 'tin'], X64: ['van', 'hoa', 'cn'], X66: ['van', 'sinh', 'ktpl'], X67: ['van', 'sinh', 'tin'], X68: ['van', 'sinh', 'cn'], X71: ['van', 'su', 'tin'], X72: ['van', 'su', 'cn'], X75: ['van', 'dia', 'tin'], X76: ['van', 'dia', 'cn'], X79: ['van', 'anh', 'tin'], X80: ['van', 'anh', 'cn'], Y07: ['van', 'ktpl', 'tin'], Y08: ['van', 'ktpl', 'cn'], Y10: ['van', 'tin', 'cn'], C16: ['van', 'ly', 'ktpl'], C17: ['van', 'hoa', 'ktpl'], D07: ['toan', 'hoa', 'anh'], D08: ['toan', 'sinh', 'anh'], D09: ['toan', 'su', 'anh'], D10: ['toan', 'dia', 'anh'], D11: ['van', 'ly', 'anh'], D12: ['van', 'hoa', 'anh'], D13: ['van', 'sinh', 'anh'], D14: ['van', 'su', 'anh'], D15: ['van', 'dia', 'anh'], X06: ['toan', 'ly', 'tin'], X07: ['toan', 'ly', 'cn'], X01: ['van', 'toan', 'ktpl'], X02: ['toan', 'van', 'tin'], X03: ['toan', 'van', 'cn'], X05: ['toan', 'ly', 'ktpl'], X09: ['toan', 'hoa', 'ktpl'], X10: ['toan', 'hoa', 'tin'], X11: ['toan', 'hoa', 'cn'], X13: ['toan', 'sinh', 'ktpl'], X14: ['toan', 'sinh', 'tin'], X15: ['toan', 'sinh', 'cn'], X56: ['toan', 'tin', 'cn'], X70: ['van', 'su', 'ktpl'], X74: ['van', 'dia', 'ktpl'], X78: ['van', 'ktpl', 'anh'], B01: ['toan', 'su', 'sinh'], C06: ['van', 'ly', 'sinh'], C07: ['van', 'su', 'ly'] };
+        // chuỗi môn đã sắp xếp (đúng dạng tinhToHopK trả về) -> danh sách mã khối. Có thể >1 mã cho cùng 1 bộ môn (ví dụ X25 và D84 cùng Toán-Anh-KTPL).
+        const KHOI_THEO_K = {};
+        Object.keys(KHOI_HIEN).forEach((c) => { const key = KHOI_HIEN[c].slice().sort().join('+'); (KHOI_THEO_K[key] = KHOI_THEO_K[key] || []).push(c); });
+        const K_VIET_TAT = { toan: 'T', van: 'V', anh: 'Anh', ly: 'Lý', hoa: 'Hóa', sinh: 'Sinh', su: 'Sử', dia: 'Địa', tin: 'Tin', cn: 'CN', ktpl: 'KTPL' };
+        // Nhãn cột: có mã khối thì chỉ ghi mã (nhiều mã nối bằng "/"); không có thì tên môn viết gọn, ví dụ "T-Lý-Tin"
+        function nhanTuK(k) {
+            const hit = KHOI_THEO_K[k];
+            if (hit) return hit.join('/');
+            return k.split('+').sort((a, b) => K_THU_TU_MON.indexOf(a) - K_THU_TU_MON.indexOf(b)).map((m) => K_VIET_TAT[m] || m).join('-');
+        }
+        // ---- Hiển thị khối: mã (nhiều mã nối " / ") + tên môn đầy đủ, ví dụ "D01" + "Toán, Văn, Anh"; nhóm màu theo chữ cái đầu mã, riêng khối có môn mới (Tin/CN/KTPL) gom thành 1 nhóm ----
+        const K_TEN_MON = { toan: 'Toán', van: 'Văn', anh: 'Anh', ly: 'Lý', hoa: 'Hóa', sinh: 'Sinh', su: 'Sử', dia: 'Địa', tin: 'Tin học', cn: 'Công nghệ', ktpl: 'KTPL' };
+        const K_MON_MOI = ['tin', 'cn', 'ktpl'];
+        const NHOM_KHOI = {
+            A: { t: 'Khối A', c: '#3b82f6' }, B: { t: 'Khối B', c: '#22c55e' }, C: { t: 'Khối C', c: '#f59e0b' }, D: { t: 'Khối D', c: '#8b5cf6' },
+            M: { t: 'Có môn mới (Tin, CN, KTPL)', c: '#14b8a6' }, K: { t: 'Chưa có mã khối', c: '#94a3b8' } };
+        function thongTinK(k) {
+            const codes = KHOI_THEO_K[k] || [], mons = k.split('+');
+            const order = codes.length ? KHOI_HIEN[codes[0]] : mons.slice().sort((x, z) => K_THU_TU_MON.indexOf(x) - K_THU_TU_MON.indexOf(z));
+            const moi = mons.some((m) => K_MON_MOI.indexOf(m) >= 0), l = codes.length ? codes[0].charAt(0) : '';
+            const g = moi ? 'M' : (l && 'ABCD'.indexOf(l) >= 0 ? l : 'K');
+            return { codes, mon: order.map((m) => K_TEN_MON[m] || m).join(', '), moi, g };
+        }
+        const COMBO_TOP_MOBILE = 5, COMBO_TOP_WIDE = 10;   // số cột hiện ban đầu (chưa tính cột "Khác"); ngưỡng máy tính = 768px (biến wide của AdminPanel)
+
+        function AdminComboBySchoolImpl({ wide }) {
+            const [users, setUsers] = useState(null);   // null = chưa tải; object = bxh/summary.users
+            const [loading, setLoading] = useState(false);
+            const [err, setErr] = useState('');
+            const [sch, setSch] = useState('all');      // 'all' = Tất cả trường; còn lại = schoolId ('' = học sinh chưa chọn trường)
+            const [openRest, setOpenRest] = useState(false);   // true = đang mở rộng cột "Khác"
+            const isWide = wide !== false;                        // >= 768px (cùng ngưỡng với menu admin)
+            const load = useCallback(async () => {
+                setLoading(true); setErr('');
+                try {
+                    const d = await fbDb.collection('bxh').doc('summary').get();
+                    setUsers((d.data() || {}).users || {});
+                } catch (e) { setErr(fbErr(e)); }
+                setLoading(false);
+            }, []);
+            useEffect(() => { load(); }, [load]);
+            // Danh sách học sinh rút gọn từ summary: chỉ giữ trường cần dùng
+            const students = useMemo(() => Object.keys(users || {}).map((id) => {
+                const e = users[id] || {};
+                return { id, s: String(e.s || ''), sn: e.sn || '', k: typeof e.k === 'string' ? e.k : '' };
+            }), [users]);
+            const labels = useMemo(() => buildSchoolLabels(students.filter((x) => x.s).map((x) => ({ id: x.s, sn: x.sn }))), [students]);
+            // Ô chọn trường: sắp xếp theo tên (tiếng Việt), "Chưa rõ trường" để cuối; kèm số học sinh
+            const schoolOpts = useMemo(() => {
+                const cnt = {};
+                students.forEach((x) => { cnt[x.s] = (cnt[x.s] || 0) + 1; });
+                return Object.keys(cnt).map((id) => ({ id, label: id ? (labels[id] || id) : 'Chưa rõ trường', n: cnt[id] }))
+                    .sort((a, b) => (a.id === '' ? 1 : b.id === '' ? -1 : a.label.localeCompare(b.label, 'vi')));
+            }, [students, labels]);
+            const schSel = sch !== 'all' && schoolOpts.some((o) => o.id === sch) ? sch : 'all';   // trường đang chọn không còn trong dữ liệu mới => về Tất cả
+            const scoped = useMemo(() => students.filter((x) => schSel === 'all' || x.s === schSel), [students, schSel]);
+            const y = scoped.length;
+            const x = useMemo(() => scoped.filter((e) => e.k).length, [scoped]);
+            const pct = y ? Math.round(x / y * 1000) / 10 : 0;
+            // Dữ liệu biểu đồ: đếm theo k, xếp nhiều -> ít (hòa thì theo nhãn cho ổn định). Tổng các cột luôn = x.
+            const combos = useMemo(() => {
+                const cnt = {};
+                scoped.forEach((e) => { if (e.k) cnt[e.k] = (cnt[e.k] || 0) + 1; });
+                return Object.keys(cnt).map((k) => ({ k, label: nhanTuK(k), info: thongTinK(k), n: cnt[k] }))
+                    .sort((a, b) => b.n - a.n || a.label.localeCompare(b.label, 'vi'));
+            }, [scoped]);
+            const topN = isWide ? COMBO_TOP_WIDE : COMBO_TOP_MOBILE;
+            const top = combos.slice(0, topN), rest = combos.slice(topN);
+            const restN = rest.reduce((t, c) => t + c.n, 0);
+            const maxN = Math.max(1, top.length ? top[0].n : 0, restN);   // thang chiều dài cột (cột "Khác" cũng nằm trong thang này)
+            const pOf = (n) => (x ? Math.round(n / x * 1000) / 10 : 0);
+            const groups = useMemo(() => {
+                const s = {};
+                combos.forEach((c) => { s[c.info.g] = (s[c.info.g] || 0) + c.n; });
+                return ['A', 'B', 'C', 'D', 'M', 'K'].filter((g) => s[g]).map((g) => ({ g, n: s[g], t: NHOM_KHOI[g].t, c: NHOM_KHOI[g].c }));
+            }, [combos]);
+            const labW = isWide ? 'w-60 xl:w-72 2xl:w-80' : 'w-36';
+            // Donut theo nhóm khối (SVG thuần, không cần thư viện)
+            const donut = (() => {
+                const R = 52, C = 2 * Math.PI * R; let off = 0;
+                return (
+                    <svg viewBox="0 0 140 140" className="w-40 h-40 xl:w-48 xl:h-48 shrink-0 -rotate-90" role="img" aria-label="Cơ cấu theo nhóm khối">
+                        <circle cx="70" cy="70" r={R} fill="none" stroke="rgba(148,163,184,.25)" strokeWidth="18" />
+                        {groups.map((g) => { const len = g.n / x * C, d = Math.max(0, len - 1.5); const el = <circle key={g.g} cx="70" cy="70" r={R} fill="none" stroke={g.c} strokeWidth="18" strokeDasharray={d + ' ' + (C - d)} strokeDashoffset={-off}><title>{g.t + ': ' + g.n + ' em'}</title></circle>; off += len; return el; })}
+                    </svg>);
+            })();
+            const barRow = (c, sub, rank) => (
+                <li key={c.k} className={'flex items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-slate-50 ' + (sub ? 'ml-6' : '')}>
+                    <span className="w-5 shrink-0 text-right text-[11px] font-semibold text-slate-400 tabular-nums">{sub ? '' : rank}</span>
+                    <span className={labW + ' shrink-0 min-w-0 truncate text-[13px] leading-tight'} title={(c.info.codes.join(' / ') || 'Chưa có mã khối') + ' (' + c.info.mon + ')'}>
+                        {c.info.codes.length
+                            ? <><b className="text-slate-800">{c.info.codes.join(' / ')}</b> <span className="text-slate-500">({c.info.mon})</span></>
+                            : <b className="text-slate-800">{c.info.mon}</b>}
+                        {c.info.moi && <span className="ml-1.5 px-1.5 py-px rounded text-[9px] font-bold text-white align-middle" style={{ background: NHOM_KHOI.M.c }}>mới</span>}
+                    </span>
+                    <span className="flex-1 min-w-0 h-3 rounded-full bg-slate-100 overflow-hidden"><span className="block h-full rounded-full transition-all duration-500" style={{ width: Math.max(2, Math.round(c.n / maxN * 100)) + '%', background: 'linear-gradient(90deg,' + NHOM_KHOI[c.info.g].c + 'b3,' + NHOM_KHOI[c.info.g].c + ')', opacity: sub ? 0.65 : 1 }} /></span>
+                    <span className="w-24 shrink-0 text-right text-[12px] text-slate-500 tabular-nums"><b className="text-[13px] text-slate-800">{c.n}</b> <span className="text-slate-400">·</span> {pOf(c.n)}%</span>
+                </li>);
+            return (
+                <div>
+                    {err && <p className="text-sm text-red-600 mb-3">{err}</p>}
+                    <div className="bg-white rounded-2xl shadow-sm p-4 mb-3">
+                        <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                                <h2 className="font-bold text-sm">Tổ hợp môn theo trường</h2>
+                                <p className="text-[11px] text-slate-400 mt-1">Thống kê tổ hợp môn của học sinh sau bài định hướng, lấy từ bảng tổng hợp BXH (không đọc dữ liệu riêng của học sinh).</p>
+                            </div>
+                            <button type="button" onClick={load} disabled={loading} title="Tải lại bảng tổng hợp (1 lượt đọc)" className="shrink-0 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg disabled:opacity-50">{loading ? 'Đang tải...' : 'Tải lại'}</button>
+                        </div>
+                        <select id="combo-school" name="comboSchool" aria-label="Chọn trường" value={schSel} onChange={(e) => { setSch(e.target.value); setOpenRest(false); }} disabled={!users} className="w-full mt-3 px-3 py-2 border border-slate-200 rounded-xl text-xs bg-white outline-none focus:border-indigo-400 disabled:opacity-60">
+                            <option value="all">Tất cả trường{users ? ' (' + students.length + ' HS)' : ''}</option>
+                            {schoolOpts.map((o) => <option key={'s:' + o.id} value={o.id}>{o.label} ({o.n} HS)</option>)}
+                        </select>
+                        {users === null && !err && <p className="text-xs text-slate-400 mt-3">Đang tải dữ liệu...</p>}
+                        {users && y === 0 && <p className="text-xs text-slate-400 mt-3">Chưa có học sinh nào trong bảng tổng hợp BXH.</p>}
+                        {users && y > 0 && <p className="text-sm text-slate-700 mt-3"><b>{x}/{y}</b> em đã làm bài định hướng <span className="text-slate-400">({pct}%)</span></p>}
+                        {users && y > 0 && <div className="h-2 rounded-full bg-slate-100 overflow-hidden mt-2"><div className="h-full rounded-full" style={{ width: pct + '%', background: 'linear-gradient(90deg,#6366f1,#8b5cf6)' }} /></div>}
+                    </div>
+                    {users && y > 0 && (
+                        <div className="bg-white rounded-2xl shadow-sm p-4">
+                            <h3 className="font-bold text-sm">Các tổ hợp, từ nhiều đến ít</h3>
+                            {x === 0 && <p className="text-xs text-slate-400 mt-2">Chưa có em nào có tổ hợp. Bấm "Đồng bộ tổ hợp" ở tab "Quản lý & Chỉnh sửa Điểm" để điền cho học sinh cũ, rồi bấm "Tải lại".</p>}
+                            {x > 0 && (<>
+                                <p className="text-[11px] text-slate-400 mt-1">Số em và tỉ lệ tính trên {x} em đã làm bài{isWide ? '' : ' • hiện ' + COMBO_TOP_MOBILE + ' tổ hợp nhiều nhất'}.</p>
+                                <div className="mt-4 flex flex-col lg:flex-row gap-5 lg:gap-8">
+                                    <div className="lg:w-64 xl:w-72 shrink-0 flex flex-row lg:flex-col items-center gap-4 lg:gap-3 lg:pr-6 lg:border-r border-slate-100">
+                                        <div className="relative shrink-0">
+                                            {donut}
+                                            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none"><b className="text-2xl text-slate-800 leading-none">{x}</b><span className="text-[11px] text-slate-400 mt-1">em có tổ hợp</span></div>
+                                        </div>
+                                        <ul className="flex-1 lg:w-full space-y-1.5">
+                                            {groups.map((g) => <li key={g.g} className="flex items-center gap-2 text-[12px] text-slate-600"><span className="inline-block w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: g.c }} /><span className="flex-1 min-w-0 truncate">{g.t}</span><b className="text-slate-800 tabular-nums">{g.n}</b><span className="w-12 text-right text-slate-400 tabular-nums">{pOf(g.n)}%</span></li>)}
+                                        </ul>
+                                    </div>
+                                    <ul className="flex-1 min-w-0 space-y-0.5">
+                                        {top.map((c, i) => barRow(c, false, i + 1))}
+                                        {rest.length > 0 && (
+                                            <li>
+                                                <button type="button" onClick={() => setOpenRest((o) => !o)} aria-expanded={openRest} title={openRest ? 'Thu gọn' : 'Xem ' + rest.length + ' tổ hợp còn lại'} className="w-full flex items-center gap-3 text-left rounded-lg px-2 py-1.5 hover:bg-slate-50">
+                                                    <span className="w-5 shrink-0" />
+                                                    <span className={labW + ' shrink-0 truncate text-[13px] leading-tight'}><b className="text-slate-600">Khác {openRest ? '▾' : '▸'}</b> <span className="text-slate-500">({rest.length} tổ hợp{openRest ? '' : ', bấm để xem'})</span></span>
+                                                    <span className="flex-1 min-w-0 h-3 rounded-full bg-slate-100 overflow-hidden"><span className="block h-full rounded-full" style={{ width: Math.max(2, Math.round(restN / maxN * 100)) + '%', background: 'repeating-linear-gradient(45deg,#94a3b8,#94a3b8 6px,#a8b4c6 6px,#a8b4c6 12px)' }} /></span>
+                                                    <span className="w-24 shrink-0 text-right text-[12px] text-slate-500 tabular-nums"><b className="text-[13px] text-slate-800">{restN}</b> <span className="text-slate-400">·</span> {pOf(restN)}%</span>
+                                                </button>
+                                            </li>)}
+                                        {openRest && rest.map((c) => barRow(c, true, 0))}
+                                    </ul>
+                                </div>
+                                <p className="text-[11px] text-slate-500 mt-3 pt-2 border-t border-slate-100">Tổng các cột: <b>{top.reduce((t, c) => t + c.n, 0) + restN}</b> em</p>
+                            </>)}
+                            {/* CHỖ DÀNH CHO CHÚ GIẢI (sau này): tra KHOI_TEN trong hocsinh.js theo mã khối của từng cột. CHƯA hiện ở đợt này. */}
+                        </div>)}
                 </div>
             );
         }
@@ -215,7 +552,7 @@ import { BxhScoreEditor, EMPTY_LIST, GroupSettingsModal, Icon, LIcon, bxhBumpXp,
                 try {
                     const d = await fbDb.collection('bxh').doc('summary').get();
                     const us = (d.data() || {}).users || {};
-                    const list = Object.keys(us).map((id) => ({ id, name: us[id].n || 'Học sinh', cls: us[id].c || '', xp: Math.max(0, (Number(us[id].xp) || 0) + (Number(us[id].adj) || 0)) }))
+                    const list = Object.keys(us).map((id) => ({ id, name: us[id].n || 'Học sinh', cls: us[id].c || '', school: us[id].s || '', sn: us[id].sn || '', xp: Math.max(0, (Number(us[id].xp) || 0) + (Number(us[id].adj) || 0)) }))
                         .sort((a, b) => b.xp - a.xp).map((x, i) => ({ ...x, rank: i + 1 }));
                     setBoard(list);
                 } catch (e) { eduAlert(fbErr(e), 'error'); }
@@ -282,6 +619,11 @@ import { BxhScoreEditor, EMPTY_LIST, GroupSettingsModal, Icon, LIcon, bxhBumpXp,
                 setSavingId('');
             };
 
+            // Danh sách học sinh cho bộ chỉnh điểm BXH: kèm mã trường (school) và tên trường (schoolName) để chọn Trường -> Lớp -> Học sinh
+            const edStudents = useMemo(() => {
+                const labels = buildSchoolLabels((board || []).map((x) => ({ id: x.school, sn: x.sn })));
+                return (board || []).map((x) => ({ id: x.id, name: x.name, class: String(x.cls || '?').trim().toUpperCase(), xp: x.xp, rank: x.rank, school: x.school || NO_SCHOOL, schoolName: x.school ? (labels[x.school] || '') : '' }));
+            }, [board]);
             const myRank = board && student ? board.find((x) => x.id === student.id) : null;
             return (
                 <div className="space-y-4">
@@ -327,7 +669,7 @@ import { BxhScoreEditor, EMPTY_LIST, GroupSettingsModal, Icon, LIcon, bxhBumpXp,
                         </div>
                     )}
 
-                    <ErrorBoundary inline><BxhScoreEditor user={user} students={(board || []).map((x) => ({ id: x.id, name: x.name, class: String(x.cls || '?').trim().toUpperCase(), xp: x.xp, rank: x.rank }))} onSaved={loadBoard} /></ErrorBoundary>
+                    <ErrorBoundary inline><BxhScoreEditor user={user} students={edStudents} withSchool onSaved={loadBoard} /></ErrorBoundary>
 
                     <div className="bg-white rounded-2xl shadow-sm p-4">
                         <div className="flex justify-between items-center gap-2">
@@ -340,6 +682,7 @@ import { BxhScoreEditor, EMPTY_LIST, GroupSettingsModal, Icon, LIcon, bxhBumpXp,
                             <button type="button" onClick={loadBoard} disabled={boardLoading} className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg disabled:opacity-50 flex items-center gap-1"><Icon name="refresh-cw" className="w-3.5 h-3.5" />{boardLoading ? 'Đang tải...' : board ? 'Làm mới' : 'Xem BXH'}</button>
                             </div>
                         </div>
+                        <AdminKSync />
                         {board && board.length === 0 && <p className="text-xs text-slate-400 mt-2">Chưa có học sinh.</p>}
                         {board && board.slice(0, 10).map((x) => (
                             <div key={x.id} className={'flex justify-between items-center py-2 border-t border-slate-100 text-sm ' + (student && x.id === student.id ? 'bg-indigo-50 rounded-lg px-2' : '')}>
@@ -383,7 +726,7 @@ import { BxhScoreEditor, EMPTY_LIST, GroupSettingsModal, Icon, LIcon, bxhBumpXp,
             const privBtn = (t) => <button onClick={() => togglePriv(t)} title={priv[t.id] ? 'Bỏ ẩn danh: giáo viên hiện lại trong danh sách tìm kiếm' : 'Ẩn danh: giáo viên không hiện trong danh sách tìm kiếm của học sinh / giáo viên khác'} className={'px-3 py-1.5 rounded-lg text-xs font-bold ' + (priv[t.id] ? 'bg-indigo-50 text-indigo-700' : 'bg-slate-100 text-slate-700')}>{priv[t.id] ? 'Bỏ ẩn' : 'Ẩn danh'}</button>;
             const privBadge = <span className="ml-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500"><Icon name="lock" className="ic-inline" /> Ẩn danh</span>;
             const STATUS = [['pending', 'Chờ duyệt', ''], ['approved', 'Đã duyệt', ''], ['rejected', 'Từ chối', ' / Khóa']];   // phần thứ 3 chỉ hiện từ màn hình sm trở lên
-            const NAV = [['teachers', 'Duyệt giáo viên', 'user-check'], ['users', 'Quản lý người dùng', 'users'], ['mod', 'Kiểm duyệt bài đăng', 'shield-check'], ['groups', 'Nhóm lớp & GVCN', 'graduation-cap'], ['scores', 'Quản lý & Chỉnh sửa Điểm', 'bar-chart']];
+            const NAV = [['teachers', 'Duyệt giáo viên', 'user-check'], ['users', 'Quản lý người dùng', 'users'], ['mod', 'Kiểm duyệt bài đăng', 'shield-check'], ['groups', 'Nhóm lớp & GVCN', 'graduation-cap'], ['scores', 'Quản lý & Chỉnh sửa Điểm', 'bar-chart'], ['combo', 'Tổ hợp theo trường', 'pie-chart']];
             const [navOpen, setNavOpen] = useState(false);
             // Drawer menu (< md): theo dõi breakpoint md (768px) để tự đóng khi xoay ngang/phóng to, và để ẩn drawer khỏi bàn phím khi đang đóng
             const hasMQ = typeof window !== 'undefined' && typeof window.matchMedia === 'function';
@@ -465,12 +808,13 @@ import { BxhScoreEditor, EMPTY_LIST, GroupSettingsModal, Icon, LIcon, bxhBumpXp,
                             <div className="hidden md:block shrink-0"><UiZoomPopover sm /></div>
                             <button type="button" onClick={onLogout} aria-label="Đăng xuất" title="Đăng xuất" className="shrink-0 inline-flex items-center justify-center gap-1.5 w-11 h-11 sm:w-auto sm:p-3 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-100"><LIcon n="log-out" className="w-4 h-4" /><span className="hidden sm:inline">Đăng xuất</span></button>
                         </header>
-                        <main className="p-4 md:p-8 max-w-6xl">
+                        <main className={'p-4 md:p-8 ' + (tab === 'combo' ? 'w-full max-w-none' : 'max-w-6xl')}>
                             {user.diag && <p className="text-[10px] text-slate-400 mb-3">Đăng nhập: {user.diag.providers} • email đã xác minh: {user.diag.tokenVerified === null ? (user.diag.verified ? 'có' : 'chưa') : (user.diag.tokenVerified ? 'có' : 'CHƯA (token)')}</p>}
                             {err && <p className="text-sm text-red-600 mb-3">{err}</p>}
                             {tab === 'mod' && <AdminModeration />}
                             {tab === 'groups' && <ErrorBoundary inline><AdminGroups teachers={list} user={user} /></ErrorBoundary>}
                             {tab === 'scores' && <ErrorBoundary inline><AdminScoreEditor user={user} /></ErrorBoundary>}
+                            {tab === 'combo' && <ErrorBoundary inline><AdminComboBySchool wide={wide} /></ErrorBoundary>}
                             {tab === 'users' && (<div className="bg-white rounded-2xl shadow-sm p-4 mb-4">
                                 <div className="flex gap-2 mb-3">
                                     <input id="user-search" name="userSearch" aria-label="Tìm theo tên hoặc email" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Tìm theo tên hoặc email..." className="flex-1 min-w-0 px-3 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
@@ -582,5 +926,7 @@ import { BxhScoreEditor, EMPTY_LIST, GroupSettingsModal, Icon, LIcon, bxhBumpXp,
         const AdminGroups = memo(AdminGroupsImpl);
 
         const AdminScoreEditor = memo(AdminScoreEditorImpl);
+
+        const AdminComboBySchool = memo(AdminComboBySchoolImpl);
 
         export { AdminPanel };

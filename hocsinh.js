@@ -258,12 +258,11 @@ function soonFeature() { return eduAlert('Tính năng đang được phát tri�
             if (dd && dd.dob && dd.q && dd.q.length === QS.length && user.uniId) {
                 DEEP = JSON.parse(JSON.stringify(dd)); DEEP.majors = DEEP.majors || [];
                 const mn = calcMenh(DEEP.dob), H = HANH[mn.hanh], hol = holScore(), top = Object.keys(hol).sort((a, b) => hol[b] - hol[a]).slice(0, 2).map(c => (HOL.find(x => x[0] === c) || [c, c])[1]).join(' • ');
-                const ch = deepRank().filter(r => DEEP.majors.includes(r.k)), hsMb = deepMbti(DEEP);
+                const ch = deepRank().filter(r => DEEP.majors.includes(r.k));
                 html += `<div style="background:#faf5ff;padding:14px;border-radius:12px;margin-bottom:12px;border-left:4px solid #9333ea;">
                     <h3 style="color:#7e22ce;font-size:15px;margin-bottom:4px;"><svg class=ic aria-hidden=true><use href=#i-microscope></use></svg> Phân Tích Chuyên Sâu</h3>
                     <p style="font-size:13px;margin-bottom:4px;"><svg class=ic aria-hidden=true><use href=#i-star-four-points></use></svg> Mệnh: <b>${mn.name} (${mn.canchi})</b></p>
                     <p style="font-size:13px;margin-bottom:4px;"><svg class=ic aria-hidden=true><use href=#i-lightbulb-on></use></svg> Thiên hướng nổi bật: <b>${top}</b></p>
-                    ${hsMb.done ? `<p style="font-size:13px;margin-bottom:6px;"><svg class=ic aria-hidden=true><use href=#i-brain></use></svg> Tính cách (MBTI): <b>${esc(hsMb.type)}</b></p>` : ''}
                     <p style="font-size:13px;margin-bottom:4px;"><svg class=ic aria-hidden=true><use href=#i-school></use></svg> Ngành đã chọn tại <b>${esc(user.uniName || '')}</b>:</p>
                     ${ch.length ? ch.map(r => `<p style="font-size:13px;margin:2px 0;">• <b>${esc(r.name)}</b> (${khoiFull(r.khoi)}) — cần đạt an toàn <b>${r.dc.safe}</b> điểm${r.pts >= r.dc.safe ? ' <svg class=ic aria-hidden=true><use href=#i-check-circle></use></svg>' : ' (thiếu ' + (r.dc.safe - r.pts).toFixed(1) + ')'}</p>`).join('') : '<p style="font-size:12px;color:#7e22ce;">Em chưa chọn ngành nào trong phần Phân tích chuyên sâu.</p>'}</div>`;
             }
@@ -739,128 +738,7 @@ function soonFeature() { return eduAlert('Tính năng đang được phát tri�
         }
         renderHolland();
 
-        const MBTI_AXES = { EI: ['E', 'I', 'Hướng ngoại', 'Hướng nội'], SN: ['S', 'N', 'Thực tế', 'Trực giác'], TF: ['T', 'F', 'Lý trí', 'Cảm xúc'], JP: ['J', 'P', 'Kế hoạch', 'Linh hoạt'] };
-        const MBTI_QS = [
-            // E / I: nguồn năng lượng
-            { id: 'EI0', pole: 'E', t: 'Tôi cảm thấy tràn đầy năng lượng sau khi trò chuyện, sinh hoạt cùng nhiều bạn.' },
-            { id: 'EI1', pole: 'I', t: 'Sau một buổi tụ tập đông người, tôi cần thời gian ở một mình để nạp lại năng lượng.' },
-            { id: 'EI2', pole: 'E', t: 'Tôi dễ bắt chuyện và làm quen với người lạ.' },
-            { id: 'EI3', pole: 'I', t: 'Tôi thích suy nghĩ kỹ trong đầu rồi mới phát biểu.' },
-            // S / N: cách tiếp nhận thông tin
-            { id: 'SN0', pole: 'S', t: 'Tôi tin vào điều đã được kiểm chứng và ví dụ thực tế hơn là suy đoán.' },
-            { id: 'SN1', pole: 'N', t: 'Tôi hay nghĩ về "nếu như..." và những khả năng chưa xảy ra.' },
-            { id: 'SN2', pole: 'S', t: 'Khi học, tôi thích làm theo từng bước cụ thể, rõ ràng.' },
-            { id: 'SN3', pole: 'N', t: 'Tôi thích tìm mối liên hệ giữa các ý tưởng và nhìn bức tranh tổng thể.' },
-            // T / F: cách ra quyết định
-            { id: 'TF0', pole: 'T', t: 'Khi quyết định, tôi dựa vào lý lẽ và dữ kiện hơn là cảm xúc.' },
-            { id: 'TF1', pole: 'F', t: 'Khi quyết định, tôi để ý đến cảm xúc của những người liên quan.' },
-            { id: 'TF2', pole: 'T', t: 'Tôi sẵn sàng góp ý thẳng thắn nếu điều đó giúp công việc tốt hơn.' },
-            { id: 'TF3', pole: 'F', t: 'Tôi dễ đồng cảm và muốn giữ hòa khí trong nhóm.' },
-            // J / P: cách tổ chức cuộc sống
-            { id: 'JP0', pole: 'J', t: 'Tôi thích lập kế hoạch và hoàn thành việc trước hạn.' },
-            { id: 'JP1', pole: 'P', t: 'Tôi làm việc tốt khi được linh hoạt, kể cả khi sát hạn nộp.' },
-            { id: 'JP2', pole: 'J', t: 'Tôi thích có lịch học, thời khóa biểu rõ ràng và làm đúng theo đó.' },
-            { id: 'JP3', pole: 'P', t: 'Tôi sẵn sàng đổi kế hoạch khi có cơ hội mới thú vị hơn.' }
-        ];
-        // ===== 16 CÂU MBTI = PHẦN 4/4 của Phân tích chuyên sâu: Mobile (< 768px) phân trang 3 câu/trang | Desktop (>= 768px) lưới 2 cột =====
-        // Câu trả lời đang làm nằm ở DEEP.m = { EI0: 1..5, ... }; khi hoàn tất được lưu vào user.mbtiScores / privates.mbti (xem deepSave)
-        let mbtiPage = 0;                       // trang hiện tại (0-based) - chỉ dùng trên Mobile
-        const MBTI_PER_PAGE = 3;                // số câu mỗi trang trên Mobile
-        const MBTI_MQ = window.matchMedia ? window.matchMedia('(max-width: 767px)') : null;
-        const mbtiIsMobile = () => MBTI_MQ ? MBTI_MQ.matches : window.innerWidth < 768;
-        const mbtiTotalPages = () => Math.max(1, Math.ceil(MBTI_QS.length / MBTI_PER_PAGE));
-        const mbtiAns = () => (typeof DEEP !== 'undefined' && DEEP && DEEP.m) ? DEEP.m : {};
-        const mbtiMissing = () => MBTI_QS.map((q, i) => ({ q: q, i: i })).filter(x => !Number.isInteger(mbtiAns()[x.q.id]));   // các câu chưa trả lời
-        function mbtiEnsureCss() {              // CSS phân trang + lưới 2 cột (nạp 1 lần, không cần sửa file CSS)
-            if (document.getElementById('mbti-page-css')) return;
-            const st = document.createElement('style'); st.id = 'mbti-page-css';
-            st.textContent = `
-                #mbti-box { width: 100%; max-width: none; }
-                #mbti-box .mbti-list { display: block; width: 100%; }
-                #mbti-box .mbti-list.grid { display: grid !important; grid-template-columns: minmax(0, 1fr) !important; gap: 14px !important; width: 100% !important; max-width: none !important; align-items: stretch; }
-                @media (min-width: 768px) { #mbti-box .mbti-list.grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 16px !important; } }
-                #mbti-box .mbti-list .h-card { display: flex !important; flex-direction: column; width: 100% !important; max-width: none !important; min-width: 0; margin: 0 !important; box-sizing: border-box; justify-self: stretch; }
-                #mbti-box .mbti-list .h-card .h-q { margin-bottom: 12px; }
-                #mbti-box .mbti-list .h-card .h-scale { display: flex; justify-content: space-between; gap: 8px; margin-top: auto; }
-                #mbti-box .mbti-list .h-card .h-dot { flex: 1 1 0; min-width: 0; max-width: 64px; }
-                #mbti-box .mbti-pager { display: flex; align-items: center; gap: 8px; margin: 14px 0 6px; }
-                #mbti-box .mbti-pg-btn { flex: 1 1 0; min-width: 0; border: 0; border-radius: 12px; padding: 12px 8px; font-size: 13px; font-weight: 800; cursor: pointer; transition: transform .15s, opacity .2s; }
-                #mbti-box .mbti-pg-prev { color: #334155; background: rgba(148,163,184,.28); }
-                #mbti-box .mbti-pg-next { color: #fff; background: linear-gradient(135deg, #0ea5e9, #6366f1); box-shadow: 0 6px 16px rgba(99,102,241,.35); }
-                #mbti-box .mbti-pg-btn:active:not(:disabled) { transform: scale(.97); }
-                #mbti-box .mbti-pg-btn:disabled { opacity: .4; cursor: not-allowed; box-shadow: none; }
-                #mbti-box .mbti-pg-info { flex: 0 0 auto; padding: 9px 14px; border-radius: 12px; font-size: 13px; font-weight: 800; white-space: nowrap; color: #0369a1; background: rgba(14,165,233,.14); border: 1px solid rgba(14,165,233,.35); }
-                html.dark #mbti-box .mbti-pg-prev { color: #f1f5f9; background: rgba(148,163,184,.26); }
-                html.dark #mbti-box .mbti-pg-info { color: #e0f2fe; background: rgba(14,165,233,.20); border-color: rgba(125,211,252,.45); }`;
-            document.head.appendChild(st);
-        }
         const deepScroller = () => document.getElementById('deep-card') || document.getElementById('modal-deep');
-        function mChon(id, v) {                 // chọn đáp án 1 câu MBTI (giữ nguyên vị trí cuộn)
-            if (!DEEP) return;
-            DEEP.m = DEEP.m || {}; DEEP.m[id] = v;
-            const sc = deepScroller(), t = sc ? sc.scrollTop : 0;
-            deepRender(); if (sc) sc.scrollTop = t;
-        }
-        function mbtiGoPage(p) {                // chuyển trang + cuộn nhẹ lên đầu khung
-            mbtiPage = Math.min(Math.max(0, p), mbtiTotalPages() - 1);
-            deepRender();
-            const sc = deepScroller();
-            if (sc) { try { sc.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) { sc.scrollTop = 0; } }
-        }
-        function mbtiGo(d) { mbtiGoPage(mbtiPage + d); }
-        // HTML Phần 4/4: Desktop = 16 câu dạng lưới 2 cột (grid-cols-2) | Mobile = 3 câu/trang + nút "‹ Trang trước" / "Trang sau ›" + "Trang x/6"
-        function deepMbtiHtml() {
-            mbtiEnsureCss();
-            const N = MBTI_QS.length, ans = mbtiAns(), miss = mbtiMissing(), left = miss.length, n = N - left;
-            const mobile = mbtiIsMobile(), P = mbtiTotalPages();
-            mbtiPage = Math.min(Math.max(0, mbtiPage), P - 1);
-            const from = mobile ? mbtiPage * MBTI_PER_PAGE : 0, to = mobile ? Math.min(from + MBTI_PER_PAGE, N) : N;
-            let out = `<div id="mbti-box"><div style="font-size:12px;font-weight:700;color:#0ea5e9;margin-bottom:10px;">Đã trả lời ${n}/${N}</div><div class="mbti-list grid grid-cols-1 md:grid-cols-2 gap-4">`;
-            for (let i = from; i < to; i++) {
-                const q = MBTI_QS[i];
-                out += `<div class="h-card"><div class="h-q"><span class="h-n">${i + 1}</span><span>${esc(q.t)}</span></div><div class="h-scale">${[1, 2, 3, 4, 5].map(v => `<button type="button" class="h-dot ${ans[q.id] === v ? 'on' : ''}" onclick="mChon('${q.id}',${v})">${v}</button>`).join('')}</div><div class="h-lbl"><span>Không đúng</span><span>Rất đúng</span></div></div>`;
-            }
-            out += '</div>';
-            if (mobile) out += `<div class="mbti-pager"><button type="button" class="mbti-pg-btn mbti-pg-prev" onclick="mbtiGo(-1)" ${mbtiPage === 0 ? 'disabled' : ''}>‹ Trang trước</button><div class="mbti-pg-info" aria-live="polite">Trang ${mbtiPage + 1}/${P}</div><button type="button" class="mbti-pg-btn mbti-pg-next" onclick="mbtiGo(1)" ${mbtiPage === P - 1 ? 'disabled' : ''}>Trang sau ›</button></div>`;
-            return out + '</div>';
-        }
-        if (MBTI_MQ) {   // xoay màn hình / đổi kích thước qua mốc 768px: vẽ lại đúng chế độ, không vỡ layout
-            const onMq = () => { const m = document.getElementById('modal-deep'); if (m && m.style.display === 'flex' && typeof DSTEP !== 'undefined' && DSTEP === 4) deepRender(); };
-            if (MBTI_MQ.addEventListener) MBTI_MQ.addEventListener('change', onMq); else if (MBTI_MQ.addListener) MBTI_MQ.addListener(onMq);
-        }
-
-        // ---------- 3) Tính kết quả: net > 0 nghiêng về cực đầu, net < 0 nghiêng về cực sau; pct = mức nghiêng (50-100%) ----------
-        function mbtiResult(ans) {
-            ans = ans || {};
-            const detail = {}; let type = '', answered = 0;
-            for (const ax in MBTI_AXES) {
-                const [a, b] = MBTI_AXES[ax]; let net = 0, cnt = 0;
-                MBTI_QS.filter(q => q.id.startsWith(ax)).forEach(q => {
-                    const v = ans[q.id]; if (!Number.isInteger(v)) return;
-                    cnt++; answered++; net += (q.pole === a ? 1 : -1) * (v - 3);     // v-3 thuộc [-2, 2]
-                });
-                const max = Math.max(1, cnt * 2), letter = net >= 0 ? a : b;       // hòa (net = 0): lấy cực đầu và coi là "cân bằng"
-                detail[ax] = { letter: letter, net: net, balanced: net === 0, pct: Math.round(50 + Math.abs(net) / max * 50) };
-                type += letter;
-            }
-            return { done: answered >= MBTI_QS.length, type: type, detail: detail };
-        }
-        // Hiển thị: "INTJ (I 75% · N 62% · T 88% · J 56%)"
-        function mbtiText(r) {
-            return r.type + ' (' + Object.keys(r.detail).map(ax => r.detail[ax].letter + ' ' + r.detail[ax].pct + '%').join(' · ') + ')';
-        }
-
-        // ---------- 4) Độ hợp giữa tính cách và nhóm Holland của ngành (heuristic, 0..1) ----------
-        // Mỗi nhóm Holland thường gắn với những chữ cái sau; cần trích nguồn nghiên cứu khi đưa vào báo cáo.
-        const MBTI_AFF = { R: 'STPI', I: 'INTP', A: 'NFPI', S: 'EFSJ', E: 'ETJS', C: 'SJTI' };
-        function mbtiFit(type, hol) {                 // hol: mã Holland của ngành, ví dụ "IR"
-            if (!type || !hol) return 0;
-            const w = [0.6, 0.4]; let s = 0;
-            [...hol].slice(0, 2).forEach((h, i) => { const aff = MBTI_AFF[h] || ''; s += w[i] * ([...type].filter(c => aff.includes(c)).length / 4); });
-            return s;                                 // 0..1
-        }
-
-
         // ===== LƯU NHÁP TAB PHÂN TÍCH (điểm 8 môn + 12 câu sở thích) vào localStorage, theo từng tài khoản =====
         const PT_IDS = ['toan','van','anh','ly','hoa','sinh','su','dia'];
         const ptDraftKey = () => 'eduorient_pt_draft_' + (ME ? ME.uid : '');
@@ -898,7 +776,6 @@ function soonFeature() { return eduAlert('Tính năng đang được phát tri�
             if (!box || !wrap) return false;
             box.innerHTML = `<svg class=ic aria-hidden=true><use href=#i-fire></use></svg> <b>Khối mạnh nhất:</b> ${esc(a.topKhoi)} (${esc(a.monHoc)}) — <b>${esc(a.diemTong)}/30</b>.<br>` +
                 (a.holland ? `<svg class=ic aria-hidden=true><use href=#i-compass></use></svg> <b>Nhóm tính cách nghề nghiệp (Holland):</b> ${esc(a.holland)}<br>` : `<i>Làm đủ 12 câu trắc nghiệm sở thích để kết quả chính xác hơn (hiện chỉ tính theo điểm).</i><br>`) +
-                (a.mbti ? `<svg class=ic aria-hidden=true><use href=#i-brain></use></svg> <b>Tính cách (4 chiều):</b> ${esc(a.mbtiText || a.mbti)}<br>` : `<i>Muốn gợi ý sát hơn? Làm “Phân tích chuyên sâu” ở Tài khoản (có 16 câu MBTI).</i><br>`) +
                 (a.formula ? `<svg class=ic aria-hidden=true><use href=#i-scale-balance></use></svg> <b>Công thức:</b> ${esc(a.formula)}<br>` : '') + `<br><svg class=ic aria-hidden=true><use href=#i-school></use></svg> <b>Top ngành gợi ý:</b><br>${a.nganhGoiY || ''}`;
             wrap.style.display = 'block';
             try { ptwShowResult(false); } catch (e) {}
@@ -929,20 +806,16 @@ function soonFeature() { return eduAlert('Tính năng đang được phát tri�
             const hs = {}, cnt = {}; Object.entries(HANS).forEach(([id, v]) => { const k = id[0]; hs[k] = (hs[k]||0) + v; cnt[k] = (cnt[k]||0) + 1; });
             const done = Object.values(cnt).reduce((a,b)=>a+b,0) >= 12;
             const ha = {}; for (const k in HOLLAND) ha[k] = cnt[k] ? hs[k]/cnt[k] : 0;
-            const mb = mbtiResult(user.mbtiScores || {});   // MBTI làm ở Tab Tài khoản; chưa làm thì tự bỏ qua (không báo lỗi, không bắt buộc)
-            // Công thức: có MBTI = 55% Môn + 30% Holland + 15% MBTI; chưa làm MBTI = 65% Môn + 35% Holland
-            const rank = ptRank(kd, ha, done, mb);
+            // Công thức: 65% Môn + 35% Holland (chưa làm đủ Holland: 100% điểm môn)
+            const rank = ptRank(kd, ha, done);
             const top = khoi[0], topH = Object.keys(ha).sort((a,b) => ha[b]-ha[a]).slice(0,2).join("");
             user.analysisData = { topKhoi: top.id, monHoc: top.mon, diemTong: top.diem.toFixed(1), tatCaKhoi: khoi,
                 holland: done ? topH : null,
-                mbti: mb.done ? mb.type : null,
-                mbtiText: mb.done ? mbtiText(mb) : null,
-                formula: ptFormulaLabel(done, mb.done),
+                formula: ptFormulaLabel(done),
                 hollandAvg: done ? ha : null,   // lưu để Phân tích chuyên sâu tính lại khi F5 / đổi máy
                 nganhGoiY: rank.map(n => `• ${esc(n.n)} — <b>${n.pct}%</b> phù hợp`).join("<br>") };
             document.getElementById('ketqua-text').innerHTML = `<svg class=ic aria-hidden=true><use href=#i-fire></use></svg> <b>Khối mạnh nhất:</b> ${top.id} (${top.mon}) — <b>${top.diem.toFixed(1)}/30</b>.<br>` +
                 (done ? `<svg class=ic aria-hidden=true><use href=#i-compass></use></svg> <b>Nhóm tính cách nghề nghiệp (Holland):</b> ${topH}<br>` : `<i>Làm đủ 12 câu trắc nghiệm sở thích để kết quả chính xác hơn (hiện chỉ tính theo điểm).</i><br>`) +
-                (mb.done ? `<svg class=ic aria-hidden=true><use href=#i-brain></use></svg> <b>Tính cách (4 chiều):</b> ${esc(mbtiText(mb))}<br>` : `<i>Muốn gợi ý sát hơn? Làm “Phân tích chuyên sâu” ở Tài khoản (có 16 câu MBTI).</i><br>`) +
                 `<svg class=ic aria-hidden=true><use href=#i-scale-balance></use></svg> <b>Công thức:</b> ${esc(user.analysisData.formula)}<br>` + `<br><svg class=ic aria-hidden=true><use href=#i-school></use></svg> <b>Top ngành gợi ý:</b><br>${user.analysisData.nganhGoiY}`;
             document.getElementById('ketqua-phantich').style.display = 'block';
             try { ptwShowResult(true); } catch (e) {}
@@ -953,44 +826,18 @@ function soonFeature() { return eduAlert('Tính năng đang được phát tri�
         }
 
         // ===== Công thức xếp hạng dùng chung (cơ bản + chuyên sâu) =====
-        // Có Holland + MBTI = 55% Môn + 30% Holland + 15% Tính cách | Holland, chưa làm MBTI = 65% Môn + 35% Holland | chỉ MBTI = 85/15 | không có = 100% điểm
-        function ptPct(kd, ha, holDone, mb, khoiArr, hol) {
+        // Có Holland = 65% Môn + 35% Holland | chưa làm Holland = 100% điểm môn
+        function ptPct(kd, ha, holDone, khoiArr, hol) {
             const kf = Math.max(0, ...khoiArr.map(x => (kd[x] || 0) / 30));
             const hf = ((ha[hol[0]] || 0) * 0.6 + (ha[hol[1]] || 0) * 0.4) / 5;
-            const mf = mb && mb.done ? mbtiFit(mb.type, hol) : 0;
-            if (holDone && mb && mb.done) return kf * 55 + hf * 30 + mf * 15;
-            if (mb && mb.done) return kf * 85 + mf * 15;
             return holDone ? kf * 65 + hf * 35 : kf * 100;
         }
-        function ptFormulaLabel(holDone, mbDone) {
-            return holDone && mbDone ? '55% Môn + 30% Holland + 15% Tính cách' : mbDone ? '85% Môn + 15% Tính cách' : holDone ? '65% Môn + 35% Holland' : '100% Điểm môn';
+        function ptFormulaLabel(holDone) {
+            return holDone ? '65% Môn + 35% Holland' : '100% Điểm môn';
         }
-        function ptRank(kd, ha, holDone, mb) {
-            return NGANH.map(n => ({ ...n, pct: Math.round(ptPct(kd, ha, holDone, mb, n.k, n.h)) }))
+        function ptRank(kd, ha, holDone) {
+            return NGANH.map(n => ({ ...n, pct: Math.round(ptPct(kd, ha, holDone, n.k, n.h)) }))
                 .filter(n => n.pct > 0).sort((a, b) => b.pct - a.pct).slice(0, 5);
-        }
-
-        // ===== MBTI (16 câu) nay là PHẦN 4/4 của Phân tích chuyên sâu (không còn popup/card riêng) =====
-        // Dữ liệu: user.mbtiScores = { EI0: 1..5, ... } (16 câu) | user.mbtiResult = { type, text, detail }
-        // Lưu: Firestore privates/{uid}.mbti = { scores, result: { type, text }, updatedAt } (+ bản sao localStorage) — ghi trong deepSave()
-        // Phân Tích Định Hướng (tab Phân tích) vẫn đọc user.mbtiScores: đã làm => 55/30/15, chưa làm => 65/35 (không báo lỗi).
-        const MBTI_LS = () => 'eduorient_mbti_' + (ME ? ME.uid : '');
-        function cleanMbtiScores(o) {
-            const ok = {};
-            if (o && typeof o === 'object') MBTI_QS.forEach(q => { const v = o[q.id]; if (Number.isInteger(v) && v >= 1 && v <= 5) ok[q.id] = v; });
-            return ok;
-        }
-        function applyMbti(m) {                          // nạp dữ liệu (Firestore / localStorage): luôn tính lại kết quả từ 16 câu, không tin chuỗi lưu sẵn
-            const sc = cleanMbtiScores(m && m.scores);
-            if (Object.keys(sc).length === MBTI_QS.length) { const r = mbtiResult(sc); user.mbtiScores = sc; user.mbtiResult = { type: r.type, text: mbtiText(r), detail: r.detail }; }
-            else { user.mbtiScores = null; user.mbtiResult = null; }
-        }
-        function loadMbtiLocal() { try { applyMbti(JSON.parse(localStorage.getItem(MBTI_LS()) || 'null')); } catch (e) {} }
-        // Kết quả MBTI của 1 bộ dữ liệu deep: ưu tiên câu trả lời đang làm (D.m), không có thì dùng bản đã lưu (user.mbtiScores)
-        function deepMbti(D) {
-            D = D || DEEP || {};
-            const own = cleanMbtiScores(D.m);
-            return mbtiResult(Object.keys(own).length ? own : cleanMbtiScores(user.mbtiScores));
         }
 
         // ================= PHÂN TÍCH CHUYÊN SÂU (chỉ dựa trên Nguyện vọng Đại học) =================
@@ -1062,6 +909,30 @@ function soonFeature() { return eduAlert('Tính năng đang được phát tri�
             const r = (/^(Sư phạm|Giáo dục)/.test(name) ? SP_RULES : []).concat(MJ_RULES).find(x => x[0].test(name));
             MJ[k] = [name, r[1], r[2], r[3]]; return k;
         }
+
+        // ---- KHỐI XÉT TUYỂN MỞ RỘNG (để Tin / Công nghệ / KTPL và D07, C01... ảnh hưởng gợi ý) ----
+        // MJ[k][1] là khối GỐC của ngành. Từ mùa 2026 nhiều trường thêm D07, C01, X06, X07, X25, X26, D84, C14, C19, C20, D66... nên khối mở rộng được SUY RA theo tên ngành (MJ_KHOI_EXT).
+        // Đây là ƯỚC TÍNH theo mẫu tuyển sinh 2026 phổ biến (VD: kỹ thuật = A00/A01/D07/C01/X06/X07; CNTT = +X06/X26; kinh tế = A00/A01/D01/D07 +X25/X26; luật-xã hội = +C14/C19/C20/D66),
+        // KHÔNG phải danh sách của từng trường: học sinh phải xem đề án tuyển sinh chính thức. Muốn chỉnh chính xác cho 1 ngành thì sửa khối gốc trong MJ hoặc thêm dòng ở đây.
+        const MJ_KHOI_EXT = [
+            [/Công nghệ thông tin|Tin học|Khoa học máy tính|máy tính|dữ liệu|Trí tuệ nhân tạo|An toàn thông tin|vi mạch|Robot|Internet|Hệ thống thông tin/, 'C01,X02,X06,X26'],
+            [/Kỹ thuật|Cơ khí|Cơ điện|Điện|Ô tô|Xây dựng|Giao thông|Vật liệu|Địa chất|Mỏ|Dầu khí|tài nguyên|Dệt|Hàng không|Công nghiệp|Vật lý|Vật lí|Tự động/, 'C01,D07,X06,X07'],
+            [/Dược|Hóa|Sinh học|Công nghệ sinh|thực phẩm|Nông|Thủy sản|Chăn nuôi|Bảo vệ thực vật|môi trường/, 'D07,B08'],
+            [/Kinh tế|Quản trị|Tài chính|Kế toán|Logistics|Bất động sản|Bảo hiểm|Khởi nghiệp|Kinh doanh|Fintech|nhân lực|Marketing|Thương mại|Thống kê|Du lịch|Khách sạn|Hệ thống thông tin quản lý/, 'D07,X25,X26,D84'],
+            [/Luật|Báo chí|Truyền thông|Lịch sử|Triết|Văn học|Hán Nôm|Chính trị|Xây dựng Đảng|Chủ nghĩa|Xuất bản|Thư viện|văn phòng|Quản lý công|Khoa học quản lý|Quản lý giáo dục|Tâm lý|Xã hội|Công dân|Việt Nam học|Đông phương|Quốc tế học|Đông Nam Á|Châu Á/, 'C14,C19,C20,D66'],
+            [/Ngôn ngữ|ngoại ngữ|tiếng|Anh/, 'D66']
+        ];
+        const KHOI_GOC = new Set(['A00', 'A01', 'B00', 'C00', 'D01', 'V00', 'V01', 'H00', 'T00', 'N00', 'M00']);   // khối cũ: giữ cách tính cũ (cho phép thiếu môn)
+        const khoiDu = (x, sc) => !!KHOI[x] && (KHOI_GOC.has(x) || KHOI[x].every(m => sc[m] > 0));   // khối thêm sau: phải có điểm ĐỦ cả 3 môn mới được xét (học sinh cũ chưa nhập Tin/CN/KTPL không tự bị xếp khối mới)
+        const MJK_CACHE = {};
+        function mjKhoi(k) {
+            return MJK_CACHE[k] || (MJK_CACHE[k] = (() => {
+                const m = MJ[k], set = m[1].split(',');
+                if (set.some(x => /^[VHTNM]\d/.test(x))) return set;   // ngành năng khiếu (V00, H00...): không mở rộng
+                MJ_KHOI_EXT.forEach(r => { if (r[0].test(m[0])) r[1].split(',').forEach(x => { if (set.indexOf(x) < 0) set.push(x); }); });
+                return set;
+            })());
+        }
         const MJ_CACHE = {};
         const mjOf = uid => MJ_CACHE[uid] || (MJ_CACHE[uid] = [...new Set((UNI_MJ[uid] || '').split(' ').filter(k => MJ[k]).concat((UNI_X[uid] || '').split(';').filter(Boolean).map(mjKeyOf)))]);
         // ---- Mệnh (Nạp âm) theo năm sinh ÂM LỊCH: mùng 1 Tết Dương lịch từng năm ----
@@ -1082,12 +953,20 @@ function soonFeature() { return eduAlert('Tính năng đang được phát tri�
             const idx = ((y - 4) % 60 + 60) % 60, name = NAPAM[Math.floor(idx / 2)];
             return { year: y, canchi: CAN[idx % 10] + ' ' + CHI[idx % 12], name, hanh: name.split(' ').pop() };
         }
-        const KHOI = { A00:['toan','ly','hoa'], A01:['toan','ly','anh'], B00:['toan','hoa','sinh'], C00:['van','su','dia'], D01:['toan','van','anh'], V00:['toan','ly','van'], V01:['toan','van','anh'], H00:['van','van','toan'], T00:['toan','sinh','van'], N00:['van','van','van'], M00:['van','toan','van'] };
-        const MON = [['toan','Toán'],['van','Văn'],['anh','Anh'],['ly','Lý'],['hoa','Hóa'],['sinh','Sinh'],['su','Sử'],['dia','Địa']];
+        const KHOI = { A00:['toan','ly','hoa'], A01:['toan','ly','anh'], B00:['toan','hoa','sinh'], C00:['van','su','dia'], D01:['toan','van','anh'], V00:['toan','ly','van'], V01:['toan','van','anh'], H00:['van','van','toan'], T00:['toan','sinh','van'], N00:['van','van','van'], M00:['van','toan','van'],
+            // ---- Khối mới theo quy chế thi tốt nghiệp THPT 2026 (đã đối chiếu) + các khối 3 môn học phổ biến khác (A02-A11, B02-B08, C01-C17, D07-D15, X06). Khối X khác (X01-X05, X08...) CHƯA thêm: phải đối chiếu danh sách chính thức trước. Khối có môn năng khiếu giữ riêng ở dòng trên ----
+            A02:['toan','ly','sinh'], A03:['toan','ly','su'], A04:['toan','ly','dia'], A05:['toan','hoa','su'], A06:['toan','hoa','dia'], A07:['toan','su','dia'], A08:['toan','su','ktpl'], A09:['toan','dia','ktpl'], A10:['toan','ly','ktpl'], A11:['toan','hoa','ktpl'], B02:['toan','sinh','dia'], B03:['toan','sinh','van'], B04:['toan','sinh','ktpl'], B08:['toan','sinh','anh'], C01:['van','toan','ly'], C02:['van','toan','hoa'], C03:['van','toan','su'], C04:['van','toan','dia'], C05:['van','ly','hoa'], C08:['van','hoa','sinh'], C16:['van','ly','ktpl'], C17:['van','hoa','ktpl'], D07:['toan','hoa','anh'], D08:['toan','sinh','anh'], D09:['toan','su','anh'], D10:['toan','dia','anh'], D11:['van','ly','anh'], D12:['van','hoa','anh'], D13:['van','sinh','anh'], D14:['van','su','anh'], D15:['van','dia','anh'], X06:['toan','ly','tin'], X07:['toan','ly','cn'], X01:['van','toan','ktpl'], X02:['toan','van','tin'], X03:['toan','van','cn'], X05:['toan','ly','ktpl'], X09:['toan','hoa','ktpl'], X10:['toan','hoa','tin'], X11:['toan','hoa','cn'], X13:['toan','sinh','ktpl'], X14:['toan','sinh','tin'], X15:['toan','sinh','cn'], X56:['toan','tin','cn'], X70:['van','su','ktpl'], X74:['van','dia','ktpl'], X78:['van','ktpl','anh'], B01:['toan','su','sinh'], C06:['van','ly','sinh'], C07:['van','su','ly'],
+            X25:['toan','anh','ktpl'], X26:['toan','anh','tin'], X27:['toan','cn','anh'], C14:['van','toan','ktpl'], D84:['toan','ktpl','anh'], D66:['van','anh','ktpl'], C19:['van','su','ktpl'], C20:['van','dia','ktpl'] };
+        const MON = [['toan','Toán'],['van','Văn'],['anh','Anh'],['ly','Lý'],['hoa','Hóa'],['sinh','Sinh'],['su','Sử'],['dia','Địa'],['tin','Tin học'],['cn','Công nghệ'],['ktpl','Kinh tế & Pháp luật']];
+        // Môn thêm từ quy chế thi tốt nghiệp THPT 2026. Học sinh cũ chưa làm lại KHÔNG có các khóa này trong dh.sc => phải coi là 0 (không học), KHÔNG dùng DH_DEF.
+        const MON_MOI = ['tin', 'cn', 'ktpl'];
         const HOL = [['R','Thực hành, máy móc'],['I','Nghiên cứu, tìm tòi'],['A','Sáng tạo, nghệ thuật'],['S','Giúp đỡ, giảng dạy'],['E','Lãnh đạo, kinh doanh'],['C','Số liệu, tổ chức']];
         let DEEP = null, DSTEP = 1;
         let DPF = { q: '', g: '', k: '', ok: false, open: {} }, DPLIST = [];   // bộ lọc chọn ngành (tìm kiếm / nhóm ngành / khối thi / đủ điểm) + danh sách xếp hạng hiện tại
-        const KHOI_TEN = { A00:'Toán, Vật lí, Hóa học', A01:'Toán, Vật lí, Tiếng Anh', B00:'Toán, Hóa học, Sinh học', C00:'Ngữ văn, Lịch sử, Địa lí', D01:'Toán, Ngữ văn, Tiếng Anh', V00:'Toán, Vật lí, Vẽ mỹ thuật', V01:'Toán, Ngữ văn, Vẽ mỹ thuật', H00:'Ngữ văn, Năng khiếu vẽ 1, Năng khiếu vẽ 2', T00:'Toán, Sinh học, Năng khiếu TDTT', N00:'Ngữ văn, Năng khiếu âm nhạc 1, 2', M00:'Ngữ văn, Toán, Năng khiếu' };
+        const KHOI_TEN = { A00:'Toán, Vật lí, Hóa học', A01:'Toán, Vật lí, Tiếng Anh', B00:'Toán, Hóa học, Sinh học', C00:'Ngữ văn, Lịch sử, Địa lí', D01:'Toán, Ngữ văn, Tiếng Anh', V00:'Toán, Vật lí, Vẽ mỹ thuật', V01:'Toán, Ngữ văn, Vẽ mỹ thuật', H00:'Ngữ văn, Năng khiếu vẽ 1, Năng khiếu vẽ 2', T00:'Toán, Sinh học, Năng khiếu TDTT', N00:'Ngữ văn, Năng khiếu âm nhạc 1, 2', M00:'Ngữ văn, Toán, Năng khiếu',
+            X25:'Toán, Tiếng Anh, Giáo dục kinh tế và pháp luật', X26:'Toán, Tiếng Anh, Tin học', X27:'Toán, Công nghệ công nghiệp, Tiếng Anh', C14:'Ngữ văn, Toán, Giáo dục kinh tế và pháp luật',
+            D84:'Toán, Giáo dục kinh tế và pháp luật, Tiếng Anh', D66:'Ngữ văn, Giáo dục kinh tế và pháp luật, Tiếng Anh', C19:'Ngữ văn, Lịch sử, Giáo dục kinh tế và pháp luật', C20:'Ngữ văn, Địa lí, Giáo dục kinh tế và pháp luật',
+            A02:'Toán, Vật lí, Sinh học', A03:'Toán, Vật lí, Lịch sử', A04:'Toán, Vật lí, Địa lí', A05:'Toán, Hóa học, Lịch sử', A06:'Toán, Hóa học, Địa lí', A07:'Toán, Lịch sử, Địa lí', A08:'Toán, Lịch sử, Giáo dục kinh tế và pháp luật', A09:'Toán, Địa lí, Giáo dục kinh tế và pháp luật', A10:'Toán, Vật lí, Giáo dục kinh tế và pháp luật', A11:'Toán, Hóa học, Giáo dục kinh tế và pháp luật', B02:'Toán, Sinh học, Địa lí', B03:'Toán, Sinh học, Ngữ văn', B04:'Toán, Sinh học, Giáo dục kinh tế và pháp luật', B08:'Toán, Sinh học, Tiếng Anh', C01:'Ngữ văn, Toán, Vật lí', C02:'Ngữ văn, Toán, Hóa học', C03:'Ngữ văn, Toán, Lịch sử', C04:'Ngữ văn, Toán, Địa lí', C05:'Ngữ văn, Vật lí, Hóa học', C08:'Ngữ văn, Hóa học, Sinh học', C16:'Ngữ văn, Vật lí, Giáo dục kinh tế và pháp luật', C17:'Ngữ văn, Hóa học, Giáo dục kinh tế và pháp luật', D07:'Toán, Hóa học, Tiếng Anh', D08:'Toán, Sinh học, Tiếng Anh', D09:'Toán, Lịch sử, Tiếng Anh', D10:'Toán, Địa lí, Tiếng Anh', D11:'Ngữ văn, Vật lí, Tiếng Anh', D12:'Ngữ văn, Hóa học, Tiếng Anh', D13:'Ngữ văn, Sinh học, Tiếng Anh', D14:'Ngữ văn, Lịch sử, Tiếng Anh', D15:'Ngữ văn, Địa lí, Tiếng Anh', X06:'Toán, Vật lí, Tin học', X07:'Toán, Vật lí, Công nghệ công nghiệp', X01:'Ngữ văn, Toán, Giáo dục kinh tế và pháp luật', X02:'Toán, Ngữ văn, Tin học', X03:'Toán, Ngữ văn, Công nghệ công nghiệp', X05:'Toán, Vật lí, Giáo dục kinh tế và pháp luật', X09:'Toán, Hóa học, Giáo dục kinh tế và pháp luật', X10:'Toán, Hóa học, Tin học', X11:'Toán, Hóa học, Công nghệ công nghiệp', X13:'Toán, Sinh học, Giáo dục kinh tế và pháp luật', X14:'Toán, Sinh học, Tin học', X15:'Toán, Sinh học, Công nghệ công nghiệp', X56:'Toán, Tin học, Công nghệ công nghiệp', X70:'Ngữ văn, Lịch sử, Giáo dục kinh tế và pháp luật', X74:'Ngữ văn, Địa lí, Giáo dục kinh tế và pháp luật', X78:'Ngữ văn, Giáo dục kinh tế và pháp luật, Tiếng Anh', B01:'Toán, Lịch sử, Sinh học', C06:'Ngữ văn, Vật lí, Sinh học', C07:'Ngữ văn, Lịch sử, Vật lí' };
         const khoiFull = k => k + ': ' + (KHOI_TEN[k] || '') + (/^[VHTNM]\d/.test(k) ? ' (môn năng khiếu thi riêng, điểm ước tính)' : '');
         const kScore = (k, sc) => KHOI[k].reduce((a, m) => a + (Number(sc[m]) || 0), 0);
         // ---- Điểm học lực: chọn mức (không nhập số) -> điểm đại diện ----
@@ -1159,46 +1038,36 @@ function soonFeature() { return eduAlert('Tính năng đang được phát tri�
         }
         // D.qv === 2: giá trị lưu = điểm trực tiếp (0/1/2). Dữ liệu cũ (không có qv) lưu theo chỉ số cũ (0 = Rất thích) -> quy đổi 2 - q
         const holScore = (D = DEEP) => { const r = { R:0, I:0, A:0, S:0, E:0, C:0 }; QS.forEach((q, i) => { const v = D.q[i]; if (v !== undefined && v !== null) r[q[0]] += (D.qv === 2 ? v : 2 - v); }); return r; };
-        function deepFresh() { return { dob: (user.deepData && user.deepData.dob) || '', lv: {}, q: [], qv: 2, m: {}, majors: [] }; }
+        function deepFresh() { return { dob: (user.deepData && user.deepData.dob) || '', lv: {}, q: [], qv: 2, majors: [] }; }
         function openDeep() {
             if (!user.uniId || !UNIS.some(u => u.id === user.uniId)) return eduAlert('Bạn cần chọn Nguyện vọng Đại học trước (mục "Đổi nguyện vọng Đại học").', 'warning');
-            // Mỗi lần làm Phân tích chuyên sâu: xóa sạch dữ liệu cũ (điểm học lực, Holland, MBTI, ngành đã chọn, điểm mục tiêu) - CHỈ giữ lại Ngày sinh
-            DEEP = deepFresh(); DPF = { q: '', g: '', k: '', ok: false, open: {} }; mbtiPage = 0;
+            // Mỗi lần làm Phân tích chuyên sâu: xóa sạch dữ liệu cũ (điểm học lực, Holland, ngành đã chọn, điểm mục tiêu) - CHỈ giữ lại Ngày sinh
+            DEEP = deepFresh(); DPF = { q: '', g: '', k: '', ok: false, open: {} };
             $('modal-deep').style.display = 'flex';
             DSTEP = 1;   // luôn bắt đầu từ Phần 1 (ngày sinh cũ được điền sẵn)
             deepRender(); deepScroll(0);
         }
         function deepScroll(y) { const sc = deepScroller(); if (sc) sc.scrollTop = y; }
         const dBtn = (t, f, st) => `<button onclick="${f}" style="padding:13px;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;${st}">${t}</button>`;
-        const DEEP_PARTS = 4;
-        // Dải cảnh báo nhỏ gọn ở đáy popup (ngay trên nút "Xem kết quả"), chỉ hiện khi còn câu chưa trả lời
-        function deepMbtiWarn() {
-            const miss = mbtiMissing(); if (!miss.length) return '';
-            const nums = miss.slice(0, 6).map(x => x.i + 1).join(', ') + (miss.length > 6 ? '…' : ''), gp = Math.floor(miss[0].i / MBTI_PER_PAGE);
-            const jump = mbtiIsMobile() && gp !== mbtiPage ? ` <a href="javascript:void(0)" onclick="mbtiGoPage(${gp})" style="font-weight:700;text-decoration:underline;color:inherit;">Đến câu thiếu ›</a>` : '';
-            return `<div class="deep-foot-note" role="status"><svg class=ic aria-hidden=true><use href=#i-alert></use></svg> Còn thiếu ${miss.length}/${MBTI_QS.length} câu (câu ${nums})${jump}</div>`;
-        }
+        const DEEP_PARTS = 3;
         function deepRender() {
-            const el = $('deep-content'), prog = DSTEP <= DEEP_PARTS ? `<div style="display:flex;gap:6px;margin:6px 0 4px;">${[1,2,3,4].map(i => `<div style="flex:1;height:6px;border-radius:3px;background:${i <= DSTEP ? 'var(--primary)' : 'var(--border)'};"></div>`).join('')}</div><div style="height:8px;"></div>` : '';
+            const el = $('deep-content'), prog = DSTEP <= DEEP_PARTS ? `<div style="display:flex;gap:6px;margin:6px 0 4px;">${[1,2,3].map(i => `<div style="flex:1;height:6px;border-radius:3px;background:${i <= DSTEP ? 'var(--primary)' : 'var(--border)'};"></div>`).join('')}</div><div style="height:8px;"></div>` : '';
             let h = prog;
-            if (DSTEP === 1) h += `<h3 style="font-size:15px;margin-bottom:6px;"><svg class=ic aria-hidden=true><use href=#i-calendar-month></use></svg> Phần 1/4: Ngày sinh</h3><p style="font-size:13px;color:#64748b;margin-bottom:10px;">Dùng để tính mệnh của em (theo năm âm lịch).</p>
+            if (DSTEP === 1) h += `<h3 style="font-size:15px;margin-bottom:6px;"><svg class=ic aria-hidden=true><use href=#i-calendar-month></use></svg> Phần 1/3: Ngày sinh</h3><p style="font-size:13px;color:#64748b;margin-bottom:10px;">Dùng để tính mệnh của em (theo năm âm lịch).</p>
                 <input name="dp-dob" type="date" id="dp-dob" aria-label="Ngày sinh" value="${esc(DEEP.dob)}" min="2000-01-01" max="2014-12-31" style="width:100%;max-width:420px;padding:12px;border:1px solid #e2e8f0;border-radius:12px;font-size:15px;margin-bottom:16px;display:block;">${dBtn('Tiếp tục ›', 'deepNext()', 'width:100%;max-width:420px;background:var(--primary);color:#fff;')}`;
-            else if (DSTEP === 2) h += `<h3 style="font-size:15px;margin-bottom:6px;"><svg class=ic aria-hidden=true><use href=#i-note-edit></use></svg> Phần 2/4: Điểm học lực hiện tại</h3><p style="font-size:13px;color:#64748b;margin-bottom:10px;">Chọn mức điểm trung bình học bạ của từng môn (môn nào không học thì chọn "Không học").</p>
+            else if (DSTEP === 2) h += `<h3 style="font-size:15px;margin-bottom:6px;"><svg class=ic aria-hidden=true><use href=#i-note-edit></use></svg> Phần 2/3: Điểm học lực hiện tại</h3><p style="font-size:13px;color:#64748b;margin-bottom:10px;">Chọn mức điểm trung bình học bạ của từng môn (môn nào không học thì chọn "Không học").</p>
                 <div class="dp-grid">${MON.map(m => `<div style="margin-bottom:10px;"><div style="font-size:13px;font-weight:700;margin-bottom:4px;">${m[1]}</div><div style="display:flex;gap:5px;flex-wrap:wrap;">${LEVELS.map((l, i) => dBtn(l[0], `deepLv('${m[0]}',${i})`, `flex:1;min-width:64px;padding:9px 4px;font-size:12px;${DEEP.lv[m[0]] === i ? 'background:var(--primary);color:#fff;' : 'background:#fff;color:#334155;border:1px solid #e2e8f0;'}`)).join('') + dBtn('<svg class=ic aria-hidden=true><use href=#i-cancel></use></svg> Không học', `deepLv('${m[0]}',-1)`, `flex:1;min-width:84px;padding:9px 4px;font-size:12px;${DEEP.lv[m[0]] === -1 ? 'background:#64748b;color:#fff;' : 'background:#f8fafc;color:#64748b;border:1px dashed #cbd5e1;'}`)}</div></div>`).join('')}</div>
                 <div style="display:flex;gap:8px;margin-top:14px;">${dBtn('‹ Quay lại', 'deepBack()', 'flex:1;background:#e2e8f0;color:#334155;')}${dBtn('Tiếp tục ›', 'deepNext()', 'flex:2;background:var(--primary);color:#fff;')}</div>`;
-            else if (DSTEP === 3) h += `<h3 style="font-size:15px;margin-bottom:6px;"><svg class=ic aria-hidden=true><use href=#i-compass></use></svg> Phần 3/4: Trắc nghiệm sở thích Holland (18 câu)</h3><p style="font-size:13px;color:#64748b;margin-bottom:10px;">Đã trả lời <b>${DEEP.q.filter(x => x !== undefined && x !== null).length}</b>/18. Không có đáp án đúng sai, hãy chọn theo cảm nhận thật của em.</p>
+            else if (DSTEP === 3) h += `<h3 style="font-size:15px;margin-bottom:6px;"><svg class=ic aria-hidden=true><use href=#i-compass></use></svg> Phần 3/3: Trắc nghiệm sở thích Holland (18 câu)</h3><p style="font-size:13px;color:#64748b;margin-bottom:10px;">Đã trả lời <b>${DEEP.q.filter(x => x !== undefined && x !== null).length}</b>/18. Không có đáp án đúng sai, hãy chọn theo cảm nhận thật của em.</p>
                 <div class="dp-grid">${QS.map((q, i) => `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:10px;margin-bottom:8px;"><div style="font-size:13px;margin-bottom:6px;">${i + 1}. ${q[1]}</div><div style="display:flex;gap:5px;">${ANS.map((a, j) => dBtn(a, `deepAns(${i},${j})`, `flex:1;padding:8px 2px;font-size:12px;${DEEP.q[i] === j ? 'background:var(--primary);color:#fff;' : 'background:#f1f5f9;color:#334155;'}`)).join('')}</div></div>`).join('')}</div>
-                <div style="display:flex;gap:8px;margin-top:14px;">${dBtn('‹ Quay lại', 'deepBack()', 'flex:1;background:#e2e8f0;color:#334155;')}${dBtn('Tiếp tục ›', 'deepNext()', 'flex:2;background:var(--primary);color:#fff;')}</div>`;
-            else if (DSTEP === 4) h += `<h3 style="font-size:15px;margin-bottom:6px;"><svg class=ic aria-hidden=true><use href=#i-brain></use></svg> Phần 4/4: Trắc nghiệm Tính cách MBTI (16 câu)</h3><p style="font-size:13px;color:#64748b;margin-bottom:10px;">Mức độ đúng với em (1 = hoàn toàn không đúng, 5 = rất đúng với em). Không có đáp án đúng sai.</p>
-                ${deepMbtiHtml()}
-                <div class="deep-foot">${deepMbtiWarn()}<div style="display:flex;gap:8px;">${dBtn('‹ Quay lại', 'deepBack()', 'flex:1;background:#e2e8f0;color:#334155;')}${dBtn('Xem kết quả ›', 'deepNext()', 'flex:2;background:var(--primary);color:#fff;')}</div></div>`;
+                <div style="display:flex;gap:8px;margin-top:14px;">${dBtn('‹ Quay lại', 'deepBack()', 'flex:1;background:#e2e8f0;color:#334155;')}${dBtn('Xem kết quả ›', 'deepNext()', 'flex:2;background:var(--primary);color:#fff;')}</div>`;
             else h += deepResultHtml();
             el.innerHTML = h;
         }
         function deepLv(m, i) { DEEP.lv[m] = i; const t = deepScroller().scrollTop; deepRender(); deepScroll(t); }
         function deepAns(i, j) { DEEP.q[i] = j; DEEP.qv = 2; const t = deepScroller().scrollTop; deepRender(); deepScroll(t); }
-        function deepRestart() { const dob = DEEP.dob; DEEP = { dob, lv: {}, q: [], qv: 2, m: {}, majors: [] }; DSTEP = 1; DPF = { q: '', g: '', k: '', ok: false, open: {} }; mbtiPage = 0; deepRender(); deepScroll(0); }   // làm lại -> về Phần 1
-        // Thoát Phân tích chuyên sâu bất cứ lúc nào (hỏi lại nếu đang làm dở Phần 2 / 3 / 4 để khỏi mất dữ liệu)
+        function deepRestart() { const dob = DEEP.dob; DEEP = { dob, lv: {}, q: [], qv: 2, majors: [] }; DSTEP = 1; DPF = { q: '', g: '', k: '', ok: false, open: {} }; deepRender(); deepScroll(0); }   // làm lại -> về Phần 1
+        // Thoát Phân tích chuyên sâu bất cứ lúc nào (hỏi lại nếu đang làm dở Phần 2 / 3 để khỏi mất dữ liệu)
         async function deepExit() {
             if (DSTEP >= 2 && DSTEP <= DEEP_PARTS) {
                 const yes = await eduConfirm('Các lựa chọn em đang làm dở sẽ không được lưu.', { title: 'Thoát Phân tích chuyên sâu?', confirmText: 'Thoát', cancelText: 'Ở lại', icon: 'warning' });
@@ -1212,11 +1081,7 @@ function soonFeature() { return eduAlert('Tính năng đang được phát tri�
             if (DSTEP === 1) { const v = $('dp-dob').value; if (!v || !calcMenh(v)) return eduAlert('Hãy chọn ngày sinh hợp lệ (năm 2000-2014).', 'warning'); DEEP.dob = v; }
             if (DSTEP === 2 && (Object.keys(DEEP.lv).length < MON.length || !Object.values(DEEP.lv).some(v => v >= 0))) return eduAlert('Hãy chọn mức điểm cho từng môn (môn không học thì chọn "Không học").', 'warning');
             if (DSTEP === 3 && DEEP.q.filter(x => x !== undefined && x !== null).length < QS.length) return eduAlert('Em còn câu chưa trả lời, hãy làm hết 18 câu nhé.', 'warning');
-            if (DSTEP === 4) {
-                const miss = mbtiMissing();
-                if (miss.length) { if (mbtiIsMobile()) mbtiPage = Math.floor(miss[0].i / MBTI_PER_PAGE); deepRender(); return eduAlert('Em còn ' + miss.length + ' câu MBTI chưa trả lời (câu ' + miss.map(x => x.i + 1).join(', ') + '), hãy làm hết ' + MBTI_QS.length + ' câu nhé.', 'warning'); }
-            }
-            DSTEP++; if (DSTEP === 4) mbtiPage = 0; if (DSTEP === DEEP_PARTS + 1) deepSave(); deepRender(); deepScroll(0);
+            DSTEP++; if (DSTEP === DEEP_PARTS + 1) deepSave(); deepRender(); deepScroll(0);
         }
 
         // ---- Hiển thị ngành aim (viết tắt) + Điểm mục tiêu trong tab Tài khoản ----
@@ -1256,33 +1121,24 @@ function soonFeature() { return eduAlert('Tính năng đang được phát tri�
         function deepSave(finish) {
             if (!ME) return;
             if (finish && !DEEP.majors.length) return eduAlert('Hãy chọn ít nhất 1 ngành em muốn aim.', 'warning');
-            // MBTI: ghi riêng vào privates.mbti (cùng chỗ cũ) để tab Phân tích vẫn đọc được; khối deep không chứa câu trả lời MBTI
-            const sc = cleanMbtiScores(DEEP.m), full = Object.keys(sc).length === MBTI_QS.length;
-            const deepDoc = clean(DEEP); delete deepDoc.m;
+            const deepDoc = clean(DEEP);
             const payload = { deep: deepDoc }, fields = ['deep'];
-            let res = null;
-            if (full) { res = mbtiResult(sc); payload.mbti = { scores: sc, result: { type: res.type, text: mbtiText(res) }, updatedAt: Date.now() }; fields.push('mbti'); }
             fbDb.collection('privates').doc(ME.uid).set(payload, { mergeFields: fields }).then(() => {   // mergeFields: GHI ĐÈ cả khối deep (không giữ lại 'target' cũ)
-                if (full) {
-                    user.mbtiScores = sc; user.mbtiResult = { type: res.type, text: mbtiText(res), detail: res.detail };
-                    try { localStorage.setItem(MBTI_LS(), JSON.stringify({ scores: sc })); } catch (e) {}
-                }
                 user.deepData = deepDoc; renderProfileDeep();
                 if (finish) { closeModal('modal-deep'); goProfile(); }   // lưu xong tự quay về Hồ sơ (tab Tài khoản)
             }).catch(() => eduAlert('Chưa lưu được, hãy kiểm tra mạng.', 'error'));
         }
-        // Công thức xếp hạng ngành (Phân tích chuyên sâu): 25% Môn học + 25% Điểm an toàn (TB điểm chuẩn 3 năm + 0.5) + 35% Holland + 15% MBTI
-        // Thiếu MBTI (dữ liệu cũ): 30% Môn + 30% An toàn + 40% Holland. Mệnh chỉ để tham khảo, không tính điểm.
-        const DEEP_FORMULA = '25% Môn học + 25% Điểm an toàn 3 năm + 35% Holland + 15% MBTI';
+        // Công thức xếp hạng ngành (Phân tích chuyên sâu): 30% Môn học + 30% Điểm an toàn (TB điểm chuẩn 3 năm + 0.5) + 40% Holland. Mệnh chỉ để tham khảo, không tính điểm.
+        const DEEP_FORMULA = '30% Môn học + 30% Điểm an toàn 3 năm + 40% Holland';
         function deepRank(D = DEEP) {
-            const sc = {}, hol = holScore(D), mb = deepMbti(D);
+            const sc = {}, hol = holScore(D);
             Object.keys(D.lv).forEach(m => { if (LEVELS[D.lv[m]]) sc[m] = LEVELS[D.lv[m]][1]; });   // -1 = không học -> bỏ qua
             return mjOf(user.uniId).map(k => {
-                const m = MJ[k], ks = m[1].split(',').filter(x => KHOI[x]).map(x => [x, kScore(x, sc)]).sort((a, b) => b[1] - a[1])[0] || ['', 0], dc = diemChuan(user.uniId, k);
+                const m = MJ[k], ks = mjKhoi(k).filter(x => khoiDu(x, sc)).map(x => [x, kScore(x, sc)]).sort((a, b) => b[1] - a[1])[0] || ['', 0], dc = diemChuan(user.uniId, k);
                 const kf = Math.min(1, ks[1] / 30), sf = Math.min(1, ks[1] / dc.safe);
-                const hm = Math.min(1, m[2].split('').reduce((a, c) => a + (hol[c] || 0) / 6, 0) / 2), mf = mb.done ? mbtiFit(mb.type, m[2]) : 0;
-                const pct = mb.done ? kf * 25 + sf * 25 + hm * 35 + mf * 15 : kf * 30 + sf * 30 + hm * 40;
-                return { k, name: m[0], khoi: ks[0], pts: ks[1], dc, pct: Math.round(pct), parts: { mon: Math.round(kf * 100), safe: Math.round(sf * 100), hol: Math.round(hm * 100), mbti: mb.done ? Math.round(mf * 100) : null } };
+                const hm = Math.min(1, m[2].split('').reduce((a, c) => a + (hol[c] || 0) / 6, 0) / 2);
+                const pct = kf * 30 + sf * 30 + hm * 40;
+                return { k, name: m[0], khoi: ks[0], pts: ks[1], dc, pct: Math.round(pct), parts: { mon: Math.round(kf * 100), safe: Math.round(sf * 100), hol: Math.round(hm * 100) } };
             }).sort((a, b) => b.pct - a.pct);
         }
         // ================= CHỌN NGÀNH (Phân tích chuyên sâu): tìm kiếm, nhóm ngành, khối thi, thẻ chi tiết =================
@@ -1303,7 +1159,7 @@ function soonFeature() { return eduAlert('Tính năng đang được phát tri�
         const dpChipSt = on => 'flex:0 0 auto;padding:7px 12px;border-radius:999px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid ' + (on ? 'var(--primary)' : 'var(--border)') + ';background:' + (on ? 'var(--primary)' : 'var(--card-bg,#fff)') + ';color:' + (on ? '#fff' : 'inherit') + ';';
         function dpFiltered(list) {
             const t = foldVN(DPF.q.trim()).split(/\s+/).filter(Boolean);
-            return list.filter(r => (!DPF.g || mjGroup(r.name) === DPF.g) && (!DPF.k || MJ[r.k][1].split(',').includes(DPF.k)) && (!DPF.ok || r.pts >= r.dc.safe)
+            return list.filter(r => (!DPF.g || mjGroup(r.name) === DPF.g) && (!DPF.k || mjKhoi(r.k).includes(DPF.k)) && (!DPF.ok || r.pts >= r.dc.safe)
                 && (!t.length || t.every(x => foldVN(r.name + ' ' + (MJ_JOBS[r.k] || '') + ' ' + ((MJ_GROUPS.find(g => g[0] === mjGroup(r.name)) || [])[2] || '')).includes(x))));
         }
         function dpTray() {
@@ -1311,7 +1167,7 @@ function soonFeature() { return eduAlert('Tính năng đang được phát tri�
                 + DEEP.majors.map(k => `<button type="button" onclick="deepPick('${k}')" style="flex:0 0 auto;max-width:220px;overflow:hidden;text-overflow:ellipsis;padding:6px 10px;border-radius:999px;border:0;background:var(--primary);color:#fff;font-size:12px;cursor:pointer;">${esc(MJ[k][0])} <svg class=ic aria-hidden=true><use href=#i-close></use></svg></button>`).join('') + '</div>' : '';
         }
         function dpControls(list) {
-            const gs = MJ_GROUPS.filter(g => list.some(r => mjGroup(r.name) === g[0])), ks = [...new Set(list.flatMap(r => MJ[r.k][1].split(',')))].filter(x => KHOI[x]);
+            const gs = MJ_GROUPS.filter(g => list.some(r => mjGroup(r.name) === g[0])), ks = [...new Set(list.flatMap(r => mjKhoi(r.k)))].filter(x => KHOI[x]).sort();
             const chip = (key, val, label) => `<button type="button" data-dpchip="${key}|${val}" onclick="dpSet('${key}','${val}')" style="${dpChipSt(key === 'ok' ? DPF.ok : DPF[key] === val)}">${label}</button>`;
             const row = h => `<div style="display:flex;gap:6px;overflow-x:auto;white-space:nowrap;padding:3px 0;scrollbar-width:none;">${h}</div>`;
             return `<div id="dp-ctl" style="position:sticky;top:0;z-index:5;background:var(--card-bg,#fff);padding:8px 0 6px;">
@@ -1344,12 +1200,12 @@ function soonFeature() { return eduAlert('Tính năng đang được phát tri�
                     <b style="color:var(--primary);font-size:15px;">${r.pct}%</b></div>
                 <button type="button" onclick="dpToggle('${r.k}')" style="margin-top:6px;padding:6px 0;border:0;background:none;color:var(--primary);font-size:12px;font-weight:700;cursor:pointer;">${open ? 'Ẩn chi tiết ▴' : 'Xem chi tiết ▾'}</button>
                 ${open ? `<div style="margin-top:4px;padding:10px;border-radius:10px;background:var(--bg,#f8fafc);font-size:12px;line-height:1.7;color:#475569;">
-                    ${jobs ? `<svg class=ic aria-hidden=true><use href=#i-briefcase></use></svg> <b>Nghề tiêu biểu:</b> ${esc(jobs)}<br>` : ''}<svg class=ic aria-hidden=true><use href=#i-compass></use></svg> <b>Hợp với người:</b> ${esc(hol)}<br><svg class=ic aria-hidden=true><use href=#i-book-multiple></use></svg> <b>Khối phù hợp nhất:</b> ${esc(khoiFull(r.khoi))}<br><svg class=ic aria-hidden=true><use href=#i-note-edit></use></svg> <b>Xét tuyển:</b> ${MJ[r.k][1].split(',').join(' • ')}<br>
-                    <svg class=ic aria-hidden=true><use href=#i-chart-line></use></svg> <b>Điểm chuẩn${r.dc.real ? '' : ' (ƯỚC TÍNH - chưa có số liệu chính thức)'}:</b> ${DC_YEARS.map((y, i) => y + ': ' + r.dc.ys[i]).join(' • ')}<br><svg class=ic aria-hidden=true><use href=#i-scale-balance></use></svg> <b>Thành phần:</b> Môn ${r.parts.mon}% • An toàn ${r.parts.safe}% • Holland ${r.parts.hol}%${r.parts.mbti === null ? '' : ' • MBTI ' + r.parts.mbti + '%'}<br>
+                    ${jobs ? `<svg class=ic aria-hidden=true><use href=#i-briefcase></use></svg> <b>Nghề tiêu biểu:</b> ${esc(jobs)}<br>` : ''}<svg class=ic aria-hidden=true><use href=#i-compass></use></svg> <b>Hợp với người:</b> ${esc(hol)}<br><svg class=ic aria-hidden=true><use href=#i-book-multiple></use></svg> <b>Khối phù hợp nhất:</b> ${esc(khoiFull(r.khoi))}<br><svg class=ic aria-hidden=true><use href=#i-note-edit></use></svg> <b>Xét tuyển:</b> ${mjKhoi(r.k).join(' • ')} <span style="opacity:.7;font-size:11px;">(khối bổ sung là ước tính theo mẫu tuyển sinh 2026, xem đề án chính thức của trường)</span><br>
+                    <svg class=ic aria-hidden=true><use href=#i-chart-line></use></svg> <b>Điểm chuẩn${r.dc.real ? '' : ' (ƯỚC TÍNH - chưa có số liệu chính thức)'}:</b> ${DC_YEARS.map((y, i) => y + ': ' + r.dc.ys[i]).join(' • ')}<br><svg class=ic aria-hidden=true><use href=#i-scale-balance></use></svg> <b>Thành phần:</b> Môn ${r.parts.mon}% • An toàn ${r.parts.safe}% • Holland ${r.parts.hol}%<br>
                     <svg class=ic aria-hidden=true><use href=#i-bullseye-arrow></use></svg> ${enough ? 'Đã đủ điểm an toàn.' : 'Còn thiếu <b>' + (r.dc.safe - r.pts).toFixed(1) + '</b> điểm so với mức an toàn.'}</div>` : ''}</div>`;
         };
         function deepResultHtml() {
-            const mn = calcMenh(DEEP.dob), H = HANH[mn.hanh], list = (DPLIST = deepRank()), mb = deepMbti(DEEP), hol = holScore();
+            const mn = calcMenh(DEEP.dob), H = HANH[mn.hanh], list = (DPLIST = deepRank()), hol = holScore();
             const topH = Object.keys(hol).sort((a, b) => hol[b] - hol[a]).slice(0, 2), holTxt = topH.map(c => (HOL.find(x => x[0] === c) || [c, c])[1]).join(' • ');
             const lvs = MON.filter(m => LEVELS[DEEP.lv[m[0]]]).map(m => [m[1], LEVELS[DEEP.lv[m[0]]][1]]), avg = lvs.length ? lvs.reduce((a, x) => a + x[1], 0) / lvs.length : 0;
             const best = lvs.slice().sort((a, b) => b[1] - a[1]).slice(0, 2).map(x => x[0]).join(', ');
@@ -1358,12 +1214,11 @@ function soonFeature() { return eduAlert('Tính năng đang được phát tri�
                 <div class="deep-sum" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:14px;">
                     ${chip('<svg class=ic aria-hidden=true><use href=#i-star-four-points></use></svg>', 'Mệnh', esc(mn.name), esc(mn.canchi), H.c)}
                     ${chip('<svg class=ic aria-hidden=true><use href=#i-compass></use></svg>', 'Nhóm Holland', esc(topH.join('')), esc(holTxt), '#8b5cf6')}
-                    ${chip('<svg class=ic aria-hidden=true><use href=#i-brain></use></svg>', 'Tính cách MBTI', mb.done ? esc(mb.type) : 'Chưa đủ dữ liệu', mb.done ? esc(mbtiText(mb)) : 'Chưa trả lời đủ 16 câu', '#0ea5e9')}
                     ${chip('<svg class=ic aria-hidden=true><use href=#i-note-edit></use></svg>', 'Điểm học lực', lvs.length ? 'TB ≈ ' + avg.toFixed(1) + '/10' : '—', lvs.length ? 'Mạnh: ' + esc(best) : 'Chưa có dữ liệu', '#16a34a')}
                 </div>
                 <h3 style="font-size:15px;margin-bottom:4px;"><svg class=ic aria-hidden=true><use href=#i-school></use></svg> Ngành tại ${esc(user.uniName)}</h3>
                 <p style="font-size:12px;color:#64748b;margin-bottom:4px;">Bấm để chọn tối đa 3 ngành (đã chọn <b id="dp-count">${DEEP.majors.length}</b>/3). Điểm an toàn = trung bình điểm chuẩn 3 năm gần nhất + 0.5.</p>
-                <p style="font-size:12px;color:#64748b;margin-bottom:8px;"><svg class=ic aria-hidden=true><use href=#i-scale-balance></use></svg> Xếp hạng theo: <b>${mb.done ? DEEP_FORMULA : '30% Môn học + 30% Điểm an toàn 3 năm + 40% Holland'}</b></p>
+                <p style="font-size:12px;color:#64748b;margin-bottom:8px;"><svg class=ic aria-hidden=true><use href=#i-scale-balance></use></svg> Xếp hạng theo: <b>${DEEP_FORMULA}</b></p>
                 ${dpControls(list)}<div id="dp-list" style="display:flex;flex-direction:column;gap:8px;">${dpFiltered(list).map(mjRow).join('') || '<p style="font-size:13px;color:#64748b;">Không có ngành phù hợp. Thử bỏ bớt bộ lọc hoặc đổi từ khóa.</p>'}</div>
                 <div style="display:flex;gap:8px;margin-top:14px;">${dBtn('↺ Làm lại', 'deepRestart()', 'flex:1;background:#e2e8f0;color:#334155;')}${dBtn('<svg class=ic aria-hidden=true><use href=#i-content-save></use></svg> Lưu & về Hồ sơ', 'deepSave(1)', 'flex:2;background:var(--primary);color:#fff;')}</div>`;
         }
@@ -1473,7 +1328,7 @@ function soonFeature() { return eduAlert('Tính năng đang được phát tri�
             if (!force && BXH_AT && Date.now() - BXH_AT < 300000) return Promise.resolve();
             BXH_BUSY = BXH_REF().get().then(d => { BXH = (d.data() || {}).users || {}; BXH_AT = Date.now(); })
                 .catch(e => console.warn('Không tải được BXH:', e))
-                .then(() => { BXH_BUSY = null; reconcileSelf(); try { reconcileWeek(); } catch (e) {} try { renderStatCard(); } catch (e) {} if (ME && PROFILES[ME.uid]) refreshUI(); scheduleChatList(); });
+                .then(() => { BXH_BUSY = null; reconcileSelf(); try { reconcileWeek(); } catch (e) {} try { dhSyncK(); } catch (e) {} try { renderStatCard(); } catch (e) {} if (ME && PROFILES[ME.uid]) refreshUI(); scheduleChatList(); });
             return BXH_BUSY;
         }
         // Tự ghi/chữa entry của CHÍNH MÌNH trong summary: XP tính lại tuyệt đối từ bài nộp của mình => không bao giờ bị cộng dồn
@@ -3014,7 +2869,6 @@ function saveEdit() {
             restorePtDraft();   // khôi phục điểm / sở thích nhập dở sau khi F5
             restorePtResultCache();   // khôi phục khung kết quả phân tích gần nhất
             ptCooldownResume();   // nút Phân Tích còn trong 60s chờ thì tiếp tục đếm ngược
-            loadMbtiLocal();   // kết quả MBTI đã lưu trên máy (Firestore sẽ ghi đè khi về)
             await requireStudentId(u, acc);   // chặn tại đây (popup khóa) cho đến khi có Mã học sinh
             bootLockFromLS(); syncClock(); setInterval(syncClock, 600000);
             // 1) Chỉ nghe HỒ SƠ CỦA MÌNH (trước đây: cả collection profiles)
@@ -3023,7 +2877,7 @@ function saveEdit() {
                 user.coverHidden = !!(d.exists && d.data().coverHidden === true); syncCoverShare();
                 onProfiles(); reconcileSelf();
             });
-            fbDb.collection('privates').doc(ME.uid).onSnapshot(d => { const x = d.data() || {}; user.analysisData = x.analysis || null; if (user.analysisData) { renderPtResult(user.analysisData); cachePtResult(user.analysisData); } if (x.mbti) applyMbti(x.mbti); user.deepData = x.deep || null; user.cover = x.cover || ''; user.coverPos = x.coverPos || null; renderCover(); mirrorCoverIfNeeded(); if (typeof renderProfileDeep === 'function') renderProfileDeep(); });
+            fbDb.collection('privates').doc(ME.uid).onSnapshot(d => { const x = d.data() || {}; user.analysisData = x.analysis || null; if (user.analysisData) { renderPtResult(user.analysisData); cachePtResult(user.analysisData); } user.deepData = x.deep || null; user.cover = x.cover || ''; user.coverPos = x.coverPos || null; renderCover(); mirrorCoverIfNeeded(); if (typeof renderProfileDeep === 'function') renderProfileDeep(); });
             fbDb.collection('evaluations').doc(ME.uid).onSnapshot(d => { const e = d.data(); $('eval-box').style.display = e && e.text ? '' : 'none'; $('eval-text').innerText = e ? e.text + (e.teacherName ? ' — ' + e.teacherName : '') : ''; }, () => {});
             fbDb.collection('attendance').doc(ME.uid).onSnapshot(d => { const x = d.data() || {}; ATT_DAYS = x.days || {}; ATT_NOTES = x.notes || {}; { const am = $('att-menu'); if (am) am.style.display = ''; } renderAtt(); }, () => {});
             // 2) Bài tập: giới hạn 50 bài mới nhất (lọc trường/lớp vẫn ở client)
@@ -4745,7 +4599,50 @@ function wrMaybeAuto() {
         // MBTI và Mệnh KHÔNG tính vào tab này. Dữ liệu lưu ở privates/{uid}.dh .
         const DH_QE = ['🔧', '🔬', '🎨', '🤝', '🎤', '🗂️', '🌳', '🧩', '💡', '👂', '🧭', '✅', '🏗️', '🧪', '✨', '🙌', '🛍️', '🧮'];   // hình minh họa cho 18 câu trắc nghiệm (cùng thứ tự với QS)
         const DH_DEF = 7;   // điểm mặc định của thanh kéo (giống bản demo)
-        const DH = { loaded: false, tries: 0, step: 1, qi: 0, mn: 10, mq: '', cur: null, sc: Object.fromEntries(MON.map(m => [m[0], DH_DEF])), prev: {}, scSet: false, tm: null, exp: {}, grp: null, q: [], wish: [], off: {} };
+        const dhDefOf = k => MON_MOI.includes(k) ? 0 : DH_DEF;   // môn mới mặc định 0 (không học): em tự bật nếu có học; 8 môn cũ giữ DH_DEF
+        // Độ hợp ngành = DH_W_HOL * Holland + DH_W_KHOI * khối mạnh nhất. Tỉ lệ 70/30 là LỰA CHỌN của dự án, chưa có nghiên cứu nào xác nhận tỉ lệ này. Muốn đổi chỉ sửa 2 số này (cộng lại = 1).
+        const DH_W_HOL = 0.7, DH_W_KHOI = 0.3;
+
+        // ============================================================================================================
+        // ===== BẮT ĐẦU KHỐI DÙNG CHUNG: tính "tổ hợp" của 1 tài khoản (hàm THUẦN, không phụ thuộc biến nào khác) =====
+        // Copy NGUYÊN khối này (từ dòng BẮT ĐẦU tới dòng KẾT THÚC) sang app-admin.jsx ở giai đoạn 3B để app học sinh và admin cho CÙNG kết quả.
+        // Vào : sc = { toan: 9, van: 8.5, anh: 7, ... } (điểm 0..10; thiếu khóa hoặc <= 0 nghĩa là KHÔNG học -> bỏ qua; học sinh cũ chưa có tin/cn/ktpl => tự coi là 0)
+        // Ra  : chuỗi môn đã sắp xếp A-Z nối bằng "+", ví dụ "hoa+ly+toan"; trả '' nếu không tính được (thiếu Toán hoặc Văn, hoặc < 2 môn còn lại có điểm).
+        // Quy tắc: (1) Toán + Văn bắt buộc; (2) lấy thêm 2 môn điểm cao nhất trong các môn còn lại (chỉ môn > 0) => 4 môn; (3) tổ hợp = 3 môn có tổng cao nhất trong 4 môn đó (tức bỏ môn thấp nhất).
+        // Khi HÒA (chọn 2 môn, hoặc chọn môn bỏ): ưu tiên tổ hợp theo K_UU_TIEN (D01 > A00 > A01 > B00 > C00), rồi tới thứ tự môn cố định K_THU_TU_MON. Chỉ để kết quả ỔN ĐỊNH mỗi lần tính lại, KHÔNG có ý nghĩa khoa học.
+        // Lưu ý: chỉ lưu chuỗi môn, KHÔNG lưu mã khối (A00, D01...) để dữ liệu không phụ thuộc bảng KHOI; phía hiển thị tự tra mã khối từ bảng.
+        const K_THU_TU_MON = ['toan', 'van', 'anh', 'ly', 'hoa', 'sinh', 'su', 'dia', 'tin', 'cn', 'ktpl'];
+        const K_UU_TIEN = ['anh+toan+van' /* D01 */, 'hoa+ly+toan' /* A00 */, 'anh+ly+toan' /* A01 */, 'hoa+sinh+toan' /* B00 */, 'dia+su+van' /* C00 */];
+        function tinhToHopK(sc) {
+            sc = sc || {};
+            const v = m => { const x = Math.round(Number(sc[m]) * 10); return x > 0 ? x : 0; };   // nhân 10 làm tròn: so sánh số nguyên, không bị sai số số thực khi hòa điểm
+            if (!(v('toan') > 0 && v('van') > 0)) return '';
+            const others = K_THU_TU_MON.filter(m => m !== 'toan' && m !== 'van' && v(m) > 0);
+            if (others.length < 2) return '';
+            // Bước 1: các cặp môn tự chọn có tổng cao nhất (nhiều cặp nếu hòa điểm)
+            let bestPair = -1, pairs = [];
+            for (let i = 0; i < others.length; i++) for (let j = i + 1; j < others.length; j++) {
+                const t = v(others[i]) + v(others[j]);
+                if (t > bestPair) { bestPair = t; pairs = []; }
+                if (t === bestPair) pairs.push([others[i], others[j]]);
+            }
+            // Bước 2: với mỗi cặp, thử bỏ lần lượt từng môn trong 4 môn; chọn bộ 3 tổng cao nhất, hòa thì theo K_UU_TIEN rồi theo thứ tự môn
+            const cmpOrd = (x, y) => { for (let i = 0; i < x.length; i++) if (x[i] !== y[i]) return x[i] - y[i]; return 0; };
+            const tot = (c, b) => c.sum !== b.sum ? c.sum > b.sum : c.rank !== b.rank ? c.rank < b.rank : cmpOrd(c.ord, b.ord) < 0;   // true nếu c "tốt hơn" b
+            let best = null;
+            pairs.forEach(p => {
+                const four = ['toan', 'van', p[0], p[1]];
+                four.forEach(drop => {
+                    const tri = four.filter(m => m !== drop), key = tri.slice().sort().join('+'), pr = K_UU_TIEN.indexOf(key);
+                    const c = { key: key, sum: tri.reduce((a, m) => a + v(m), 0), rank: pr < 0 ? K_UU_TIEN.length : pr, ord: tri.map(m => K_THU_TU_MON.indexOf(m)).sort((x, y) => x - y) };
+                    if (!best || tot(c, best)) best = c;
+                });
+            });
+            return best ? best.key : '';
+        }
+        // ===== KẾT THÚC KHỐI DÙNG CHUNG =====
+        // ============================================================================================================
+        const DH = { loaded: false, tries: 0, step: 1, qi: 0, mn: 10, mq: '', cur: null, sc: Object.fromEntries(MON.map(m => [m[0], dhDefOf(m[0])])), prev: {}, scSet: false, tm: null, exp: {}, grp: null, q: [], wish: [], off: {} };
         const dhEsc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
         const dhU = u => Array.isArray(u) ? { id: u[0], name: u[1], short: u[2] } : { id: u.id, name: u.name, short: u.short };
         const dhAnswered = v => v === 0 || v === 1 || v === 2;
@@ -4754,12 +4651,12 @@ function wrMaybeAuto() {
         const dhShow = v => String(v > 0 ? v : 0);
         const dhCount = () => MON.filter(m => DH.sc[m[0]] > 0).length;
         const DH_K5 = ['A00', 'A01', 'B00', 'C00', 'D01'];
-        const dhKhoiOk = () => DH_K5.some(id => KHOI[id].every(m => DH.sc[m] > 0));   // cần đủ điểm ít nhất 1 khối thi chính
+        const dhKhoiOk = () => Object.keys(KHOI).some(id => !/^[VHTNM]\d/.test(id) && KHOI[id].every(m => DH.sc[m] > 0));   // cần đủ điểm ít nhất 1 khối thi chính
         const dhOffN = () => MON.length - dhCount();
         const dhLDone = () => DH.scSet && dhKhoiOk();   // đã xác nhận điểm (kéo / bấm xác nhận / có dữ liệu cũ) và đủ ít nhất 1 khối
         function dhLwText() {
             if (!DH.scSet) return 'Hãy kéo thanh trượt, hoặc bấm “Điểm đúng rồi” để xác nhận điểm các môn.';
-            if (!dhKhoiOk()) return 'Cần có điểm đủ cho ít nhất một khối: ' + DH_K5.map(id => id + ' (' + KHOI[id].map(m => (MON.find(x => x[0] === m) || [0, m])[1]).join(', ') + ')').join('; ') + '.';
+            if (!dhKhoiOk()) return 'Cần có điểm đủ cho ít nhất một khối: ' + DH_K5.map(id => id + ' (' + KHOI[id].map(m => (MON.find(x => x[0] === m) || [0, m])[1]).join(', ') + ')').join('; ') + '. Hoặc một khối có Tin học / Công nghệ / Kinh tế & Pháp luật, ví dụ X02 (Toán, Văn, Tin), X06 (Toán, Lý, Tin), X26 (Toán, Anh, Tin), X25 (Toán, Anh, KTPL).';
             return '';
         }
         function dhOffText() { const n = dhOffN(); return n > 0 ? n + ' môn đang ở mức 0 (không học). Bấm nút “Không học” của môn đó để bật lại.' : ''; }
@@ -4768,13 +4665,15 @@ function wrMaybeAuto() {
         const dhLab = f => f >= 0.68 ? ['Rất hợp', 'ok'] : f >= 0.5 ? ['Khá hợp', 'mid'] : ['Tạm được', 'low'];
         function dhSc() { const s = {}; MON.forEach(m => { const v = DH.sc[m[0]]; if (v > 0) s[m[0]] = v; }); return s; }   // 0 = không học -> bỏ qua
         function dhOffered(k) { return DH.off[k] || (DH.off[k] = UNIS.map(dhU).filter(u => mjOf(u.id).includes(k))); }
-        function dhBlock(k, sc) { return MJ[k][1].split(',').filter(x => KHOI[x]).map(x => [x, kScore(x, sc)]).sort((a, b) => b[1] - a[1])[0] || ['', 0]; }
+        const khoiMoi = x => KHOI[x].some(m => MON_MOI.includes(m));   // khối có môn mới (Tin, Công nghệ, KTPL)
+        // Khối cũ giữ nguyên cách tính (cho phép thiếu môn). Khối MỚI chỉ được xét khi em có điểm đủ cả 3 môn => học sinh cũ chưa làm lại không tự nhiên được xếp khối mới.
+        function dhBlock(k, sc) { return mjKhoi(k).filter(x => khoiDu(x, sc)).map(x => [x, kScore(x, sc)]).sort((a, b) => b[1] - a[1])[0] || ['', 0]; }
         function dhFromDoc(x) {
             x = x || {};
             const d = x.dh, p = x.deep, own = d && (d.sc || d.lv), old = !own && p && p.lv && Array.isArray(p.q) ? p : null, src = own ? d : old;
             if (src && !DH.scSet && !DH.q.length) {
-                if (src.sc) MON.forEach(m => { const v = dhNum(src.sc[m[0]]); if (v != null) DH.sc[m[0]] = v; });
-                else MON.forEach(m => { const i = (src.lv || {})[m[0]], l = LEVELS[i]; DH.sc[m[0]] = l ? l[1] : (i === -1 ? 0 : DH_DEF); });   // dữ liệu cũ (mức điểm) -> số điểm
+                if (src.sc) MON.forEach(m => { const v = dhNum(src.sc[m[0]]); if (v != null) DH.sc[m[0]] = v; else if (MON_MOI.includes(m[0])) DH.sc[m[0]] = 0; });   // học sinh cũ: môn mới chưa có trong dh.sc => 0 (không học)
+                else MON.forEach(m => { const i = (src.lv || {})[m[0]], l = LEVELS[i]; DH.sc[m[0]] = l ? l[1] : (i === -1 ? 0 : dhDefOf(m[0])); });   // dữ liệu cũ (mức điểm) -> số điểm; môn mới không có trong dữ liệu cũ => 0
                 DH.scSet = true;
                 const q = src.q, cv = old && old.qv !== 2 ? (v => v == null ? undefined : 2 - v) : (v => v == null ? undefined : v);
                 DH.q = typeof q === 'string' ? q.split('').map(c => c === '-' ? undefined : +c) : (Array.isArray(q) ? q.map(cv) : []);
@@ -4793,19 +4692,51 @@ function wrMaybeAuto() {
             if (typeof ME === 'undefined' || !ME) return;
             const q = QS.map((_, i) => dhAnswered(DH.q[i]) ? String(DH.q[i]) : '-').join('');
             fbDb.collection('privates').doc(ME.uid).set({ dh: clean({ sc: DH.sc, q, wish: DH.wish, at: Date.now() }) }, { mergeFields: ['dh'] }).catch(() => {});
+            try { dhSyncK(); } catch (e) {}   // cập nhật tổ hợp (k) của mình trong bxh/summary
+        }
+        // Ghi "tổ hợp" (k) của CHÍNH MÌNH vào bxh/summary.users[uid].k (chuỗi môn đã sắp xếp, vd "hoa+ly+toan"; xem tinhToHopK). Làm lại bài thì GHI ĐÈ, không cộng dồn.
+        // Chỉ ghi khi: đã tải bxh/summary, entry của mình đã có (rules: entry mới phải có xp), và em đã HOÀN THÀNH bài định hướng (điểm đã xác nhận + đủ câu hỏi).
+        //   Nếu chưa tải điểm thật từ privates thì DH.scSet = false => không ghi, tránh ghi theo điểm mặc định.
+        // Ghi riêng 1 lượt (giống reconcileWeek) để lỗi rules KHÔNG làm hỏng việc ghi XP. Không tính được tổ hợp (thiếu Toán/Văn) thì XÓA k cũ.
+        let kSig = '', kFail = false;
+        function dhSyncK() {
+            if (typeof ME === 'undefined' || !ME || !BXH_AT || kFail) return;
+            if (!dhLDone() || !dhQDone()) return;
+            const cur = BXH[ME.uid]; if (!cur || typeof cur.xp !== 'number') return;
+            const k = tinhToHopK(DH.sc);
+            if ((cur.k || '') === k) return;
+            if (!k && !cur.k) return;
+            const sig = ME.uid + ':' + k; if (sig === kSig) return; kSig = sig;
+            const next = { ...cur }; if (k) next.k = k; else delete next.k;
+            BXH[ME.uid] = next;
+            BXH_REF().set({ users: { [ME.uid]: { k: k || firebase.firestore.FieldValue.delete() } } }, { merge: true }).catch(e => {
+                kSig = ''; BXH[ME.uid] = cur;   // ghi lỗi: trả lại bản cũ để lần sau thử lại
+                if (e && e.code === 'permission-denied') kFail = true;   // rules chưa cho phép k: ngừng thử trong phiên này
+                console.warn('Chưa ghi được tổ hợp (hãy Publish rules mới có trường k):', e);
+            });
         }
         function dhRankMajors() {
             const hol = dhHol(), sc = dhSc();
             return Object.keys(MJ).filter(k => dhOffered(k).length).map(k => {
                 const m = MJ[k], b = dhBlock(k, sc);
                 const hm = Math.min(1, m[2].split('').reduce((a, c) => a + (hol[c] || 0) / 6, 0) / 2), kf = Math.min(1, b[1] / 30);
-                return { k, name: m[0], khoi: b[0], pts: b[1], f: 0.7 * hm + 0.3 * kf, n: dhOffered(k).length };
+                return { k, name: m[0], khoi: b[0], pts: b[1], f: DH_W_HOL * hm + DH_W_KHOI * kf, n: dhOffered(k).length };
             }).sort((a, b) => b.f - a.f);
+        }
+        // Nhãn khối nổi bật: mã khối + 3 môn + điểm (hiện ở thẻ ngành và đầu bước 3)
+        const dhMonShort = m => m === 'ktpl' ? 'KTPL' : (MON.find(x => x[0] === m) || [0, m])[1];
+        function dhKhoiChip(id, pts) {
+            if (!id || !KHOI[id]) return '';
+            const alias = Object.keys(KHOI).filter(x => x !== id && KHOI[x].slice().sort().join() === KHOI[id].slice().sort().join() && !/^[VHTNM]\d/.test(x));
+            return '<div class="dh-kchip" style="display:flex;width:fit-content;max-width:100%;flex-wrap:wrap;align-items:center;gap:6px;margin:6px 0 2px;padding:5px 10px;border-radius:10px;border:1px solid rgba(99,102,241,.55);background:rgba(99,102,241,.16);font-size:13px;line-height:1.35;">'
+                + '<b style="font-size:15px;letter-spacing:.3px;">Khối ' + id + (alias.length ? ' <span style="font-weight:500;opacity:.75;font-size:12px;">(= ' + alias.join(', ') + ')</span>' : '') + '</b>'
+                + '<span>' + KHOI[id].map(dhMonShort).join(' + ') + '</span>'
+                + (pts > 0 ? '<b style="margin-left:2px;">' + pts.toFixed(1) + '/30</b>' : '') + '</div>';
         }
         function dhWhy(r) {
             const hol = dhHol(), nm = Object.fromEntries(HOL), m = MJ[r.k], sh = m[2].split('').filter(c => hol[c] >= 4);
             return (sh.length ? 'Em cao ở nhóm ' + sh.map(c => nm[c]).join(', ') + ' (mã ngành ' + m[2] + '). ' : 'Mã ngành ' + m[2] + ' ít trùng với nhóm nổi bật của em. ')
-                + (r.khoi ? 'Khối mạnh nhất cho ngành này: ' + r.khoi + ' (khoảng ' + r.pts.toFixed(1) + '/30).' : '');
+                + (r.khoi ? '' : 'Em chưa có đủ điểm cho khối nào xét tuyển ngành này (xem các khối cần ở mục Xét tuyển).');
         }
         function dhSchools(k) {
             const b = dhBlock(k, dhSc()), total = b[1], g = { safe: [], mid: [], hard: [], est: [] };
@@ -4852,7 +4783,7 @@ function wrMaybeAuto() {
             const all = dhRankMajors(), q = foldVN(DH.mq || '').trim(), f = q ? all.filter(r => foldVN(r.name).indexOf(q) >= 0) : all;
             const list = f.slice(0, Math.max(DH_PAGE, DH.mn || DH_PAGE)), left = f.length - list.length;
             const rows = list.map(r => { const l = dhLab(r.f), job = typeof MJ_JOBS !== 'undefined' && MJ_JOBS[r.k];
-                return '<div class="dh-row"><div><b>' + dhEsc(r.name) + '</b> <span class="dh-tag ' + l[1] + '">' + l[0] + '</span></div><button type="button" class="dh-sm" onclick="dhPick(\'' + r.k + '\')">Xem trường (' + r.n + ')</button><div class="dh-why">' + dhEsc(dhWhy(r)) + '</div>' + (job ? '<div class="dh-why">Nghề tiêu biểu: ' + dhEsc(job) + '</div>' : '') + '</div>'; }).join('');
+                return '<div class="dh-row"><div><b>' + dhEsc(r.name) + '</b> <span class="dh-tag ' + l[1] + '">' + l[0] + '</span>' + dhKhoiChip(r.khoi, r.pts) + '</div><button type="button" class="dh-sm" onclick="dhPick(\'' + r.k + '\')">Xem trường (' + r.n + ')</button><div class="dh-why">' + dhEsc(dhWhy(r)) + '</div>' + (job ? '<div class="dh-why">Nghề tiêu biểu: ' + dhEsc(job) + '</div>' : '') + '</div>'; }).join('');
             const info = '<div class="dh-m dh-mcount" aria-live="polite">' + (q ? 'Tìm thấy ' + f.length + ' ngành' : 'Đang hiện ' + list.length + '/' + f.length + ' ngành') + '</div>';
             return info + (rows || '<div class="dh-m dh-empty">Không tìm thấy ngành nào khớp với “' + dhEsc(DH.mq) + '”. Thử gõ ngắn hơn hoặc bỏ dấu.</div>')
                 + (left > 0 ? '<button type="button" class="dh-moreb" onclick="dhMore()">Xem thêm ' + Math.min(DH_PAGE, left) + ' ngành' + (left > DH_PAGE ? ' (còn ' + left + ')' : '') + '</button>' : '')
@@ -4883,7 +4814,7 @@ function wrMaybeAuto() {
                 return '<div class="dh-col ' + key + (DH.grp === key ? ' on' : '') + '"><h4>' + name + ' (' + arr.length + ')</h4><p>' + desc + '</p>' + (list.map(x => card(x, g)).join('') || '<div class="dh-m">Chưa có trường ở nhóm này.</div>')
                     + (arr.length > LIM ? '<button type="button" class="dh-moreb" onclick="dhExp(\'' + key + '\')">' + (open ? 'Thu gọn' : 'Xem thêm ' + (arr.length - LIM) + ' trường') + '</button>' : '') + '</div>'; };
             const tabs = '<div class="dh-gtabs" role="tablist">' + [['safe', 'An toàn'], ['mid', 'Vừa sức'], ['hard', 'Thử thách']].map(t => '<button type="button" role="tab" aria-selected="' + (DH.grp === t[0]) + '" class="dh-gt ' + t[0] + (DH.grp === t[0] ? ' on' : '') + '" onclick="dhGrp(\'' + t[0] + '\')">' + t[1] + ' <i>' + s.g[t[0]].length + '</i></button>').join('') + '</div>';
-            return '<div class="card"><div class="card-title">Trường cho ngành ' + dhEsc(MJ[k][0]) + '</div><div class="card-desc">Điểm của em theo khối ' + s.khoi + ': khoảng ' + s.total.toFixed(1) + '/30 (tính từ mức học lực em chọn nên chỉ là ước lượng). So với điểm chuẩn tham chiếu từ các năm ' + DC_YEARS.join(', ') + ' (xét điểm thi THPT), có tính xu hướng tăng hoặc giảm.' + (nk ? ' Khối này có môn năng khiếu thi riêng nên điểm chỉ mang tính ước tính.' : '') + '</div>' + tabs + '<div class="dh-cols">'
+            return '<div class="card"><div class="card-title">Trường cho ngành ' + dhEsc(MJ[k][0]) + '</div><div>' + dhKhoiChip(s.khoi, s.total) + '</div><div class="card-desc">Điểm của em theo khối ' + s.khoi + ': khoảng ' + s.total.toFixed(1) + '/30 (tính từ mức học lực em chọn nên chỉ là ước lượng). So với điểm chuẩn tham chiếu từ các năm ' + DC_YEARS.join(', ') + ' (xét điểm thi THPT), có tính xu hướng tăng hoặc giảm.' + (nk ? ' Khối này có môn năng khiếu thi riêng nên điểm chỉ mang tính ước tính.' : '') + '</div>' + tabs + '<div class="dh-cols">'
                 + col('safe', 'An toàn', 'Điểm em cao hơn chuẩn từ 1,5 trở lên', 'An toàn') + col('mid', 'Vừa sức', 'Chênh lệch trong khoảng ±1,5', 'Vừa sức') + col('hard', 'Thử thách', 'Điểm em thấp hơn chuẩn tham chiếu', 'Thử thách') + '</div>'
                 + (s.g.est.length ? '<div class="dh-est"><b>Chưa có số liệu thật (' + s.g.est.length + ' trường)</b><div class="dh-m">Các trường này chưa có điểm chuẩn xác thực nên không xếp vào nhóm nào: ' + s.g.est.map(x => dhEsc(x.u.name)).join('; ') + '.</div></div>' : '') + '</div>' + dhWishHtml();
         }
@@ -4895,7 +4826,7 @@ function wrMaybeAuto() {
             if (!khoi.length) return;
             const hol = dhHol(), ha = {}; Object.keys(hol).forEach(c => { ha[c] = 1 + hol[c] / 6 * 4; });
             user.analysisData = { topKhoi: khoi[0].id, monHoc: khoi[0].mon, diemTong: khoi[0].diem.toFixed(1), tatCaKhoi: khoi, holland: dhTop().slice(0, 2).join(''), mbti: null, mbtiText: null,
-                formula: 'Độ hợp = 70% Holland + 30% khối mạnh nhất (tab Định hướng)', hollandAvg: ha,
+                formula: 'Độ hợp = ' + Math.round(DH_W_HOL * 100) + '% Holland + ' + Math.round(DH_W_KHOI * 100) + '% khối mạnh nhất (tab Định hướng)', hollandAvg: ha,
                 nganhGoiY: dhRankMajors().slice(0, 5).map(r => '• ' + esc(r.name) + ' — <b>' + dhLab(r.f)[0] + '</b>').join('<br>') };
             try { cachePtResult(user.analysisData); } catch (e) {}
             try { saveUser(); } catch (e) {}
@@ -4942,7 +4873,7 @@ function wrMaybeAuto() {
         }
         function dhSlide(k, el) { const v = dhNum(el.value); if (v == null) return; DH.sc[k] = v; DH.scSet = true; if (v > 0) DH.prev[k] = v; dhPaint(k); clearTimeout(DH.tm); DH.tm = setTimeout(dhScDone, 700); }
         function dhNone(k) { DH.sc[k] = DH.sc[k] > 0 ? 0 : (DH.prev[k] || DH_DEF); DH.scSet = true; dhPaint(k); clearTimeout(DH.tm); DH.tm = setTimeout(dhScDone, 300); }
-        function dhResetSc() { MON.forEach(m => { DH.sc[m[0]] = DH_DEF; }); DH.scSet = true; dhSave(); if (dhQDone()) dhSyncLegacy(); dhRender(); }
+        function dhResetSc() { MON.forEach(m => { DH.sc[m[0]] = dhDefOf(m[0]); }); DH.scSet = true; dhSave(); if (dhQDone()) dhSyncLegacy(); dhRender(); }
         function dhConfirm() { DH.scSet = true; dhSave(); if (dhQDone() && dhLDone()) dhSyncLegacy(); dhRender(); }
         function dhScDone() { clearTimeout(DH.tm); dhSave(); if (dhLDone() && dhQDone()) dhSyncLegacy(); }
         function dhAns(i, j) { DH.q[i] = j; if (i < QS.length - 1) DH.qi = i + 1; dhSave(); if (dhQDone()) dhSyncLegacy(); dhRender(); }

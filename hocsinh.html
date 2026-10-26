@@ -92,7 +92,7 @@
         html.dark { color-scheme: dark; }
 
         /* --- Khung card câu hỏi (.h-card): nền nổi hơn thẻ cha, viền rõ, không chói --- */
-        html.dark #holland-box .h-card, html.dark #mbti-box .h-card, html.dark #pt-basic-view .h-card {
+        html.dark #holland-box .h-card, html.dark #pt-basic-view .h-card {
             background: #2f3f5e; border: 1px solid #6b7fa8; box-shadow: none;
         }
         html.dark .h-card:hover { border-color: #8aa0cc; }
@@ -105,15 +105,13 @@
         html.dark .h-dot:hover { background: #46598a; border-color: #c4b5fd; }
         html.dark .h-dot:focus-visible { outline: 2px solid #c4b5fd; outline-offset: 2px; }
         html.dark .h-dot.on { background: linear-gradient(135deg, #8b5cf6, #6d28d9); border-color: #ddd6fe; color: #fff; box-shadow: 0 0 0 2px rgba(221,214,254,.45), 0 4px 12px rgba(109,40,217,.55); }
-        html.dark #mbti-box .h-dot.on { background: linear-gradient(135deg, #0ea5e9, #0369a1); border-color: #bae6fd; box-shadow: 0 0 0 2px rgba(186,230,253,.45), 0 4px 12px rgba(3,105,161,.55); }
 
         /* --- Thanh tiến trình (JS sinh style nội tuyến: nhận diện bằng thuộc tính style) --- */
-        html.dark #holland-box > div[style*="height:6px"], html.dark #mbti-box > div[style*="height:6px"] {
+        html.dark #holland-box > div[style*="height:6px"] {
             background: #3a4c73 !important; box-shadow: inset 0 0 0 1px #566a92;
         }
         html.dark #holland-box > div[style*="height:6px"] > div { background: linear-gradient(90deg, #a78bfa, #c4b5fd) !important; }
-        html.dark #mbti-box > div[style*="height:6px"] > div { background: linear-gradient(90deg, #38bdf8, #7dd3fc) !important; }
-        html.dark #holland-box > div[style*="font-size:11px"], html.dark #mbti-box > div[style*="font-size:11px"] { color: #cbd5e1 !important; }
+        html.dark #holland-box > div[style*="font-size:11px"] { color: #cbd5e1 !important; }
 
         /* --- Nhãn nhóm câu hỏi --- */
         html.dark #pt-basic-view .holland-label { color: #c4b5fd !important; }
@@ -266,7 +264,7 @@
     <script src="wrapped-core.js?v=8c13d5ce40"></script>
     <!-- Tailwind: file CSS tĩnh build bằng CLI (thay cho cdn.tailwindcss.com chỉ dùng để thử nghiệm). Tắt preflight để không ảnh hưởng CSS cũ.
          Build: npx tailwindcss -c tailwind.hocsinh.config.js -i input.css -o hocsinh-tw.min.css --minify -->
-    <link rel="stylesheet" href="hocsinh-tw.min.css?v=2a154e1cec">
+    <link rel="stylesheet" href="hocsinh-tw.min.css?v=56bb55ffb0">
     <!-- ===== DESKTOP DASHBOARD (>= 1024px). Mobile (< 1024px) giữ nguyên ===== -->
 
 <!-- TĂNG TƯƠNG PHẢN DARK MODE: khối riêng, nằm SAU #dark-theme -->
@@ -958,7 +956,7 @@
         </div>
     </nav>
 
-    <script src="hocsinh.min.js?v=8361c2f270"></script>
+    <script src="hocsinh.min.js?v=fc057071f0"></script>
 <script>
 // Thanh báo mất mạng (hiện khi trình duyệt báo offline, tự ẩn khi có mạng lại)
 (function () {

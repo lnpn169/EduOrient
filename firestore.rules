@@ -143,9 +143,11 @@ service cloud.firestore {
       let today = vnToday();
       let usedToday = oldE.get('xd', -1) == today ? oldE.get('xg', 0) : 0;
       return request.resource.data.users.diff(resource.data.get('users', {})).affectedKeys().hasOnly([me])
-        && newE.keys().hasOnly(['n','c','s','sn','u','un','xp','d','adj','wk','wx','xd','xg'])
+        && newE.keys().hasOnly(['n','c','s','sn','u','un','xp','d','adj','wk','wx','xd','xg','k'])
         && newE.xp is number && newE.xp >= 0 && newE.xp <= 1000000
         && (!('d' in newE) || (newE.d is number && newE.d >= 0 && newE.d <= 100000))
+        // k = tổ hợp của em: đúng 3 môn viết thường nối bằng '+', đã sắp xếp A-Z (vd 'hoa+ly+toan'). Do app tự tính từ điểm học lực; chỉ để thống kê.
+        && (!('k' in newE) || (newE.k is string && newE.k.size() <= 30 && newE.k.matches('^[a-z]+([+][a-z]+){2}$')))
         // XP tăng: phải ghi đúng ngày hôm nay + cộng dồn trong ngày, tổng không quá 3000. XP không tăng: xd, xg giữ nguyên
         && (grow > 0
               ? (newE.get('xd', -1) == today && newE.get('xg', 0) == usedToday + grow && newE.get('xg', 0) <= 3000)
@@ -230,9 +232,11 @@ service cloud.firestore {
       allow delete: if isAdmin() || (signedIn() && request.auth.uid == uid);
     }
 
-    // Kết quả phân tích điểm: RIÊNG TƯ, chỉ chủ tài khoản đọc/ghi
+    // Kết quả phân tích điểm: RIÊNG TƯ, chỉ chủ tài khoản đọc/ghi (admin chỉ đọc + xóa)
+    // Admin ĐỌC được (để đồng bộ tổ hợp 'k' cho học sinh cũ ở tab Admin); admin KHÔNG ghi được, chỉ xóa.
     match /privates/{uid} {
-      allow read, write: if signedIn() && request.auth.uid == uid;
+      allow read: if signedIn() && (request.auth.uid == uid || isAdmin());
+      allow write: if signedIn() && request.auth.uid == uid;
       allow delete: if isAdmin();
     }
 

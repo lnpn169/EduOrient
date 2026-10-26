@@ -244,7 +244,10 @@ import { Icon } from './app-icons.jsx';
         // Khi GV/Admin nhập điểm mới targetScore:  adjustXp = targetScore - computedXP.
         // adjustXp lưu đồng bộ ở users/{uid} (nguồn gốc) và bxhScores/{uid} (bản sao công khai để BXH của mọi người đọc được).
         // Bài nộp MỚI về sau làm computedXP tăng => tổng BXH tự động cộng dồn trên mốc đã đặt. "Hủy chỉnh tay" => adjustXp = 0.
-        function BxhScoreEditorImpl({ user, students, onSaved }) {
+        // withSchool (tùy chọn, mặc định tắt => giữ nguyên hành vi cũ: chỉ chọn Lớp -> Học sinh, giáo viên dùng như cũ).
+        // Khi bật, mỗi phần tử students cần thêm: school (mã trường, '' = chưa có) và schoolName (tên hiển thị); chọn Trường -> Lớp -> Học sinh.
+        function BxhScoreEditorImpl({ user, students, onSaved, withSchool = false }) {
+            const [sch, setSch] = useState('');          // mã trường đang chọn (chỉ dùng khi withSchool)
             const [cls, setCls] = useState('');
             const [stuId, setStuId] = useState('');
             const [base, setBase] = useState(0);         // Điểm bài làm gốc (computedXP)
@@ -262,9 +265,21 @@ import { Icon } from './app-icons.jsx';
                 setAdjDocs(m);
             }, () => {}), [students.length]);
 
-            const classOptions = [...new Set(students.map((s) => s.class).filter((c) => c && c !== '?'))].sort();
-            if (students.some((s) => s.class === '?')) classOptions.push('?');
-            const studentsOfClass = cls ? students.filter((s) => s.class === cls).slice().sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'vi')) : [];
+            // Danh sách trường (chỉ khi withSchool): sắp xếp theo tên, kèm số học sinh; "Chưa chọn trường" xếp cuối.
+            // Khóa trường = s.school; học sinh chưa có trường dùng khóa NO_SCH (sch === '' nghĩa là CHƯA chọn trường nào).
+            const NO_SCH = '__none__', schKey = (s) => s.school || NO_SCH;
+            const schoolOptions = (() => {
+                if (!withSchool) return [];
+                const m = {};
+                students.forEach((s) => { const k = schKey(s); if (!m[k]) m[k] = { id: k, label: '', n: 0 }; m[k].n++; if (!m[k].label && s.schoolName) m[k].label = s.schoolName; });
+                return Object.keys(m).map((k) => ({ ...m[k], label: m[k].label || (k === NO_SCH ? 'Chưa chọn trường' : k) }))
+                    .sort((a, b) => (a.id === NO_SCH ? 1 : b.id === NO_SCH ? -1 : a.label.localeCompare(b.label, 'vi')));
+            })();
+            const schSel = withSchool && schoolOptions.some((o) => o.id === sch) ? sch : '';   // trường đang chọn không còn trong danh sách => coi như chưa chọn
+            const pool = withSchool ? (schSel ? students.filter((s) => schKey(s) === schSel) : []) : students;   // học sinh thuộc trường đã chọn (không bật withSchool => tất cả, như cũ)
+            const classOptions = [...new Set(pool.map((s) => s.class).filter((c) => c && c !== '?'))].sort();
+            if (pool.some((s) => s.class === '?')) classOptions.push('?');
+            const studentsOfClass = cls ? pool.filter((s) => s.class === cls).slice().sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'vi')) : [];
             const student = studentsOfClass.find((s) => s.id === stuId) || null;
             const total = Math.max(0, base + adjust);   // Tổng điểm BXH hiện tại
 
@@ -288,6 +303,7 @@ import { Icon } from './app-icons.jsx';
                 return () => { dead = true; };
             }, [stuId]);
 
+            const pickSchool = (v) => { setSch(v); setCls(''); setStuId(''); };   // đổi trường => bỏ lớp & học sinh đã chọn
             const pickClass = (v) => { setCls(v); setStuId(''); };
             const permMsg = (e) => (e && e.code === 'permission-denied' ? 'Không có quyền ghi điểm BXH. Hãy Publish firestore.rules mới (có nhánh adjustXp) và đăng nhập đúng tài khoản Admin / Giáo viên đã duyệt.' : fbErr(e));
             const writeAdjust = (id, adj) => {
@@ -313,7 +329,7 @@ import { Icon } from './app-icons.jsx';
                     const st = await loadState(student.id);               // tính lại computedXP ngay lúc lưu để không bị lệch số
                     const adj = targetScore - st.computed;                // adjustXp = targetScore - computedXP
                     const cur = Math.max(0, st.computed + st.adjust);
-                    const yes = await eduConfirm(student.name + ' (Lớp ' + (student.class === '?' ? '?' : student.class) + ')\nĐiểm bài làm gốc: ' + st.computed + ' XP\nĐiểm BXH: ' + cur + ' → ' + targetScore + ' XP\nĐiểm chênh lệch (adjustXp): ' + st.adjust + ' → ' + adj + '\nBài nộp mới về sau vẫn được cộng dồn bình thường.', { title: 'Lưu điểm BXH?', confirmText: 'Lưu thay đổi', cancelText: 'Hủy', icon: 'question' });
+                    const yes = await eduConfirm(student.name + ' (Lớp ' + (student.class === '?' ? '?' : student.class) + (withSchool && student.schoolName ? ' • ' + student.schoolName : '') + ')\nĐiểm bài làm gốc: ' + st.computed + ' XP\nĐiểm BXH: ' + cur + ' → ' + targetScore + ' XP\nĐiểm chênh lệch (adjustXp): ' + st.adjust + ' → ' + adj + '\nBài nộp mới về sau vẫn được cộng dồn bình thường.', { title: 'Lưu điểm BXH?', confirmText: 'Lưu thay đổi', cancelText: 'Hủy', icon: 'question' });
                     if (!yes) { setBase(st.computed); setAdjust(st.adjust); return; }
                     await writeAdjust(student.id, adj);
                     setBase(st.computed); setAdjust(adj); setInput('');
@@ -342,20 +358,29 @@ import { Icon } from './app-icons.jsx';
             const fmtAdj = (n) => (n > 0 ? '+' + n : String(n));
             const editedList = Object.keys(adjDocs).map((id) => {
                 const st = students.find((x) => x.id === id), a = adjDocs[id];
-                return { id, name: st ? st.name : 'Học sinh', cls: st ? st.class : '?', adjust: a.adjustXp, total: st ? st.xp : null, at: a.updatedAt };
+                return { id, name: st ? st.name : 'Học sinh', cls: st ? st.class : '?', school: st ? schKey(st) : NO_SCH, schoolName: st ? (st.schoolName || '') : '', adjust: a.adjustXp, total: st ? st.xp : null, at: a.updatedAt };
             }).sort((x, y) => (y.at || 0) - (x.at || 0));
             const fmtAt = (ms) => { if (!ms) return ''; const d = new Date(ms); return d.toLocaleDateString('vi-VN') + ' ' + d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }); };
             return (
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 space-y-3">
                     <div>
                         <h3 className="font-bold text-slate-900 flex items-center gap-2"><Icon name="trophy" className="w-4 h-4 text-amber-500" /> Chỉnh sửa điểm tổng BXH</h3>
-                        <p className="text-[11px] text-slate-500 mt-1">Đặt lại điểm BXH của học sinh bằng <b>điểm chênh lệch (adjustXp)</b>: <code>Tổng BXH = XP từ bài nộp + adjustXp</code>. Bài làm mới về sau của học sinh vẫn được cộng dồn bình thường trên mốc điểm mới. Chọn lớp, rồi chọn học sinh.</p>
+                        <p className="text-[11px] text-slate-500 mt-1">Đặt lại điểm BXH của học sinh bằng <b>điểm chênh lệch (adjustXp)</b>: <code>Tổng BXH = XP từ bài nộp + adjustXp</code>. Bài làm mới về sau của học sinh vẫn được cộng dồn bình thường trên mốc điểm mới. {withSchool ? 'Chọn trường, rồi chọn lớp, rồi chọn học sinh.' : 'Chọn lớp, rồi chọn học sinh.'}</p>
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div className={'grid grid-cols-1 gap-2 ' + (withSchool ? 'sm:grid-cols-3' : 'sm:grid-cols-2')}>
+                        {withSchool && (
+                            <label className="block min-w-0">
+                                <span className="text-[11px] font-bold text-slate-500 uppercase">Trường</span>
+                                <select id="xp-school" name="schoolId" value={schSel} onChange={(e) => pickSchool(e.target.value)} className={selCls + ' mt-1'}>
+                                    <option value="">-- Chọn trường --</option>
+                                    {schoolOptions.map((o) => <option key={o.id} value={o.id}>{o.label} ({o.n} học sinh)</option>)}
+                                </select>
+                            </label>
+                        )}
                         <label className="block min-w-0">
                             <span className="text-[11px] font-bold text-slate-500 uppercase">Lớp</span>
-                            <select id="xp-class" name="className" value={cls} onChange={(e) => pickClass(e.target.value)} className={selCls + ' mt-1'}>
-                                <option value="">-- Chọn lớp --</option>
+                            <select id="xp-class" name="className" value={cls} onChange={(e) => pickClass(e.target.value)} disabled={withSchool && !schSel} className={selCls + ' mt-1'}>
+                                <option value="">{withSchool && !schSel ? '-- Chọn trường trước --' : '-- Chọn lớp --'}</option>
                                 {classOptions.map((c) => <option key={c} value={c}>{c === '?' ? 'Chưa cập nhật lớp' : 'Lớp ' + c}</option>)}
                             </select>
                         </label>
@@ -401,10 +426,10 @@ import { Icon } from './app-icons.jsx';
                             ? <p className="text-xs text-slate-400 mt-2">Chưa có học sinh nào bị chỉnh điểm (adjustXp = 0 với tất cả).</p>
                             : <div className="mt-2 space-y-1.5 max-h-72 overflow-y-auto">
                                 {editedList.map((e) => (
-                                    <button key={e.id} type="button" onClick={() => { if (e.cls) { setCls(e.cls); setStuId(e.id); } }} className="w-full flex items-center gap-2 bg-white border border-slate-100 hover:border-indigo-300 rounded-lg px-3 py-2 text-left">
+                                    <button key={e.id} type="button" onClick={() => { if (e.cls) { if (withSchool) setSch(e.school); setCls(e.cls); setStuId(e.id); } }} className="w-full flex items-center gap-2 bg-white border border-slate-100 hover:border-indigo-300 rounded-lg px-3 py-2 text-left">
                                         <div className="min-w-0 flex-1">
                                             <p className="text-sm font-bold text-slate-800 truncate">{e.name}</p>
-                                            <p className="text-[11px] text-slate-400">{e.cls === '?' ? 'Chưa cập nhật lớp' : 'Lớp ' + e.cls}{e.at ? ' • ' + fmtAt(e.at) : ''}</p>
+                                            <p className="text-[11px] text-slate-400">{withSchool && e.schoolName ? e.schoolName + ' • ' : ''}{e.cls === '?' ? 'Chưa cập nhật lớp' : 'Lớp ' + e.cls}{e.at ? ' • ' + fmtAt(e.at) : ''}</p>
                                         </div>
                                         <div className="text-right shrink-0">
                                             <p className={'text-sm font-black ' + (e.adjust < 0 ? 'text-red-600' : 'text-emerald-600')}>{fmtAdj(e.adjust)} XP</p>
@@ -431,6 +456,7 @@ import { Icon } from './app-icons.jsx';
             'shield-check': <><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" /><path d="m9 12 2 2 4-4" /></>,
             'graduation-cap': <><path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z" /><path d="M22 10v6M6 12.5V16a6 3 0 0 0 12 0v-3.5" /></>,
             'bar-chart': <path d="M3 3v18h18M18 17V9M13 17V5M8 17v-3" />,
+            'pie-chart': <><path d="M21 12c.552 0 1.005-.449.95-.998a10 10 0 0 0-8.953-8.951c-.55-.055-.998.398-.998.95v8a1 1 0 0 0 1 1z" /><path d="M21.21 15.89A10 10 0 1 1 8 2.83" /></>,
             menu: <path d="M4 6h16M4 12h16M4 18h16" />,
             x: <path d="M18 6 6 18M6 6l12 12" />,
             search: <><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></>,
