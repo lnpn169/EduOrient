@@ -86,43 +86,12 @@
         window.addEventListener('storage', function (e) { if (e.key === KEY) { apply(); fire(); } });
     })();
     </script>
-<link rel="stylesheet" href="hocsinh.min.css?v=0b594a627a">
+<link rel="stylesheet" href="hocsinh.min.css?v=be89f59b88">
     <!-- ===== PHÂN TÍCH: SỬA DARK MODE (card câu hỏi, chữ, thanh tiến trình, nút 1-5, popup, view chuyên sâu). Nằm SAU hocsinh.min.css ===== -->
     <style id="pt-dark-fix">
         html.dark { color-scheme: dark; }
 
-        /* --- Khung card câu hỏi (.h-card): nền nổi hơn thẻ cha, viền rõ, không chói --- */
-        html.dark #holland-box .h-card, html.dark #pt-basic-view .h-card {
-            background: #2f3f5e; border: 1px solid #6b7fa8; box-shadow: none;
-        }
-        html.dark .h-card:hover { border-color: #8aa0cc; }
-        html.dark .h-q { color: #f8fafc !important; }
-        html.dark .h-n { background: rgba(196,181,253,.30); color: #f5f3ff; border: 1px solid rgba(196,181,253,.45); }
-        html.dark .h-lbl { color: #cbd5e1; }
-
-        /* --- Nút điểm 1-5 (.h-dot): ô thường có viền rõ, ô chọn tím sáng, không chói --- */
-        html.dark .h-dot { background: #3a4c73; border: 1.5px solid #8296c0; color: #f1f5f9; }
-        html.dark .h-dot:hover { background: #46598a; border-color: #c4b5fd; }
-        html.dark .h-dot:focus-visible { outline: 2px solid #c4b5fd; outline-offset: 2px; }
-        html.dark .h-dot.on { background: linear-gradient(135deg, #8b5cf6, #6d28d9); border-color: #ddd6fe; color: #fff; box-shadow: 0 0 0 2px rgba(221,214,254,.45), 0 4px 12px rgba(109,40,217,.55); }
-
-        /* --- Thanh tiến trình (JS sinh style nội tuyến: nhận diện bằng thuộc tính style) --- */
-        html.dark #holland-box > div[style*="height:6px"] {
-            background: #3a4c73 !important; box-shadow: inset 0 0 0 1px #566a92;
-        }
-        html.dark #holland-box > div[style*="height:6px"] > div { background: linear-gradient(90deg, #a78bfa, #c4b5fd) !important; }
-        html.dark #holland-box > div[style*="font-size:11px"] { color: #cbd5e1 !important; }
-
-        /* --- Nhãn nhóm câu hỏi --- */
-        html.dark #pt-basic-view .holland-label { color: #c4b5fd !important; }
         html.dark .card-desc { color: #d5dcea; }
-
-        /* --- Kết quả cơ bản + đếm ngược 30 giây --- */
-        html.dark #ketqua-phantich > div[style*="#f0fdf4"] { background: rgba(34,197,94,.14) !important; border-color: #2f7d4f !important; }
-        html.dark #ketqua-text { color: #bbf7d0 !important; }
-        html.dark #asp-countdown { background: rgba(245,158,11,.16) !important; border-color: #a16207 !important; color: #fde68a !important; }
-        html.dark #asp-countdown > div:nth-child(2) { background: rgba(253,230,138,.25) !important; }
-        html.dark #asp-countdown-bar { background: #fbbf24 !important; }
 
         /* --- Các khung nền sáng nội tuyến --- */
         html.dark #asp-hint { background: rgba(59,130,246,.16) !important; color: #e0f2fe !important; }
@@ -131,13 +100,6 @@
     </style>
     <!-- ===== PHÂN TÍCH: LAYOUT HÀNG NÚT + BANNER KHÓA. Nằm SAU hocsinh.min.css và pt-dark-fix ===== -->
     <style id="pt-layout-ui">
-        /* --- Hàng nút Phân tích (chỉ còn nút "Phân Tích Định Hướng"). Mobile: full chiều ngang. Desktop: nút rộng vừa phải, căn trái.
-               Các class Tailwind được khai báo lại ở đây để chạy đúng cả khi trang không nạp Tailwind. --- */
-        #pt-basic-view .pt-actions { display: flex; flex-direction: column; gap: 12px; }
-        @media (min-width: 768px) {
-            #pt-basic-view .pt-actions { flex-direction: row; align-items: center; gap: 12px; margin-top: 18px; }
-            #pt-basic-view .pt-actions > .btn-primary { width: auto; min-width: 280px; margin: 0; padding: 13px 36px; }
-        }
         /* Banner khóa: bỏ style cũ của .lock-notice, phần hiển thị do thẻ con (Tailwind) đảm nhiệm. Không đụng display để JS vẫn ẩn/hiện được */
         #lock-banner.lock-notice { background: transparent !important; border: 0 !important; box-shadow: none !important; padding: 0 !important; margin-top: 0; margin-bottom: 16px; }
     </style>
@@ -264,7 +226,7 @@
     <script src="wrapped-core.js?v=8c13d5ce40"></script>
     <!-- Tailwind: file CSS tĩnh build bằng CLI (thay cho cdn.tailwindcss.com chỉ dùng để thử nghiệm). Tắt preflight để không ảnh hưởng CSS cũ.
          Build: npx tailwindcss -c tailwind.hocsinh.config.js -i input.css -o hocsinh-tw.min.css --minify -->
-    <link rel="stylesheet" href="hocsinh-tw.min.css?v=56bb55ffb0">
+    <link rel="stylesheet" href="hocsinh-tw.min.css?v=07cf00d7d1">
     <!-- ===== DESKTOP DASHBOARD (>= 1024px). Mobile (< 1024px) giữ nguyên ===== -->
 
 <!-- TĂNG TƯƠNG PHẢN DARK MODE: khối riêng, nằm SAU #dark-theme -->
@@ -570,11 +532,21 @@
 <div class="cover-ed-row"><span><svg class=ic aria-hidden=true><use href=#i-magnify></use></svg> Phóng to</span><input name="cover-zoom" type="range" id="cover-zoom" aria-label="Phóng to ảnh bìa" min="100" max="250" value="100" oninput="coverZoom(this.value)"></div>
 <div class="cover-ed-row" style="justify-content:flex-end;"><button type="button" onclick="coverReset()">Đặt lại</button><button type="button" onclick="coverCancel()">Hủy</button><button type="button" class="primary" onclick="coverSave()">Lưu</button></div>
 </div></div>
+<div id="modal-avatar" class="fullscreen-overlay" style="display:none;z-index:10002;"><div class="modal-card" style="max-width:380px;width:94%;max-height:94vh;overflow-y:auto;">
+<div class="modal-header"><div class="modal-title">Cắt ảnh đại diện</div><button type="button" class="modal-close" aria-label="Đóng" onclick="avCancel()"><svg class=ic aria-hidden=true><use href=#i-close></use></svg></button></div>
+<p style="font-size:12px;color:var(--text-sub);margin-bottom:10px;">Kéo ảnh để dời, kéo thanh trượt (hoặc chụm 2 ngón) để phóng to / thu nhỏ. Phần trong <b>vòng tròn</b> sẽ là ảnh đại diện của bạn.</p>
+<div class="av-stage" id="av-stage" onpointerdown="avDown(event)" onpointermove="avMove(event)" onpointerup="avUp(event)" onpointercancel="avUp(event)" onwheel="avWheel(event)"><img id="av-stage-img" alt="" draggable="false"><div class="av-mask" id="av-mask"></div></div>
+<div class="cover-ed-row"><span><svg class=ic aria-hidden=true><use href=#i-magnify></use></svg> Phóng to</span><input name="av-zoom" type="range" id="av-zoom" aria-label="Phóng to ảnh đại diện" min="100" max="400" value="100" oninput="avZoom(this.value)"></div>
+<div class="cover-ed-row" style="justify-content:flex-end;"><button type="button" onclick="avReset()">Đặt lại</button><button type="button" onclick="avCancel()">Hủy</button><button type="button" class="primary" onclick="avApply()">Áp dụng</button></div>
+</div></div>
 <div id="modal-edit" class="fullscreen-overlay" style="display:none;"><div class="modal-card" style="max-height:90vh;">
         <div class="modal-header"><div class="modal-title">Chỉnh sửa hồ sơ</div><button class="modal-close" onclick="closeModal('modal-edit')"><svg class=ic aria-hidden=true><use href=#i-close></use></svg></button></div>
-        <div class="modal-body" style="overflow-y:auto;">
-            <div style="text-align:center;margin-bottom:12px;"><img id="edit-avatar" style="width:84px;height:84px;border-radius:50%;object-fit:cover;border:3px solid var(--primary);"><br>
-            <label style="color:var(--primary);font-size:13px;font-weight:bold;cursor:pointer;"><svg class=ic aria-hidden=true><use href=#i-camera></use></svg> Đổi ảnh đại diện<input id="edit-avatar-file" name="avatarFile" type="file" accept="image/*" style="display:none" onchange="pickAvatar(this)"></label></div>
+        <div class="modal-body" style="overflow-y:auto;"><div class="edit-grid"><div class="edit-col-l">
+            <div class="edit-av" style="text-align:center;margin-bottom:12px;"><img id="edit-avatar" style="width:84px;height:84px;border-radius:50%;object-fit:cover;border:3px solid var(--primary);"><br>
+            <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:8px;">
+            <label class="cover-act" style="cursor:pointer;"><svg class=ic aria-hidden=true><use href=#i-camera></use></svg> Đổi ảnh<input id="edit-avatar-file" name="avatarFile" type="file" accept="image/*" style="display:none" onchange="pickAvatar(this)"></label>
+            <button type="button" class="cover-act" id="avatar-adj" onclick="avAdjust()" style="display:none;"><svg class=ic aria-hidden=true><use href=#i-arrow-all></use></svg> Cắt / căn chỉnh</button></div>
+            <div class="field-note" style="display:block;margin-top:6px;">Chọn ảnh để cắt và căn chỉnh khung tròn, rồi bấm "Lưu hồ sơ" để áp dụng.</div></div>
             <div style="margin-bottom:14px;">
                 <div class="field-label">Ảnh bìa hồ sơ</div>
                 <div class="cover-thumb" id="cover-thumb"></div>
@@ -586,6 +558,11 @@
                 </div>
                 <div class="field-note" style="display:block;margin-top:6px;">Ảnh bìa được lưu ngay khi chọn hoặc căn chỉnh, không cần bấm "Lưu hồ sơ".</div>
             </div>
+            <div class="privacy-row" style="margin:4px 0 16px;padding:12px 14px;border:1px solid var(--border);border-radius:12px;">
+                <div class="pr-text"><b><svg class=ic aria-hidden=true><use href=#i-weather-night></use></svg> Giao diện tối</b><small>Đổi nền sáng / tối cho toàn bộ ứng dụng. Được lưu trên thiết bị này.</small></div>
+                <label class="switch"><input id="dark-mode-toggle" name="darkMode" type="checkbox" class="dm-check" onchange="setDark(this.checked)" aria-label="Bật giao diện tối"><span class="slider"></span></label>
+            </div>
+            </div><div class="edit-col-r">
             <input name="edit-name" aria-label="Họ và tên" type="text" id="edit-name" placeholder="Họ và tên">
             <div class="field-label">Tỉnh / Thành phố</div>
             <select name="edit-province" id="edit-province" aria-label="Tỉnh / Thành phố"></select>
@@ -596,12 +573,8 @@
             <div id="edit-cls-normal" class="class-row"><select name="edit-cls-k" id="edit-cls-k" aria-label="Khối"></select><select name="edit-cls-c" id="edit-cls-c" aria-label="Chữ cái lớp"></select><select name="edit-cls-n" id="edit-cls-n" aria-label="Số lớp"></select></div>
             <div id="edit-cls-special" class="class-row" style="display:none;"><select name="edit-cls-sk" id="edit-cls-sk" aria-label="Khối"></select><select name="edit-cls-sub" id="edit-cls-sub" aria-label="Môn chuyên"></select></div>
             <div id="edit-cls-note" class="field-note" style="display:none;"></div>
-            <div class="privacy-row" style="margin:4px 0 16px;padding:12px 14px;border:1px solid var(--border);border-radius:12px;">
-                <div class="pr-text"><b><svg class=ic aria-hidden=true><use href=#i-weather-night></use></svg> Giao diện tối</b><small>Đổi nền sáng / tối cho toàn bộ ứng dụng. Được lưu trên thiết bị này.</small></div>
-                <label class="switch"><input id="dark-mode-toggle" name="darkMode" type="checkbox" class="dm-check" onchange="setDark(this.checked)" aria-label="Bật giao diện tối"><span class="slider"></span></label>
-            </div>
                         <button class="btn-primary" onclick="saveEdit()">Lưu hồ sơ</button>
-            </div></div></div>
+            </div></div></div></div></div>
 
     <aside class="dash-sidebar" aria-label="Điều hướng chính">
         <div class="side-logo"><span><img src="logo.svg" alt="" class="logo-l"><img src="logo-dark.svg" alt="" class="logo-d"></span><span>EduOrient</span></div>
@@ -637,47 +610,8 @@
                 <button type="button" class="rounded-xl border-0 bg-gradient-to-r from-amber-400 to-orange-500 px-5 py-2.5 text-sm font-extrabold text-slate-950 shadow-[0_0_20px_rgba(251,146,60,0.5)] transition-all duration-300 hover:scale-[1.03] hover:shadow-[0_0_30px_rgba(251,146,60,0.8)] active:scale-95 cursor-pointer" onclick="openSchoolModal()"><svg class=ic aria-hidden=true><use href=#i-domain></use></svg> Chọn trường ngay</button>
             </div>
         </div>
-        <!-- TAB ĐỊNH HƯỚNG: nội dung vẽ bằng JS (dhRender). Khối #pt-basic-view bên dưới là giao diện phân tích CŨ: đã ẩn bằng CSS nhưng vẫn giữ trong DOM vì các hàm cũ (phanTichGop, renderPtResult, ptw*) còn tham chiếu tới nó. -->
+        <!-- TAB ĐỊNH HƯỚNG: nội dung vẽ bằng JS (dhRender). -->
         <div id="dh-root"></div>
-        <!-- PHÂN TÍCH CƠ BẢN: chỉ điểm 8 môn + 12 câu Holland + nút "Phân Tích Định Hướng" + khung kết quả -->
-        <div id="pt-basic-view">
-        <div class="card">
-            <div class="card-title">Phân Tích Tổ Hợp & Ngành Học</div>
-            <div class="card-desc">Nhập điểm của 8 môn theo thang 0–10. Môn nào bạn KHÔNG học thì nhập 0 (khối có môn đó sẽ được loại ra).</div>
-            
-            <div class="score-wrap"><div class="score-label" style="font-weight: 600; font-size: 13px; color: var(--primary); margin-bottom: 8px;">Môn nền tảng</div>
-            <div class="score-grid">
-                <input name="diem-toan" aria-label="Toán (0-10)" type="number" id="diem-toan" placeholder="Toán (0-10)" min="0" max="10" step="0.1" inputmode="decimal" oninput="gioiHan(this)">
-                <input name="diem-van" aria-label="Ngữ Văn (0-10)" type="number" id="diem-van" placeholder="Ngữ Văn (0-10)" min="0" max="10" step="0.1" inputmode="decimal" oninput="gioiHan(this)">
-                <input name="diem-anh" aria-label="Tiếng Anh (0-10)" type="number" id="diem-anh" placeholder="Tiếng Anh (0-10)" min="0" max="10" step="0.1" inputmode="decimal" oninput="gioiHan(this)">
-            </div>
-
-            <div class="score-label" style="font-weight: 600; font-size: 13px; color: var(--green); margin-bottom: 8px;">Khoa học Tự nhiên & Xã hội</div>
-            <div class="score-grid">
-                <input name="diem-ly" aria-label="Vật lý (0-10)" type="number" id="diem-ly" placeholder="Vật lý (0-10)" min="0" max="10" step="0.1" inputmode="decimal" oninput="gioiHan(this)">
-                <input name="diem-hoa" aria-label="Hóa học (0-10)" type="number" id="diem-hoa" placeholder="Hóa học (0-10)" min="0" max="10" step="0.1" inputmode="decimal" oninput="gioiHan(this)">
-                <input name="diem-sinh" aria-label="Sinh học (0-10)" type="number" id="diem-sinh" placeholder="Sinh học (0-10)" min="0" max="10" step="0.1" inputmode="decimal" oninput="gioiHan(this)">
-                <input name="diem-su" aria-label="Lịch sử (0-10)" type="number" id="diem-su" placeholder="Lịch sử (0-10)" min="0" max="10" step="0.1" inputmode="decimal" oninput="gioiHan(this)">
-                <input name="diem-dia" aria-label="Địa lý (0-10)" type="number" id="diem-dia" placeholder="Địa lý (0-10)" min="0" max="10" step="0.1" inputmode="decimal" oninput="gioiHan(this)">
-            </div>
-
-            </div>
-            <div class="holland-label" style="font-weight:600;font-size:13px;color:#8b5cf6;margin:6px 0 4px;">Trắc nghiệm sở thích (1 = không thích, 5 = rất thích)</div><div id="holland-box"></div>
-            <div class="pt-actions flex flex-col md:flex-row md:items-center gap-3">
-                <button class="btn-primary" id="btn-pt-basic" onclick="phanTichGop()">Phân Tích Định Hướng</button>
-            </div>
-            
-            <div id="ketqua-phantich" style="margin-top: 15px; display: none;">
-                <div id="asp-countdown" style="display:none;position:sticky;top:8px;z-index:20;margin-bottom:12px;background:#fffbeb;border:1px solid #fcd34d;color:#92400e;border-radius:12px;padding:10px 12px;box-shadow:0 4px 12px rgba(0,0,0,.12);">
-                    <div style="font-size:13px;font-weight:700;line-height:1.4;"><svg class=ic aria-hidden=true><use href=#i-timer-sand></use></svg> Hãy đọc kỹ kết quả phân tích! Màn hình chọn Nguyện vọng sẽ mở sau: <span id="asp-countdown-sec" style="font-size:16px;">30</span> giây</div>
-                    <div style="height:5px;background:#fde68a;border-radius:5px;overflow:hidden;margin-top:6px;"><div id="asp-countdown-bar" style="height:100%;width:100%;background:#f59e0b;transition:width .9s linear;"></div></div>
-                </div>
-                <div style="background: #f0fdf4; padding: 15px; border-radius: 10px; border: 1px solid #bbf7d0; margin-bottom: 15px;">
-                    <div id="ketqua-text" style="font-size: 14px; color: #166534; line-height: 1.5;"></div>
-                </div>
-            </div>
-        </div>
-        </div><!-- /#pt-basic-view -->
 
     </div>
 
@@ -956,7 +890,7 @@
         </div>
     </nav>
 
-    <script src="hocsinh.min.js?v=fc057071f0"></script>
+    <script src="hocsinh.min.js?v=8042d6d901"></script>
 <script>
 // Thanh báo mất mạng (hiện khi trình duyệt báo offline, tự ẩn khi có mạng lại)
 (function () {

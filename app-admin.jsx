@@ -447,23 +447,39 @@ import { BxhScoreEditor, EMPTY_LIST, GroupSettingsModal, Icon, LIcon, bxhBumpXp,
             const donut = (() => {
                 const R = 52, C = 2 * Math.PI * R; let off = 0;
                 return (
-                    <svg viewBox="0 0 140 140" className="w-40 h-40 xl:w-48 xl:h-48 shrink-0 -rotate-90" role="img" aria-label="Cơ cấu theo nhóm khối">
+                    <svg viewBox="0 0 140 140" className="w-36 h-36 sm:w-40 sm:h-40 xl:w-48 xl:h-48 shrink-0 -rotate-90" role="img" aria-label="Cơ cấu theo nhóm khối">
                         <circle cx="70" cy="70" r={R} fill="none" stroke="rgba(148,163,184,.25)" strokeWidth="18" />
                         {groups.map((g) => { const len = g.n / x * C, d = Math.max(0, len - 1.5); const el = <circle key={g.g} cx="70" cy="70" r={R} fill="none" stroke={g.c} strokeWidth="18" strokeDasharray={d + ' ' + (C - d)} strokeDashoffset={-off}><title>{g.t + ': ' + g.n + ' em'}</title></circle>; off += len; return el; })}
                     </svg>);
             })();
-            const barRow = (c, sub, rank) => (
-                <li key={c.k} className={'flex items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-slate-50 ' + (sub ? 'ml-6' : '')}>
-                    <span className="w-5 shrink-0 text-right text-[11px] font-semibold text-slate-400 tabular-nums">{sub ? '' : rank}</span>
-                    <span className={labW + ' shrink-0 min-w-0 truncate text-[13px] leading-tight'} title={(c.info.codes.join(' / ') || 'Chưa có mã khối') + ' (' + c.info.mon + ')'}>
-                        {c.info.codes.length
-                            ? <><b className="text-slate-800">{c.info.codes.join(' / ')}</b> <span className="text-slate-500">({c.info.mon})</span></>
-                            : <b className="text-slate-800">{c.info.mon}</b>}
-                        {c.info.moi && <span className="ml-1.5 px-1.5 py-px rounded text-[9px] font-bold text-white align-middle" style={{ background: NHOM_KHOI.M.c }}>mới</span>}
-                    </span>
-                    <span className="flex-1 min-w-0 h-3 rounded-full bg-slate-100 overflow-hidden"><span className="block h-full rounded-full transition-all duration-500" style={{ width: Math.max(2, Math.round(c.n / maxN * 100)) + '%', background: 'linear-gradient(90deg,' + NHOM_KHOI[c.info.g].c + 'b3,' + NHOM_KHOI[c.info.g].c + ')', opacity: sub ? 0.65 : 1 }} /></span>
-                    <span className="w-24 shrink-0 text-right text-[12px] text-slate-500 tabular-nums"><b className="text-[13px] text-slate-800">{c.n}</b> <span className="text-slate-400">·</span> {pOf(c.n)}%</span>
-                </li>);
+            const labelOf = (c) => (
+                <>
+                    {c.info.codes.length
+                        ? <><b className="text-slate-800">{c.info.codes.join(' / ')}</b> <span className="text-slate-500">({c.info.mon})</span></>
+                        : <b className="text-slate-800">{c.info.mon}</b>}
+                    {c.info.moi && <span className="ml-1.5 px-1.5 py-px rounded text-[9px] font-bold text-white align-middle" style={{ background: NHOM_KHOI.M.c }}>mới</span>}
+                </>);
+            const numOf = (n) => <><b className="text-[13px] text-slate-800">{n}</b> <span className="text-slate-400">·</span> {pOf(n)}%</>;
+            const barRow = (c, sub, rank) => {
+                const tip = (c.info.codes.join(' / ') || 'Chưa có mã khối') + ' (' + c.info.mon + ')';
+                const fill = { width: Math.max(2, Math.round(c.n / maxN * 100)) + '%', background: 'linear-gradient(90deg,' + NHOM_KHOI[c.info.g].c + 'b3,' + NHOM_KHOI[c.info.g].c + ')', opacity: sub ? 0.65 : 1 };
+                if (!isWide) return (   // ĐIỆN THOẠI: dòng 1 = hạng + nhãn (tự xuống dòng) + số liệu; dòng 2 = thanh dài full chiều rộng
+                    <li key={c.k} className={'rounded-lg px-2 py-2 ' + (sub ? 'ml-3' : '')}>
+                        <div className="flex items-start gap-2">
+                            <span className="w-4 shrink-0 text-right text-[11px] font-semibold text-slate-400 tabular-nums leading-snug">{sub ? '' : rank}</span>
+                            <span className="flex-1 min-w-0 text-[13px] leading-snug break-words" title={tip}>{labelOf(c)}</span>
+                            <span className="shrink-0 text-right text-[12px] text-slate-500 tabular-nums leading-snug">{numOf(c.n)}</span>
+                        </div>
+                        <div className="ml-6 mt-1.5 h-2.5 rounded-full bg-slate-100 overflow-hidden"><div className="h-full rounded-full transition-all duration-500" style={fill} /></div>
+                    </li>);
+                return (
+                    <li key={c.k} className={'flex items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-slate-50 ' + (sub ? 'ml-6' : '')}>
+                        <span className="w-5 shrink-0 text-right text-[11px] font-semibold text-slate-400 tabular-nums">{sub ? '' : rank}</span>
+                        <span className={labW + ' shrink-0 min-w-0 truncate text-[13px] leading-tight'} title={tip}>{labelOf(c)}</span>
+                        <span className="flex-1 min-w-0 h-3 rounded-full bg-slate-100 overflow-hidden"><span className="block h-full rounded-full transition-all duration-500" style={fill} /></span>
+                        <span className="w-24 shrink-0 text-right text-[12px] text-slate-500 tabular-nums">{numOf(c.n)}</span>
+                    </li>);
+            };
             return (
                 <div>
                     {err && <p className="text-sm text-red-600 mb-3">{err}</p>}
@@ -490,25 +506,34 @@ import { BxhScoreEditor, EMPTY_LIST, GroupSettingsModal, Icon, LIcon, bxhBumpXp,
                             {x === 0 && <p className="text-xs text-slate-400 mt-2">Chưa có em nào có tổ hợp. Bấm "Đồng bộ tổ hợp" ở tab "Quản lý & Chỉnh sửa Điểm" để điền cho học sinh cũ, rồi bấm "Tải lại".</p>}
                             {x > 0 && (<>
                                 <p className="text-[11px] text-slate-400 mt-1">Số em và tỉ lệ tính trên {x} em đã làm bài{isWide ? '' : ' • hiện ' + COMBO_TOP_MOBILE + ' tổ hợp nhiều nhất'}.</p>
-                                <div className="mt-4 flex flex-col lg:flex-row gap-5 lg:gap-8">
-                                    <div className="lg:w-64 xl:w-72 shrink-0 flex flex-row lg:flex-col items-center gap-4 lg:gap-3 lg:pr-6 lg:border-r border-slate-100">
+                                <div className="mt-4 flex flex-col lg:flex-row gap-4 lg:gap-8 min-w-0">
+                                    <div className="lg:w-64 xl:w-72 min-w-0 lg:shrink-0 flex flex-col sm:flex-row lg:flex-col items-center gap-3 sm:gap-4 lg:gap-3 lg:pr-6 lg:border-r border-slate-100">
                                         <div className="relative shrink-0">
                                             {donut}
                                             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none"><b className="text-2xl text-slate-800 leading-none">{x}</b><span className="text-[11px] text-slate-400 mt-1">em có tổ hợp</span></div>
                                         </div>
-                                        <ul className="flex-1 lg:w-full space-y-1.5">
-                                            {groups.map((g) => <li key={g.g} className="flex items-center gap-2 text-[12px] text-slate-600"><span className="inline-block w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: g.c }} /><span className="flex-1 min-w-0 truncate">{g.t}</span><b className="text-slate-800 tabular-nums">{g.n}</b><span className="w-12 text-right text-slate-400 tabular-nums">{pOf(g.n)}%</span></li>)}
+                                        <ul className="w-full sm:flex-1 min-w-0 lg:w-full space-y-1.5">
+                                            {groups.map((g) => <li key={g.g} className="flex items-center gap-2 text-[12px] text-slate-600"><span className="inline-block w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: g.c }} /><span className="flex-1 min-w-0 leading-tight">{g.t}</span><b className="text-slate-800 tabular-nums">{g.n}</b><span className="w-12 text-right text-slate-400 tabular-nums">{pOf(g.n)}%</span></li>)}
                                         </ul>
                                     </div>
-                                    <ul className="flex-1 min-w-0 space-y-0.5">
+                                    <ul className="flex-1 min-w-0 w-full space-y-0.5">
                                         {top.map((c, i) => barRow(c, false, i + 1))}
                                         {rest.length > 0 && (
                                             <li>
-                                                <button type="button" onClick={() => setOpenRest((o) => !o)} aria-expanded={openRest} title={openRest ? 'Thu gọn' : 'Xem ' + rest.length + ' tổ hợp còn lại'} className="w-full flex items-center gap-3 text-left rounded-lg px-2 py-1.5 hover:bg-slate-50">
-                                                    <span className="w-5 shrink-0" />
-                                                    <span className={labW + ' shrink-0 truncate text-[13px] leading-tight'}><b className="text-slate-600">Khác {openRest ? '▾' : '▸'}</b> <span className="text-slate-500">({rest.length} tổ hợp{openRest ? '' : ', bấm để xem'})</span></span>
-                                                    <span className="flex-1 min-w-0 h-3 rounded-full bg-slate-100 overflow-hidden"><span className="block h-full rounded-full" style={{ width: Math.max(2, Math.round(restN / maxN * 100)) + '%', background: 'repeating-linear-gradient(45deg,#94a3b8,#94a3b8 6px,#a8b4c6 6px,#a8b4c6 12px)' }} /></span>
-                                                    <span className="w-24 shrink-0 text-right text-[12px] text-slate-500 tabular-nums"><b className="text-[13px] text-slate-800">{restN}</b> <span className="text-slate-400">·</span> {pOf(restN)}%</span>
+                                                <button type="button" onClick={() => setOpenRest((o) => !o)} aria-expanded={openRest} title={openRest ? 'Thu gọn' : 'Xem ' + rest.length + ' tổ hợp còn lại'} className={'w-full text-left rounded-lg px-2 hover:bg-slate-50 ' + (isWide ? 'flex items-center gap-3 py-1.5' : 'py-2')}>
+                                                    {isWide ? (<>
+                                                        <span className="w-5 shrink-0" />
+                                                        <span className={labW + ' shrink-0 truncate text-[13px] leading-tight'}><b className="text-slate-600">Khác {openRest ? '▾' : '▸'}</b> <span className="text-slate-500">({rest.length} tổ hợp{openRest ? '' : ', bấm để xem'})</span></span>
+                                                        <span className="flex-1 min-w-0 h-3 rounded-full bg-slate-100 overflow-hidden"><span className="block h-full rounded-full" style={{ width: Math.max(2, Math.round(restN / maxN * 100)) + '%', background: 'repeating-linear-gradient(45deg,#94a3b8,#94a3b8 6px,#a8b4c6 6px,#a8b4c6 12px)' }} /></span>
+                                                        <span className="w-24 shrink-0 text-right text-[12px] text-slate-500 tabular-nums">{numOf(restN)}</span>
+                                                    </>) : (<>
+                                                        <span className="flex items-start gap-2">
+                                                            <span className="w-4 shrink-0" />
+                                                            <span className="flex-1 min-w-0 text-[13px] leading-snug break-words"><b className="text-slate-600">Khác {openRest ? '▾' : '▸'}</b> <span className="text-slate-500">({rest.length} tổ hợp{openRest ? '' : ', bấm để xem'})</span></span>
+                                                            <span className="shrink-0 text-right text-[12px] text-slate-500 tabular-nums leading-snug">{numOf(restN)}</span>
+                                                        </span>
+                                                        <span className="block ml-6 mt-1.5 h-2.5 rounded-full bg-slate-100 overflow-hidden"><span className="block h-full rounded-full" style={{ width: Math.max(2, Math.round(restN / maxN * 100)) + '%', background: 'repeating-linear-gradient(45deg,#94a3b8,#94a3b8 6px,#a8b4c6 6px,#a8b4c6 12px)' }} /></span>
+                                                    </>)}
                                                 </button>
                                             </li>)}
                                         {openRest && rest.map((c) => barRow(c, true, 0))}
